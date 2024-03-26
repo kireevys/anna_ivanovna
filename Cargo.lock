@@ -30,11 +30,12 @@ dependencies = [
 
 [[package]]
 name = "anna_ivanovna"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "chrono",
  "rust_decimal",
  "rust_decimal_macros",
+ "uuid",
 ]
 
 [[package]]
@@ -584,6 +585,9 @@ name = "uuid"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "version_check"
