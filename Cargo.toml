@@ -1,6 +1,6 @@
 [package]
 name = "anna_ivanovna"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,3 +9,4 @@ edition = "2021"
 rust_decimal = "1.34.3"
 chrono = "0.4.35"
 rust_decimal_macros = "1.34.2"
+uuid = { version = "1.8.0", features = ["v4"] }
