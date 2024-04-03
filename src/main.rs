@@ -10,7 +10,34 @@ mod distributor {
 
     use chrono::{DateTime, Utc};
     use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
     use uuid::Uuid;
+
+    #[derive(Debug, PartialEq)]
+    pub struct Percentage(Decimal);
+
+    impl Percentage {
+        pub fn from(v: Decimal) -> Self {
+            if v > dec!(100) || v < Decimal::ZERO {
+                panic!("Percentage value must be between 0 and 100, but it {}", v);
+            }
+            Self { 0: v }
+        }
+
+        pub fn from_int(d: i64) -> Self {
+            Percentage::from(Decimal::new(d, 0))
+        }
+
+        pub fn how(value: Decimal, on: Decimal) -> Self {
+            Self {
+                0: value / dec!(100) * on,
+            }
+        }
+
+        pub fn apply_to(&self, d: Decimal) -> Decimal {
+            &self.0 / dec!(100) * d
+        }
+    }
 
     #[derive(Debug, PartialEq)]
     pub struct Plan<'a> {
@@ -43,7 +70,7 @@ mod distributor {
             }
         }
 
-        fn expected_sum(&self, currency: Currency) -> Money {
+        fn expected_income(&self, currency: Currency) -> Money {
             let mut expected = Money::new(Decimal::ZERO, currency);
             for i in &self.incomes {
                 if i.expected.currency == currency {
@@ -53,18 +80,13 @@ mod distributor {
             expected
         }
 
-        fn percent(&self, expenditure: &Expenditure) -> Decimal {
-            match &self.contains_expenditure(expenditure) {
-                Some(e) => e.money.value / &self.expected_sum(expenditure.money.currency).value,
-                None => panic!("{:?}", DistributeError::UnknownExpenditure),
-            }
-        }
-
         fn distribute(&'a self, expenditure: &'a Expenditure, income: &Income) -> Money {
-            Money::new(
-                income.money.value * self.percent(expenditure),
-                income.currency(),
-            )
+            let percentage = Percentage::how(
+                self.expected_income(expenditure.money.currency).value,
+                expenditure.money.value,
+            );
+            println!("{:?}", percentage);
+            Money::new(percentage.apply_to(income.money.value), income.currency())
         }
 
         pub fn new_income(&self, income: &'a Income) -> Result<Distribution, DistributeError> {
@@ -218,6 +240,24 @@ mod distributor {
     }
 
     #[derive(PartialEq, Eq, Hash, Debug)]
+    pub enum ExpenditureType {
+        EXPENSES(Expenditure),
+        TARGET,
+    }
+
+    pub struct Target {
+        name: String,
+        goal: Money,
+        rate: Percentage,
+    }
+
+    impl Target {
+        pub fn new(name: String, goal: Money, rate: Percentage) -> Self {
+            Self { name, goal, rate }
+        }
+    }
+
+    #[derive(PartialEq, Eq, Hash, Debug)]
     pub struct Expenditure {
         name: String,
         money: Money,
@@ -227,6 +267,9 @@ mod distributor {
         pub fn new(name: String, money: Money) -> Self {
             Self { name, money }
         }
+        pub fn new_expenses(name: String, money: Money) -> Self {
+            Self { name, money }
+        }
     }
 
     #[derive(PartialEq, Debug)]
@@ -234,7 +277,7 @@ mod distributor {
         plan: &'a Plan<'a>,
         income: &'a Income<'a>,
         rest: Money,
-        hm_items: HashMap<&'a Expenditure, Money>,
+        expenditures: HashMap<&'a Expenditure, Money>,
     }
 
     impl<'a> Distribution<'a> {
@@ -245,13 +288,13 @@ mod distributor {
             plan: &'a Plan,
             income: &'a Income,
             rest: Money,
-            items: HashMap<&'a Expenditure, Money>,
+            expenditures: HashMap<&'a Expenditure, Money>,
         ) -> Self {
             Self {
                 plan,
                 income,
                 rest,
-                hm_items: items,
+                expenditures,
             }
         }
 
@@ -260,7 +303,7 @@ mod distributor {
                 plan,
                 income,
                 rest: income.money,
-                hm_items: HashMap::with_capacity(plan.expenses.len()),
+                expenditures: HashMap::with_capacity(plan.expenses.len()),
             }
         }
 
@@ -271,7 +314,7 @@ mod distributor {
         ) -> Result<(), DistributeError> {
             match self.plan.contains_expenditure(expenditure) {
                 Some(_) => {
-                    self.hm_items
+                    self.expenditures
                         .entry(expenditure)
                         .and_modify(|e| *e += money)
                         .or_insert(money);
@@ -283,7 +326,7 @@ mod distributor {
         }
 
         pub fn get(&self, expenditure: &Expenditure) -> Option<&Money> {
-            self.hm_items.get(expenditure)
+            self.expenditures.get(expenditure)
         }
     }
 
@@ -294,7 +337,7 @@ mod distributor {
                 &self.income.source.name,
                 &self.income.date.date_naive()
             );
-            for (k, v) in &self.hm_items {
+            for (k, v) in &self.expenditures {
                 let row = format!("{:20} - {:}\n", k.name, v);
                 result.push_str(row.as_str());
             }
@@ -305,7 +348,7 @@ mod distributor {
 }
 
 #[cfg(test)]
-mod tests {
+mod core {
     use std::collections::HashMap;
 
     use rust_decimal::Decimal;
@@ -389,7 +432,7 @@ mod tests {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
-        let expenditure = Expenditure::new(
+        let expenditure = Expenditure::new_expenses(
             "Коммуналка".to_string(),
             Money::new(dec!(1.5), Currency::RUB),
         );
@@ -414,7 +457,7 @@ mod tests {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
-        let expenditure = Expenditure::new(
+        let expenditure = Expenditure::new_expenses(
             "Коммуналка".to_string(),
             Money::new(dec!(50), Currency::RUB),
         );
@@ -439,7 +482,7 @@ mod tests {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
-        let expenditure = Expenditure::new(
+        let expenditure = Expenditure::new_expenses(
             "Коммуналка".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
@@ -464,11 +507,11 @@ mod tests {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
-        let expenditure = Expenditure::new(
+        let expenditure = Expenditure::new_expenses(
             "Коммуналка".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
-        let other = Expenditure::new(
+        let other = Expenditure::new_expenses(
             "На пряники".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
@@ -492,7 +535,7 @@ mod tests {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
-        let expenditure = Expenditure::new(
+        let expenditure = Expenditure::new_expenses(
             "Коммуналка".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
@@ -518,7 +561,7 @@ mod tests {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
-        let expenditure = Expenditure::new(
+        let expenditure = Expenditure::new_expenses(
             "Коммуналка".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
@@ -538,6 +581,88 @@ mod tests {
         );
         assert_eq!(*distribution.rest(), Money::new(dec!(-50), Currency::RUB));
     }
+
+    // #[test]
+    // fn try_target() {
+    //     let source = default_source();
+    //     let income = Income::new(
+    //         &source,
+    //         Default::default(),
+    //         Money::new(dec!(50.0), Currency::RUB),
+    //     );
+    //     let plan = Plan::try_build(vec![&source], vec![]).unwrap();
+    //     let target = Target::new(
+    //         "Tank".to_string(),
+    //         Money::new(dec!(3000000), Currency::RUB),
+    //         Percentage::from_int(10),
+    //     );
+    // }
+    //
+    // #[test]
+    // fn target() {
+    //     let source = default_source();
+    //     let income = Income::new(
+    //         &source,
+    //         Default::default(),
+    //         Money::new(dec!(50.0), Currency::RUB),
+    //     );
+    //     let plan = Plan::try_build(vec![&source], vec![]).unwrap();
+    //     let target = Target::new(
+    //         "Tank".to_string(),
+    //         Money::new(dec!(3000000), Currency::RUB),
+    //         Percentage::from_int(10),
+    //     );
+    //     // plan.add_target(&target);
+    //
+    //     let distribution = plan.new_income(&income).unwrap();
+    //
+    //     assert_eq!(*distribution.rest(), Money::new(dec!(45), Currency::RUB))
+    // }
+
+    #[cfg(test)]
+    mod percentage {
+        use rust_decimal_macros::dec;
+
+        use crate::distributor::Percentage;
+
+        #[test]
+        #[should_panic]
+        fn should_be_more_than_0() {
+            Percentage::from_int(-1);
+        }
+
+        #[test]
+        #[should_panic]
+        fn should_be_less_than_100() {
+            Percentage::from_int(101);
+        }
+
+        #[test]
+        fn how() {
+            assert_eq!(Percentage::how(dec!(5), dec!(100)), Percentage::from_int(5));
+            assert_eq!(
+                Percentage::how(dec!(1.1), dec!(12)),
+                Percentage::from(dec!(0.132))
+            );
+            assert_eq!(
+                Percentage::how(dec!(50), dec!(100)),
+                Percentage::from_int(50)
+            );
+            assert_eq!(Percentage::how(dec!(0), dec!(100)), Percentage::from_int(0));
+            assert_eq!(Percentage::how(dec!(10), dec!(0)), Percentage::from_int(0));
+            assert_eq!(
+                Percentage::how(dec!(100), dec!(100)),
+                Percentage::from_int(100)
+            );
+        }
+
+        #[test]
+        fn apply_to() {
+            assert_eq!(Percentage::from_int(50).apply_to(dec!(100)), dec!(50));
+            assert_eq!(Percentage::from_int(12).apply_to(dec!(100)), dec!(12));
+            assert_eq!(Percentage::from_int(1).apply_to(dec!(1)), dec!(0.01));
+        }
+    }
 }
 
 fn main() {
@@ -545,26 +670,28 @@ fn main() {
         "Зарплата".to_string(),
         Money::new(dec!(100000), Currency::RUB),
     );
-    let rent = Expenditure::new("Аренда".to_string(), Money::new(dec!(25000), Currency::RUB));
-    let food = Expenditure::new("Еда".to_string(), Money::new(dec!(17345), Currency::RUB));
-    let health = Expenditure::new(
+    let rent =
+        Expenditure::new_expenses("Аренда".to_string(), Money::new(dec!(25000), Currency::RUB));
+    let food = Expenditure::new_expenses("Еда".to_string(), Money::new(dec!(17345), Currency::RUB));
+    let health = Expenditure::new_expenses(
         "Здоровье".to_string(),
         Money::new(dec!(10000), Currency::RUB),
     );
-    let mortgage = Expenditure::new(
+    let mortgage = Expenditure::new_expenses(
         "Ипотека".to_string(),
         Money::new(dec!(10000), Currency::RUB),
     );
-    let home_service = Expenditure::new(
+    let home_service = Expenditure::new_expenses(
         "Коммуналка".to_string(),
         Money::new(dec!(6000), Currency::RUB),
     );
-    let bag_month = Expenditure::new(
+    let bag_month = Expenditure::new_expenses(
         "Подушка на месяц".to_string(),
         Money::new(dec!(5000), Currency::RUB),
     );
-    let cloth = Expenditure::new("Шмотки".to_string(), Money::new(dec!(2000), Currency::RUB));
-    let house_maintenance = Expenditure::new(
+    let cloth =
+        Expenditure::new_expenses("Шмотки".to_string(), Money::new(dec!(2000), Currency::RUB));
+    let house_maintenance = Expenditure::new_expenses(
         "Бытовые удобства".to_string(),
         Money::new(dec!(1000), Currency::RUB),
     );
