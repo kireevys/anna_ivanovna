@@ -33,47 +33,36 @@ pub mod distributor {
     }
 
     #[derive(Debug, PartialEq, Clone)]
-    pub struct Plan<'a> {
+    pub struct Plan {
         uuid: Uuid,
-        incomes: Vec<&'a IncomeSource>,
-        expenses: Vec<Expense>,
+        incomes: Vec<IncomeSource>,
+        survivals: Vec<Absolute>,
         targets: Vec<Target>,
     }
 
-    impl<'a> Plan<'a> {
+    impl Plan {
         pub fn try_build(
-            incomes: Vec<&'a IncomeSource>,
-            expenses: Vec<Expense>,
+            incomes: Vec<IncomeSource>,
+            survivals: Vec<Absolute>,
             targets: Vec<Target>,
         ) -> Result<Self, DistributeError> {
             if incomes.len() == 0 {
                 return Err(DistributeError::NoIncomes);
             }
+
             Ok(Self {
                 uuid: Uuid::new_v4(),
                 incomes,
-                expenses,
+                survivals,
                 targets,
             })
         }
-
-        pub fn new_target(
-            &self,
-            name: String,
-            goal: Money,
-            wished_percent: Percentage,
-        ) -> Result<Self, DistributeError> {
-            let target = Expense::new(name, Money::new(dec!(10_000), Currency::RUB));
-            let mut expenses = self.expenses.clone();
-            expenses.push(target);
-            Self::try_build(self.incomes.clone(), expenses, vec![])
-        }
-
-        fn contains_expenditure(&'a self, expenditure: &'a Expense) -> Option<&Expense> {
-            match &self.expenses.iter().find(|p| **p == *expenditure) {
-                Some(_) => Some(expenditure),
-                None => None,
+        fn total(&self) -> Decimal {
+            let mut sum = dec!(0);
+            for income in self.incomes.iter() {
+                sum += income.expected.value;
             }
+            sum
         }
 
         fn expected_income(&self, currency: Currency) -> Money {
@@ -86,7 +75,7 @@ pub mod distributor {
             expected
         }
 
-        fn distribute(&'a self, expense: &'a Expense, income: &Income) -> Money {
+        fn distribute(&self, expense: &Expense, income: &Income) -> Money {
             let p = Percentage::how(
                 expense.money.value,
                 self.expected_income(income.currency()).value,
@@ -94,13 +83,25 @@ pub mod distributor {
             Money::new(p.apply_to(income.money.value), income.currency())
         }
 
-        pub fn new_income(&self, income: &'a Income) -> Result<Distribution, DistributeError> {
-            match &self.incomes.iter().find(|p| ***p == income.source) {
+        pub fn new_income<'a>(&'a self, income: &'a Income) -> Result<Distribution, DistributeError> {
+            match &self.incomes.iter().find(|p| **p == income.source) {
                 Some(_) => {
                     let mut d = Distribution::from_income(&self, income);
-                    for expense in self.expenses.iter() {
-                        let _d = self.distribute(expense, income);
-                        d.add(&expense, _d).expect("Cannot add Expense");
+                    for survival in self.survivals.iter() {
+                        let expense = Expense::new(survival.name.clone(), survival.money);
+                        let money = self.distribute(&expense, income);
+                        //
+                        d.add(expense, money).expect("Cannot add Expense");
+                    }
+
+                    for target in self.targets.iter() {
+                        let expense = Expense::new(
+                            target.name.clone(),
+                            Money::new(target.rate.apply_to(self.total()), Currency::RUB),
+                        );
+                        let money = self.distribute(&expense, income);
+                        //
+                        d.add(expense, money).expect("Cannot add Expense");
                     }
                     Ok(d)
                 }
@@ -258,6 +259,18 @@ pub mod distributor {
     }
 
     #[derive(PartialEq, Eq, Hash, Debug, Clone)]
+    pub struct Absolute {
+        name: String,
+        money: Money,
+    }
+
+    impl Absolute {
+        pub fn new(name: String, money: Money) -> Absolute {
+            Self { name, money }
+        }
+    }
+
+    #[derive(PartialEq, Eq, Hash, Debug, Clone)]
     pub struct Expense {
         name: String,
         money: Money,
@@ -271,10 +284,10 @@ pub mod distributor {
 
     #[derive(PartialEq, Debug, Clone)]
     pub struct Distribution<'a> {
-        plan: &'a Plan<'a>,
+        plan: &'a Plan,
         income: &'a Income,
         rest: Money,
-        expenditures: HashMap<&'a Expense, Money>,
+        expenditures: HashMap<Expense, Money>,
     }
 
     impl<'a> Distribution<'a> {
@@ -285,7 +298,7 @@ pub mod distributor {
             plan: &'a Plan,
             income: &'a Income,
             rest: Money,
-            expenditures: HashMap<&'a Expense, Money>,
+            expenditures: HashMap<Expense, Money>,
         ) -> Self {
             Self {
                 plan,
@@ -300,22 +313,17 @@ pub mod distributor {
                 plan,
                 income,
                 rest: income.money,
-                expenditures: HashMap::with_capacity(plan.expenses.len() + plan.targets.len()),
+                expenditures: HashMap::with_capacity(plan.survivals.len() + plan.targets.len()),
             }
         }
 
-        pub fn add(&mut self, expense: &'a Expense, money: Money) -> Result<(), DistributeError> {
-            match self.plan.contains_expenditure(expense) {
-                Some(_) => {
-                    self.expenditures
-                        .entry(expense)
-                        .and_modify(|e| *e += money)
-                        .or_insert(money);
-                    self.rest -= money;
-                    Ok(())
-                }
-                None => Err(DistributeError::UnknownExpenditure),
-            }
+        pub fn add(&mut self, expense: Expense, money: Money) -> Result<(), DistributeError> {
+            self.expenditures
+                .entry(expense)
+                .and_modify(|e| *e += money)
+                .or_insert(money);
+            self.rest -= money;
+            Ok(())
         }
 
         pub fn get(&self, expense: &Expense) -> Option<&Money> {
@@ -366,7 +374,7 @@ mod core {
     fn unknown_income_source() {
         let default = default_source();
         let other_source = IncomeSource::new("other".to_string(), default_money());
-        let plan = Plan::try_build(vec![&default], vec![], vec![]).unwrap();
+        let plan = Plan::try_build(vec![default], vec![], vec![]).unwrap();
         let income = Income::new(
             other_source.clone(),
             Default::default(),
@@ -386,7 +394,7 @@ mod core {
             Default::default(),
             Money::new(Decimal::ZERO, Currency::RUB),
         );
-        let plan = Plan::try_build(vec![&default], vec![], vec![]).unwrap();
+        let plan = Plan::try_build(vec![default], vec![], vec![]).unwrap();
 
         assert_eq!(
             plan.new_income(&income),
@@ -407,7 +415,7 @@ mod core {
             Default::default(),
             Money::new(dec!(100.00), Currency::RUB),
         );
-        let plan = Plan::try_build(vec![&binding], vec![], vec![]).unwrap();
+        let plan = Plan::try_build(vec![binding], vec![], vec![]).unwrap();
 
         assert_eq!(
             plan.new_income(&income),
@@ -428,19 +436,22 @@ mod core {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
+        let expenditure = Absolute::new(
+            "Коммуналка".to_string(),
+            Money::new(dec!(1.5), Currency::RUB),
+        );
+        let plan = Plan::try_build(vec![binding], vec![expenditure.clone()], vec![]).unwrap();
         let expenditure = Expense::new(
             "Коммуналка".to_string(),
             Money::new(dec!(1.5), Currency::RUB),
         );
-        let plan = Plan::try_build(vec![&binding], vec![expenditure.clone()], vec![]).unwrap();
-
         assert_eq!(
             plan.new_income(&income),
             Ok(Distribution::new(
                 &plan,
                 &income,
                 Money::new(dec!(49.25), Currency::RUB),
-                HashMap::from([(&expenditure, Money::new(dec!(0.75), Currency::RUB))]),
+                HashMap::from([(expenditure, Money::new(dec!(0.75), Currency::RUB))]),
             ))
         )
     }
@@ -451,59 +462,40 @@ mod core {
             "Зарплата".to_string(),
             Money::new(dec!(100_000), Currency::RUB),
         );
-        let home_service = Expense::new(
+        let home_service = Absolute::new(
             "Коммуналка".to_string(),
             Money::new(dec!(6000), Currency::RUB),
         );
-        let food = Expense::new("Бюджет".to_string(), Money::new(dec!(17340), Currency::RUB));
-        let health = Expense::new(
-            "Здоровье".to_string(),
-            Money::new(dec!(2000), Currency::RUB),
-        );
-        let mortgage = Expense::new(
-            "Ипотека".to_string(),
-            Money::new(dec!(15000), Currency::RUB),
-        );
-        let bag_month = Expense::new(
-            "Подушка на месяц".to_string(),
-            Money::new(dec!(5900), Currency::RUB),
-        );
-
         let auto = Target::new(
-            "Автомобиль".to_string(),
+            "Авто".to_string(),
             Money::new(dec!(1_000_000), Currency::RUB),
             Percentage::from_int(10),
         );
-
-        let mut plan =
-            Plan::try_build(vec![&zp], vec![home_service.clone()], vec![auto.clone()]).unwrap();
-
-        // let plan = plan
-        //     .new_target(
-        //         "Автомобиль".to_string(),
-        //         Money::new(dec!(1_000_000), Currency::RUB),
-        //         Percentage::from_int(10),
-        //     )
-        //     .unwrap();
-
+        let plan = Plan::try_build(vec![zp.clone()], vec![home_service], vec![auto]).unwrap();
         let income = Income::new(
             zp.clone(),
             Utc::now(),
-            Money::new(dec!(100000), Currency::RUB),
+            Money::new(dec!(100_000), Currency::RUB),
         );
 
         let result = plan.new_income(&income).unwrap();
+
+        let e_auto = Expense::new("Авто".to_string(), Money::new(dec!(10_000), Currency::RUB));
+        let e_home_service = Expense::new(
+            "Коммуналка".to_string(),
+            Money::new(dec!(6000), Currency::RUB),
+        );
         let expected = Distribution::new(
             &plan,
             &income,
-            Money::new(dec!(94000.00), Currency::RUB),
+            Money::new(dec!(84000.00), Currency::RUB),
             HashMap::from([
-                (&home_service, Money::new(dec!(6000), Currency::RUB)),
+                (e_home_service, Money::new(dec!(6000), Currency::RUB)),
                 // (&mortgage, Money::new(dec!(15000), Currency::RUB)),
                 // (&bag_month, Money::new(dec!(5900), Currency::RUB)),
                 // (&food, Money::new(dec!(17340), Currency::RUB)),
                 // (&health, Money::new(dec!(2000), Currency::RUB)),
-                // (&auto, Money::new(dec!(10_000), Currency::RUB)),
+                (e_auto, Money::new(dec!(10_000), Currency::RUB)),
             ]),
         );
 
@@ -522,11 +514,15 @@ mod core {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
+        let expenditure = Absolute::new(
+            "Коммуналка".to_string(),
+            Money::new(dec!(50), Currency::RUB),
+        );
+        let plan = Plan::try_build(vec![source], vec![expenditure.clone()], vec![]).unwrap();
         let expenditure = Expense::new(
             "Коммуналка".to_string(),
             Money::new(dec!(50), Currency::RUB),
         );
-        let plan = Plan::try_build(vec![&source], vec![expenditure.clone()], vec![]).unwrap();
 
         assert_eq!(
             plan.new_income(&income),
@@ -534,7 +530,7 @@ mod core {
                 &plan,
                 &income,
                 Money::new(dec!(25), Currency::RUB),
-                HashMap::from([(&expenditure, Money::new(dec!(25), Currency::RUB))]),
+                HashMap::from([(expenditure, Money::new(dec!(25), Currency::RUB))]),
             ))
         );
     }
@@ -547,11 +543,15 @@ mod core {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
+        let expenditure = Absolute::new(
+            "Коммуналка".to_string(),
+            Money::new(dec!(100), Currency::RUB),
+        );
+        let plan = Plan::try_build(vec![source], vec![expenditure.clone()], vec![]).unwrap();
         let expenditure = Expense::new(
             "Коммуналка".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
-        let plan = Plan::try_build(vec![&source], vec![expenditure.clone()], vec![]).unwrap();
 
         assert_eq!(
             plan.new_income(&income),
@@ -559,37 +559,9 @@ mod core {
                 &plan,
                 &income,
                 Money::new(dec!(0), Currency::RUB),
-                HashMap::from([(&expenditure, Money::new(dec!(50), Currency::RUB))]),
+                HashMap::from([(expenditure, Money::new(dec!(50), Currency::RUB))]),
             ))
         );
-    }
-
-    #[test]
-    fn add_expenditure_to_distribution_without_plan() {
-        let source = default_source();
-        let income = Income::new(
-            source.clone(),
-            Default::default(),
-            Money::new(dec!(50.0), Currency::RUB),
-        );
-        let expenditure = Expense::new(
-            "Коммуналка".to_string(),
-            Money::new(dec!(100), Currency::RUB),
-        );
-        let other = Expense::new(
-            "На пряники".to_string(),
-            Money::new(dec!(100), Currency::RUB),
-        );
-        let plan = Plan::try_build(vec![&source], vec![expenditure], vec![]).unwrap();
-        let mut distribution = Distribution::from_income(&plan, &income);
-
-        assert_eq!(
-            distribution.add(&other, Money::new(dec!(50), Currency::RUB)),
-            Err(DistributeError::UnknownExpenditure)
-        );
-
-        assert_eq!(distribution.get(&other), None);
-        assert_eq!(*distribution.rest(), Money::new(dec!(50), Currency::RUB))
     }
 
     #[test]
@@ -600,15 +572,18 @@ mod core {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
+        let expenditure = Absolute::new(
+            "Коммуналка".to_string(),
+            Money::new(dec!(100), Currency::RUB),
+        );
+        let plan = Plan::try_build(vec![source], vec![expenditure.clone()], vec![]).unwrap();
+        let mut distribution = Distribution::from_income(&plan, &income);
         let expenditure = Expense::new(
             "Коммуналка".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
-        let plan = Plan::try_build(vec![&source], vec![expenditure.clone()], vec![]).unwrap();
-        let mut distribution = Distribution::from_income(&plan, &income);
-
         distribution
-            .add(&expenditure, Money::new(dec!(50), Currency::RUB))
+            .add(expenditure.clone(), Money::new(dec!(50), Currency::RUB))
             .unwrap();
 
         assert_eq!(
@@ -626,18 +601,21 @@ mod core {
             Default::default(),
             Money::new(dec!(50.0), Currency::RUB),
         );
+        let expenditure = Absolute::new(
+            "Коммуналка".to_string(),
+            Money::new(dec!(100), Currency::RUB),
+        );
+        let plan = Plan::try_build(vec![source], vec![expenditure.clone()], vec![]).unwrap();
+        let mut distribution = Distribution::from_income(&plan, &income);
         let expenditure = Expense::new(
             "Коммуналка".to_string(),
             Money::new(dec!(100), Currency::RUB),
         );
-        let plan = Plan::try_build(vec![&source], vec![expenditure.clone()], vec![]).unwrap();
-        let mut distribution = Distribution::from_income(&plan, &income);
-
         distribution
-            .add(&expenditure, Money::new(dec!(50), Currency::RUB))
+            .add(expenditure.clone(), Money::new(dec!(50), Currency::RUB))
             .unwrap();
         distribution
-            .add(&expenditure, Money::new(dec!(50), Currency::RUB))
+            .add(expenditure.clone(), Money::new(dec!(50), Currency::RUB))
             .unwrap();
 
         assert_eq!(
