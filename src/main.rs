@@ -1,11 +1,9 @@
 use chrono::Utc;
 use rust_decimal_macros::dec;
-use uuid::Uuid;
 
-use anna_ivanovna;
 use anna_ivanovna::distribute::{distribute, Income};
 use anna_ivanovna::finance::{Currency, Money, Percentage};
-use anna_ivanovna::planning::planning::{Expense, ExpenseValue, IncomeSource, Plan};
+use anna_ivanovna::planning::{Draft, Expense, ExpenseValue, IncomeSource, Plan};
 
 fn main() {
     let zp = IncomeSource::new(
@@ -57,17 +55,16 @@ fn main() {
         },
     );
 
-    let plan = Plan::try_build(
-        Uuid::new_v4(),
-        vec![zp.clone()],
-        vec![rent, food, health, mortgage, home_service, bag_month, auto],
-    )
-        .unwrap();
+    let draft = Draft::build(
+        &[zp.clone()],
+        &[rent, food, health, mortgage, home_service, bag_month, auto],
+    );
 
     let income = Income::new(
         zp.clone(),
-        Money::new_rub(dec!(50000)),
+        Money::new_rub(dec!(20000)),
         Utc::now().date_naive(),
     );
-    print!("{}", distribute(plan, income).unwrap());
+    let plan = Plan::from_draft(draft).unwrap();
+    print!("{}", distribute(&plan, &income).unwrap());
 }

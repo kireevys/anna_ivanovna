@@ -1,7 +1,10 @@
 [package]
 name = "anna_ivanovna"
-version = "0.0.1"
+description = "Планировщик бюджета"
+version = "0.0.2"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/kireevys/anna_ivanovna"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
