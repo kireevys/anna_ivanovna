@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "anna_ivanovna"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "chrono",
  "rust_decimal",
