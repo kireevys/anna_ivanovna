@@ -82,7 +82,7 @@ pub fn run(plan: &Plan) {
             }
         }
         Commands::ShowPlan => {
-            println!("{plan:#?}")
+            println!("{plan:#?}");
         }
     }
 }
