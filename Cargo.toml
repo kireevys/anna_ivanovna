@@ -6,6 +6,12 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/kireevys/anna_ivanovna"
 
+[release]
+tag = true                      # создаёт тег при релизе
+tag-name = "v{{version}}"       # шаблон названия тега
+push = true                     # пушит изменения и тег
+upload-doc = false              # отключает загрузку документации на docs.rs
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
