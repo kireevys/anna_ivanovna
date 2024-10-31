@@ -19,6 +19,12 @@ pub struct Income {
     date: NaiveDate,
 }
 
+impl Display for Income {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} от {}", &self.money, &self.date)
+    }
+}
+
 impl Income {
     #[must_use]
     pub fn new(source: IncomeSource, money: Money, date: NaiveDate) -> Self {
@@ -63,16 +69,16 @@ impl Distribute {
 
 impl Display for Distribute {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut result = format!(
-            "Распределение дохода {} от {}\n",
-            &self.income.money, &self.income.date
-        );
-        for (k, v) in &self.expenditures {
-            let row = format!("{:20} - {:}\n", k.name, v);
+        let mut result = String::new();
+        for (e, v) in &self.expenditures {
+            let row = format!("- {:20} - {:}\n", e.name, v);
             result.push_str(row.as_str());
         }
-        result.push_str(format!("{:20} - {:}", "Остаток", self.rest).as_str());
-        write!(f, "{result}")
+        write!(
+            f,
+            "\nРаспределение дохода {}По источнику {}\n{result}- {:20} - {:}",
+            &self.income, &self.income.source, "Остаток", self.rest
+        )
     }
 }
 
@@ -96,7 +102,8 @@ pub fn distribute(plan: &Plan, income: &Income) -> Result<Distribute, Error> {
 
     let mut d = Distribute::new(income.clone(), result.clone());
 
-    plan.into_iter().for_each(|(e, r)| d.calculate(e.clone(), r));
+    plan.into_iter()
+        .for_each(|(e, r)| d.calculate(e.clone(), r));
     Ok(d)
 }
 
@@ -127,10 +134,7 @@ mod test_distribute {
         let draft = Draft::build(&[source], &[expense]);
         let plan = Plan::from_draft(draft).unwrap();
         let income = Income::new(source_1, _rub(1.0), Utc::now().date_naive());
-        assert_eq!(
-            distribute(&plan, &income),
-            Err(Error::UnknownSource)
-        );
+        assert_eq!(distribute(&plan, &income), Err(Error::UnknownSource));
     }
 
     #[test]

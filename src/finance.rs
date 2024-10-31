@@ -1,12 +1,21 @@
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use std::fmt::{Display, Formatter};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
-
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
+use std::str::FromStr;
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd)]
 pub struct Percentage(Decimal);
+
+impl FromStr for Percentage {
+    type Err = rust_decimal::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim_end_matches('%');
+        trimmed.parse::<Decimal>().map(Percentage::from)
+    }
+}
 
 impl AddAssign for Percentage {
     fn add_assign(&mut self, rhs: Self) {
@@ -163,6 +172,16 @@ impl Display for Money {
         write!(f, "{}{}", &self.currency, &self.value)
     }
 }
+
+impl FromStr for Money {
+    type Err = rust_decimal::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim_start_matches('₽');
+        trimmed.parse::<Decimal>().map(Money::new_rub)
+    }
+}
+
 
 impl Sum for Money {
     fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
