@@ -1,7 +1,16 @@
 [package]
 name = "anna_ivanovna"
-version = "0.0.1"
+description = "Планировщик бюджета"
+version = "0.0.4"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/kireevys/anna_ivanovna"
+
+[release]
+tag = true                      # создаёт тег при релизе
+tag-name = "v{{version}}"       # шаблон названия тега
+push = true                     # пушит изменения и тег
+upload-doc = false              # отключает загрузку документации на docs.rs
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,3 +19,5 @@ rust_decimal = "1.34.3"
 chrono = "0.4.35"
 rust_decimal_macros = "1.34.2"
 uuid = { version = "1.8.0", features = ["v4"] }
+serde = "1.0.210"
+serde_yaml = "0.9.34"

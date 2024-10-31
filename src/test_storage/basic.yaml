@@ -1,0 +1,12 @@
+version: "1.0"
+
+plan:
+  - incomes:
+      - id: 9a51d2b-e3cb-427e-a930-d24ecb37b91a
+        source: Зарплата
+        value: 100000
+  - expenses:
+      - id: 1
+        title: Аренда
+        amount: 50000.00
+
