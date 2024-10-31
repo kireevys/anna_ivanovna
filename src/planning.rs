@@ -1,15 +1,38 @@
+use crate::finance::{Money, Percentage};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::ops::Deref;
+use std::str::FromStr;
 use uuid::Uuid;
-
-use crate::finance::{Money, Percentage};
 
 #[derive(Debug, Clone)]
 pub struct IncomeSource {
     id: Uuid,
-    pub name: String,
+    name: String,
     pub expected: Money,
+}
+
+impl IncomeSource {
+    #[must_use]
+    pub fn new(name: String, expected: Money) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            name,
+            expected,
+        }
+    }
+
+    #[must_use]
+    pub fn build(id: Uuid, name: String, expected: Money) -> Self {
+        Self { id, name, expected }
+    }
+}
+
+impl Display for IncomeSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} [{}]", self.name, self.expected)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -30,9 +53,30 @@ pub enum ExpenseValue {
     MONEY { value: Money },
 }
 
+
+impl FromStr for ExpenseValue {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.contains('%') {
+            let percentage = Percentage::from_str(s)
+                .map_err(|e| format!("Failed to parse percentage: {e}"))?;
+            return Ok(ExpenseValue::RATE { value: percentage });
+        }
+
+        if s.contains("₽") {
+            let money = Money::from_str(s)
+                .map_err(|e| format!("Failed to parse money: {e}"))?;
+            return Ok(ExpenseValue::MONEY { value: money });
+        }
+
+        Err("Invalid format".to_string())
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub struct Expense {
-    uuid: Uuid,
+    id: Uuid,
     pub name: String,
     pub value: ExpenseValue,
 }
@@ -41,29 +85,23 @@ impl Expense {
     #[must_use]
     pub fn new(name: String, value: ExpenseValue) -> Self {
         Self {
-            uuid: Uuid::new_v4(),
+            id: Uuid::new_v4(),
             name,
             value,
         }
     }
-}
 
-impl IncomeSource {
     #[must_use]
-    pub fn new(name: String, expected: Money) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            name,
-            expected,
-        }
+    pub fn build(id: Uuid, name: String, value: ExpenseValue) -> Self {
+        Self { id, name, value }
     }
 }
 
 #[derive(PartialEq, Debug)]
 pub struct Plan {
-    sources: Vec<IncomeSource>,
+    pub sources: Vec<IncomeSource>,
     plan: HashMap<Expense, Percentage>,
-    rest: Percentage,
+    pub rest: Percentage,
 }
 
 impl<'a> IntoIterator for &'a Plan {
@@ -88,7 +126,6 @@ impl Plan {
     pub fn has_source(&self, source: &IncomeSource) -> bool {
         self.sources.iter().any(|p| *p == *source)
     }
-
 
     /// Создает План из Черновика
     ///
@@ -168,12 +205,6 @@ impl Draft {
             .iter()
             .map(|s| s.expected)
             .fold(Money::new_rub(Decimal::ZERO), |acc, income| acc + income)
-
-        // let mut total_rub = Money::new_rub(Decimal::ZERO);
-        // for s in self.sources.iter() {
-        //     total_rub += s.expected
-        // }
-        // total_rub
     }
 }
 
@@ -304,10 +335,7 @@ mod test_planning {
                 value: Money::new_rub(dec!(0.01)),
             },
         );
-        let draft = Draft::build(
-            &[source.clone()],
-            &[expense_1.clone(), expense_2.clone()],
-        );
+        let draft = Draft::build(&[source.clone()], &[expense_1.clone(), expense_2.clone()]);
         assert_eq!(Plan::from_draft(draft), Err(Error::TooBigExpenses));
     }
 
