@@ -6,6 +6,7 @@ use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::io;
 use std::io::Write;
+use std::path::Path;
 
 #[derive(Parser)]
 #[clap(name = "Anna Ivanovna", version = env!("CARGO_PKG_VERSION"), author = "github.com/kireevys")]
@@ -68,7 +69,7 @@ fn choose_source(plan: &Plan) -> &IncomeSource {
 /// При неожиданном пользовательском вводе
 ///
 /// returns: ()
-pub fn run(plan: &Plan) {
+pub fn run(plan: &Plan, _result: &Path) {
     let cli = Cli::parse();
 
     match cli.command {
@@ -77,7 +78,10 @@ pub fn run(plan: &Plan) {
             let income = Income::new_today(source.clone(), Money::new_rub(amount));
 
             match distribute(plan, &income) {
-                Ok(d) => println!("{d}"),
+                Ok(d) => {
+                    println!("{d}");
+                    // write_csv(&d, result).expect("Не удалось записать результат");
+                }
                 Err(e) => println!("{e:?}"),
             }
         }

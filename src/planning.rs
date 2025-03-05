@@ -53,20 +53,18 @@ pub enum ExpenseValue {
     MONEY { value: Money },
 }
 
-
 impl FromStr for ExpenseValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains('%') {
-            let percentage = Percentage::from_str(s)
-                .map_err(|e| format!("Failed to parse percentage: {e}"))?;
+            let percentage =
+                Percentage::from_str(s).map_err(|e| format!("Failed to parse percentage: {e}"))?;
             return Ok(ExpenseValue::RATE { value: percentage });
         }
 
         if s.contains("₽") {
-            let money = Money::from_str(s)
-                .map_err(|e| format!("Failed to parse money: {e}"))?;
+            let money = Money::from_str(s).map_err(|e| format!("Failed to parse money: {e}"))?;
             return Ok(ExpenseValue::MONEY { value: money });
         }
 
@@ -265,7 +263,7 @@ mod test_planning {
         assert_eq!(draft.sources, vec![]);
     }
 
-    fn _rub(v: f64) -> Money {
+    fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())
     }
 
@@ -278,7 +276,7 @@ mod test_planning {
     #[test]
     fn no_expenses() {
         let draft = Draft::build(
-            &[IncomeSource::new("Gold goose".to_string(), _rub(1.0))],
+            &[IncomeSource::new("Gold goose".to_string(), rub(1.0))],
             &[],
         );
         assert_eq!(Plan::from_draft(draft), Err(Error::EmptyPlan));
@@ -286,7 +284,7 @@ mod test_planning {
 
     #[test]
     fn build_rate_plan_from_rate_expense() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -309,7 +307,7 @@ mod test_planning {
 
     #[test]
     fn build_plan_with_overhead_percent() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -322,7 +320,7 @@ mod test_planning {
 
     #[test]
     fn build_rate_with_overhead_total_percent() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense_1 = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -341,7 +339,7 @@ mod test_planning {
 
     #[test]
     fn build_rate_when_has_rest() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -363,14 +361,14 @@ mod test_planning {
 
     #[test]
     fn build_full_plan() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense_1 = Expense::new(
             "Black Hole".to_string(),
-            ExpenseValue::MONEY { value: _rub(0.25) },
+            ExpenseValue::MONEY { value: rub(0.25) },
         );
         let expense_2 = Expense::new(
             "Yet Another Black Hole".to_string(),
-            ExpenseValue::MONEY { value: _rub(0.5) },
+            ExpenseValue::MONEY { value: rub(0.5) },
         );
         let expense_3 = Expense::new(
             "Rate Black Hole".to_string(),

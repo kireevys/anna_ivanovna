@@ -119,67 +119,67 @@ mod test_distribute {
     use crate::finance::{Money, Percentage};
     use crate::planning::{Draft, Expense, ExpenseValue, IncomeSource, Plan};
 
-    fn _rub(v: f64) -> Money {
+    fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())
     }
 
     #[test]
     fn income_from_unknown_source() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
-        let source_1 = IncomeSource::new("Unknown".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source_1 = IncomeSource::new("Unknown".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
-            ExpenseValue::MONEY { value: _rub(0.5) },
+            ExpenseValue::MONEY { value: rub(0.5) },
         );
         let draft = Draft::build(&[source], &[expense]);
         let plan = Plan::from_draft(draft).unwrap();
-        let income = Income::new(source_1, _rub(1.0), Utc::now().date_naive());
+        let income = Income::new(source_1, rub(1.0), Utc::now().date_naive());
         assert_eq!(distribute(&plan, &income), Err(Error::UnknownSource));
     }
 
     #[test]
     fn expense_is_money_and_less_than_incomes() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
-            ExpenseValue::MONEY { value: _rub(0.5) },
+            ExpenseValue::MONEY { value: rub(0.5) },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         let plan = Plan::from_draft(draft).unwrap();
-        let income = Income::new_today(source, _rub(1.0));
+        let income = Income::new_today(source, rub(1.0));
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
                 income: income.clone(),
-                expenditures: HashMap::from([(expense.clone(), _rub(0.5))]),
-                rest: _rub(0.5),
+                expenditures: HashMap::from([(expense.clone(), rub(0.5))]),
+                rest: rub(0.5),
             })
         );
     }
 
     #[test]
     fn expense_is_money_and_more_than_incomes() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
-            ExpenseValue::MONEY { value: _rub(1.0) },
+            ExpenseValue::MONEY { value: rub(1.0) },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let income = Income::new_today(source, _rub(0.5));
+        let income = Income::new_today(source, rub(0.5));
         let plan = Plan::from_draft(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
                 income: income.clone(),
-                expenditures: HashMap::from([(expense.clone(), _rub(0.5))]),
-                rest: _rub(0.0),
+                expenditures: HashMap::from([(expense.clone(), rub(0.5))]),
+                rest: rub(0.0),
             })
         );
     }
 
     #[test]
     fn expense_is_full_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -187,21 +187,21 @@ mod test_distribute {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let income = Income::new_today(source, _rub(1.0));
+        let income = Income::new_today(source, rub(1.0));
         let plan = Plan::from_draft(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
                 income: income.clone(),
-                expenditures: HashMap::from([(expense.clone(), _rub(1.0))]),
-                rest: _rub(0.0),
+                expenditures: HashMap::from([(expense.clone(), rub(1.0))]),
+                rest: rub(0.0),
             })
         );
     }
 
     #[test]
     fn expense_is_half_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -209,21 +209,21 @@ mod test_distribute {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let income = Income::new_today(source, _rub(1.0));
+        let income = Income::new_today(source, rub(1.0));
         let plan = Plan::from_draft(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
                 income: income.clone(),
-                expenditures: HashMap::from([(expense.clone(), _rub(0.5))]),
-                rest: _rub(0.5),
+                expenditures: HashMap::from([(expense.clone(), rub(0.5))]),
+                rest: rub(0.5),
             })
         );
     }
 
     #[test]
     fn expense_is_zero_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -231,21 +231,21 @@ mod test_distribute {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let income = Income::new_today(source, _rub(1.0));
+        let income = Income::new_today(source, rub(1.0));
         let plan = Plan::from_draft(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
                 income: income.clone(),
-                expenditures: HashMap::from([(expense.clone(), _rub(0.0))]),
-                rest: _rub(1.0),
+                expenditures: HashMap::from([(expense.clone(), rub(0.0))]),
+                rest: rub(1.0),
             })
         );
     }
 
     #[test]
     fn expense_is_one_percent_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -253,14 +253,14 @@ mod test_distribute {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let income = Income::new_today(source, _rub(1.0));
+        let income = Income::new_today(source, rub(1.0));
         let plan = Plan::from_draft(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
                 income: income.clone(),
-                expenditures: HashMap::from([(expense.clone(), _rub(0.01))]),
-                rest: _rub(0.99),
+                expenditures: HashMap::from([(expense.clone(), rub(0.01))]),
+                rest: rub(0.99),
             })
         );
     }
