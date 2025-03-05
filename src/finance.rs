@@ -1,11 +1,12 @@
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 use std::str::FromStr;
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd, Serialize)]
 pub struct Percentage(Decimal);
 
 impl FromStr for Percentage {
@@ -161,7 +162,7 @@ impl Percentage {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Hash, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Hash, Copy, Clone, Serialize)]
 pub struct Money {
     pub value: Decimal,
     pub currency: Currency,
@@ -182,9 +183,8 @@ impl FromStr for Money {
     }
 }
 
-
 impl Sum for Money {
-    fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         let mut total_rub = Money::new_rub(Decimal::ZERO);
         for m in iter {
             match m.currency {
@@ -258,7 +258,7 @@ impl Money {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
 pub enum Currency {
     RUB,
     USD,

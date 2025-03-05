@@ -1,10 +1,10 @@
+use crate::distribute::Distribute;
 use crate::finance::Money;
 use crate::planning::{Draft, Error, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
-use uuid::Uuid;
 
 #[derive(Deserialize)]
 struct Root {
@@ -19,33 +19,31 @@ struct PlanDetails {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Income {
-    pub id: Uuid,
     pub source: String,
     pub value: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Expense {
-    pub id: Uuid,
     pub name: String,
     pub value: String,
 }
 
 fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, Error> {
-    let mut sources = Vec::new();
-    for i in yaml.incomes {
-        let value = Money::from_str(i.value.as_str()).expect("failed to parse Money");
-        let source = IncomeSource::build(i.id, i.source, value);
-        sources.push(source);
-    }
-    let mut expenses = Vec::new();
-    for e in yaml.expenses {
-        let value = ExpenseValue::from_str(e.value.as_str()).expect("could not parse expense");
-        let expense = DomainExpense::build(e.id, e.name, value);
-        expenses.push(expense);
-    }
-    let draft = Draft::build(&sources, &expenses);
-    Plan::from_draft(draft)
+    let sources = yaml
+        .incomes
+        .into_iter()
+        .map(|i| Money::from_str(i.value.as_str()).map(|v| IncomeSource::new(i.source, v)))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_e| Error::InvalidPlan)?;
+
+    let expenses = yaml
+        .expenses
+        .into_iter()
+        .map(|e| ExpenseValue::from_str(e.value.as_str()).map(|v| DomainExpense::new(e.name, v)))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_e| Error::InvalidPlan)?;
+    Plan::try_from(Draft::build(&sources, &expenses))
 }
 
 /// Парсит переданный файл в Бюджет
@@ -64,6 +62,13 @@ pub fn plan_from_yaml(path: &Path) -> Plan {
     let yaml_data = fs::read_to_string(path).expect("Unable to read file {path}");
     let root: Root = serde_yaml::from_str(&yaml_data).expect("Failed to parse YAML");
     yaml_to_domain(root.plan).expect("Failed to convert YAML to domain")
+}
+/// # Panics
+/// Паникует когда не удалось собрать yaml
+///
+#[must_use]
+pub fn distribute_to_yaml(distribute: &Distribute) -> String {
+    serde_yaml::to_string(distribute).expect("Cant build yaml")
 }
 #[cfg(test)]
 mod tests {

@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-use chrono::{NaiveDate, Utc};
-
 use crate::finance::{Money, Percentage};
 use crate::planning::{Expense, IncomeSource, Plan};
+use chrono::{NaiveDate, Utc};
+use serde;
+use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
+use serde_yaml::Mapping;
 
 #[derive(PartialEq, Debug)]
 pub enum Error {
@@ -12,11 +15,24 @@ pub enum Error {
     UnknownSource,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize)]
 pub struct Income {
+    #[serde(serialize_with = "serialize_income_source_yaml")]
+    #[serde(flatten)]
     source: IncomeSource,
+    #[serde(serialize_with = "serialize_money_yaml")]
+    #[serde(flatten)]
     money: Money,
     date: NaiveDate,
+}
+
+fn serialize_income_source_yaml<S>(source: &IncomeSource, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut state = serializer.serialize_struct("IncomeSource", 2)?;
+    state.serialize_field("source", &source.name)?;
+    state.end()
 }
 
 impl Display for Income {
@@ -44,11 +60,85 @@ impl Income {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize)]
 pub struct Distribute {
+    #[serde(flatten)]
     income: Income,
+    #[serde(serialize_with = "serialize_rest_yaml")]
+    #[serde(flatten)]
     rest: Money,
+    #[serde(serialize_with = "serialize_expenditures_yaml")]
     expenditures: HashMap<Expense, Money>,
+}
+fn serialize_rest_yaml<S>(money: &Money, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut state = serializer.serialize_struct("Money", 2)?;
+    state.serialize_field("rest", &money.to_string())?;
+    state.end()
+}
+
+fn serialize_money_yaml<S>(money: &Money, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut state = serializer.serialize_struct("Money", 2)?;
+    state.serialize_field("money", &money.to_string())?;
+    state.end()
+}
+
+fn _serialize_expenditures_json<S>(
+    map: &HashMap<Expense, Money>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let vec: Vec<_> = map
+        .iter()
+        .map(|(key, value)| {
+            let mut obj = serde_json::Map::new();
+            obj.insert(
+                "name".to_string(),
+                serde_json::Value::String(key.name.clone()),
+            );
+            // let value = format!("{}{}", value.currency.clone(), value.value.clone());
+            obj.insert(
+                "money".to_string(),
+                serde_json::Value::String(value.to_string()),
+            );
+            serde_json::Value::Object(obj)
+        })
+        .collect();
+
+    vec.serialize(serializer)
+}
+
+fn serialize_expenditures_yaml<S>(
+    map: &HashMap<Expense, Money>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    let vec: Vec<_> = map
+        .iter()
+        .map(|(key, value)| {
+            let mut obj = Mapping::new();
+            obj.insert(
+                serde_yaml::Value::String("name".to_string()),
+                serde_yaml::Value::String(key.clone().name),
+            );
+            obj.insert(
+                serde_yaml::Value::String("money".to_string()),
+                serde_yaml::Value::String(value.to_string()),
+            );
+            obj
+        })
+        .collect();
+
+    vec.serialize(serializer)
 }
 
 impl Distribute {
@@ -70,7 +160,9 @@ impl Distribute {
 impl Display for Distribute {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut result = String::new();
-        for (e, v) in &self.expenditures {
+        let mut sorted: Vec<(_, _)> = self.clone().expenditures.into_iter().collect();
+        sorted.sort_by_key(|(key, _)| key.name.clone());
+        for (e, v) in sorted {
             let row = format!("- {:20} - {:}\n", e.name, v);
             result.push_str(row.as_str());
         }
@@ -132,7 +224,7 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(0.5) },
         );
         let draft = Draft::build(&[source], &[expense]);
-        let plan = Plan::from_draft(draft).unwrap();
+        let plan = Plan::try_from(draft).unwrap();
         let income = Income::new(source_1, rub(1.0), Utc::now().date_naive());
         assert_eq!(distribute(&plan, &income), Err(Error::UnknownSource));
     }
@@ -145,7 +237,7 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(0.5) },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let plan = Plan::from_draft(draft).unwrap();
+        let plan = Plan::try_from(draft).unwrap();
         let income = Income::new_today(source, rub(1.0));
         assert_eq!(
             distribute(&plan, &income),
@@ -166,7 +258,7 @@ mod test_distribute {
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         let income = Income::new_today(source, rub(0.5));
-        let plan = Plan::from_draft(draft).unwrap();
+        let plan = Plan::try_from(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
@@ -188,7 +280,7 @@ mod test_distribute {
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::from_draft(draft).unwrap();
+        let plan = Plan::try_from(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
@@ -210,7 +302,7 @@ mod test_distribute {
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::from_draft(draft).unwrap();
+        let plan = Plan::try_from(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
@@ -232,7 +324,7 @@ mod test_distribute {
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::from_draft(draft).unwrap();
+        let plan = Plan::try_from(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {
@@ -254,7 +346,7 @@ mod test_distribute {
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::from_draft(draft).unwrap();
+        let plan = Plan::try_from(draft).unwrap();
         assert_eq!(
             distribute(&plan, &income),
             Ok(Distribute {

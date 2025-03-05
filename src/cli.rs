@@ -1,9 +1,12 @@
 use crate::distribute::{distribute, Income};
 use crate::finance::Money;
 use crate::planning::{IncomeSource, Plan};
+use crate::storage::distribute_to_yaml;
+use chrono::Local;
 use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::path::Path;
@@ -79,8 +82,11 @@ pub fn run(plan: &Plan, _result: &Path) {
 
             match distribute(plan, &income) {
                 Ok(d) => {
+                    let result = distribute_to_yaml(&d);
+                    let path = format!("storage/incomes/{}.yaml", Local::now().format("%Y-%m-%d"));
+                    let mut file = File::create(path).expect("cannot file");
+                    file.write_all(result.as_bytes()).unwrap();
                     println!("{d}");
-                    // write_csv(&d, result).expect("Не удалось записать результат");
                 }
                 Err(e) => println!("{e:?}"),
             }

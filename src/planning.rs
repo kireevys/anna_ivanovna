@@ -1,31 +1,22 @@
 use crate::finance::{Money, Percentage};
 use rust_decimal::Decimal;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
-use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct IncomeSource {
-    id: Uuid,
-    name: String,
+    pub name: String,
+    #[serde(skip)]
     pub expected: Money,
 }
 
 impl IncomeSource {
     #[must_use]
     pub fn new(name: String, expected: Money) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            name,
-            expected,
-        }
-    }
-
-    #[must_use]
-    pub fn build(id: Uuid, name: String, expected: Money) -> Self {
-        Self { id, name, expected }
+        Self { name, expected }
     }
 }
 
@@ -39,15 +30,10 @@ impl Display for IncomeSource {
 pub enum Error {
     EmptyPlan,
     TooBigExpenses,
+    InvalidPlan,
 }
 
-impl PartialEq for IncomeSource {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize)]
 pub enum ExpenseValue {
     RATE { value: Percentage },
     MONEY { value: Money },
@@ -72,26 +58,17 @@ impl FromStr for ExpenseValue {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize)]
 pub struct Expense {
-    id: Uuid,
     pub name: String,
+    #[serde(skip)]
     pub value: ExpenseValue,
 }
 
 impl Expense {
     #[must_use]
     pub fn new(name: String, value: ExpenseValue) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            name,
-            value,
-        }
-    }
-
-    #[must_use]
-    pub fn build(id: Uuid, name: String, value: ExpenseValue) -> Self {
-        Self { id, name, value }
+        Self { name, value }
     }
 }
 
@@ -124,6 +101,10 @@ impl Plan {
     pub fn has_source(&self, source: &IncomeSource) -> bool {
         self.sources.iter().any(|p| *p == *source)
     }
+}
+
+impl TryFrom<Draft> for Plan {
+    type Error = Error;
 
     /// Создает План из Черновика
     ///
@@ -137,7 +118,7 @@ impl Plan {
     ///
     /// returns: Result<Plan, Error>
     ///
-    pub fn from_draft(draft: Draft) -> Result<Self, Error> {
+    fn try_from(draft: Draft) -> Result<Self, Self::Error> {
         if draft.expenses.is_empty() || draft.sources.is_empty() {
             return Err(Error::EmptyPlan);
         }
@@ -163,6 +144,7 @@ impl Plan {
         })
     }
 }
+
 #[derive(Clone)]
 pub struct Draft {
     pub sources: Vec<IncomeSource>,
@@ -270,7 +252,7 @@ mod test_planning {
     #[test]
     fn test_empty_draft() {
         let draft = Draft::new();
-        assert_eq!(Plan::from_draft(draft), Err(Error::EmptyPlan));
+        assert_eq!(Plan::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
@@ -279,7 +261,7 @@ mod test_planning {
             &[IncomeSource::new("Gold goose".to_string(), rub(1.0))],
             &[],
         );
-        assert_eq!(Plan::from_draft(draft), Err(Error::EmptyPlan));
+        assert_eq!(Plan::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
@@ -292,7 +274,7 @@ mod test_planning {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let res = Plan::from_draft(draft).unwrap();
+        let res = Plan::try_from(draft).unwrap();
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(100))]);
 
         assert_eq!(
@@ -315,7 +297,7 @@ mod test_planning {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        assert_eq!(Plan::from_draft(draft), Err(Error::TooBigExpenses));
+        assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
     #[test]
@@ -334,7 +316,7 @@ mod test_planning {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense_1.clone(), expense_2.clone()]);
-        assert_eq!(Plan::from_draft(draft), Err(Error::TooBigExpenses));
+        assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
     #[test]
@@ -350,7 +332,7 @@ mod test_planning {
 
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(50))]);
         assert_eq!(
-            Plan::from_draft(draft).unwrap(),
+            Plan::try_from(draft).unwrap(),
             Plan {
                 sources: vec![source.clone()],
                 plan: expected,
@@ -380,7 +362,7 @@ mod test_planning {
             &[source.clone()],
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );
-        let res = Plan::from_draft(draft).unwrap();
+        let res = Plan::try_from(draft).unwrap();
         let expected = HashMap::from([
             (expense_1.clone(), Percentage::QUARTER),
             (expense_2.clone(), Percentage::HALF),
