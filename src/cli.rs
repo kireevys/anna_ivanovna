@@ -1,15 +1,20 @@
 use crate::distribute::{distribute, Income};
 use crate::finance::Money;
 use crate::planning::{IncomeSource, Plan};
-use crate::storage::distribute_to_yaml;
+use crate::storage::{distribute_to_yaml, plan_from_yaml};
 use chrono::Local;
 use clap::{Parser, Subcommand};
+use homedir::my_home;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io;
 use std::io::Write;
-use std::path::Path;
+use std::{fs, io};
+
+const PLAN: &str = "plan.yaml";
+const BASE: &str = "buh";
+const STORAGE: &str = "storage";
+const INCOMES: &str = "incomes";
 
 #[derive(Parser)]
 #[clap(name = "Anna Ivanovna", version = env!("CARGO_PKG_VERSION"), author = "github.com/kireevys")]
@@ -72,26 +77,38 @@ fn choose_source(plan: &Plan) -> &IncomeSource {
 /// При неожиданном пользовательском вводе
 ///
 /// returns: ()
-pub fn run(plan: &Plan, _result: &Path) {
+pub fn run() {
     let cli = Cli::parse();
+    let base = my_home()
+        .expect("Не удалось определить Домашнюю Директорию")
+        .map(|home| home.join(BASE).join(STORAGE))
+        .expect("Не удалось подключить Хранилище");
+    fs::create_dir_all(base.clone()).unwrap_or_else(|_| panic!("Невозможно создать {BASE}"));
+    let result_path: String = format!("{}.yaml", Local::now().format("%Y-%m-%d"));
+    let result_path = base.join(INCOMES).join(result_path);
+    let plan_p = base.join(PLAN);
+    assert!(plan_p.exists(), "Не найден файл: {}", plan_p.display());
+    let plan = plan_from_yaml(plan_p.as_path());
 
+    println!("Используется файл плана {}", plan_p.display());
     match cli.command {
         Commands::AddIncome { amount } => {
-            let source = choose_source(plan);
+            let source = choose_source(&plan);
             let income = Income::new_today(source.clone(), Money::new_rub(amount));
 
-            match distribute(plan, &income) {
+            match distribute(&plan, &income) {
                 Ok(d) => {
-                    let result = distribute_to_yaml(&d);
-                    let path = format!("storage/incomes/{}.yaml", Local::now().format("%Y-%m-%d"));
-                    let mut file = File::create(path).expect("cannot file");
-                    file.write_all(result.as_bytes()).unwrap();
+                    let mut file = File::create(&result_path).expect("cannot file");
+                    file.write_all(distribute_to_yaml(&d).as_bytes())
+                        .expect("cannot write to file");
+                    println!("Записано в {result_path:?}");
                     println!("{d}");
                 }
                 Err(e) => println!("{e:?}"),
             }
         }
         Commands::ShowPlan => {
+            // TODO:
             println!("{plan:#?}");
         }
     }
