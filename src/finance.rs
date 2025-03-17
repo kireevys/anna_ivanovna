@@ -1,12 +1,22 @@
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
+use serde::Serialize;
 use std::fmt::{Display, Formatter};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::str::FromStr;
 
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-
-#[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd, Serialize)]
 pub struct Percentage(Decimal);
+
+impl FromStr for Percentage {
+    type Err = rust_decimal::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim_end_matches('%');
+        trimmed.parse::<Decimal>().map(Percentage::from)
+    }
+}
 
 impl AddAssign for Percentage {
     fn add_assign(&mut self, rhs: Self) {
@@ -152,7 +162,7 @@ impl Percentage {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Hash, Copy, Clone)]
+#[derive(PartialEq, Eq, Debug, Hash, Copy, Clone, Serialize)]
 pub struct Money {
     pub value: Decimal,
     pub currency: Currency,
@@ -164,8 +174,17 @@ impl Display for Money {
     }
 }
 
+impl FromStr for Money {
+    type Err = rust_decimal::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let trimmed = s.trim_start_matches('₽');
+        trimmed.parse::<Decimal>().map(Money::new_rub)
+    }
+}
+
 impl Sum for Money {
-    fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         let mut total_rub = Money::new_rub(Decimal::ZERO);
         for m in iter {
             match m.currency {
@@ -239,7 +258,7 @@ impl Money {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
 pub enum Currency {
     RUB,
     USD,

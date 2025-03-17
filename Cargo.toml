@@ -5,19 +5,25 @@ version = "0.0.4"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/kireevys/anna_ivanovna"
+authors = ["github.com/kireevys"]
 
-[release]
+[package.metadata]
+pre-commit = "cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::pedantic -D clippy::perf -D warnings"
+
+[package.metadata.release]
 tag = true                      # создаёт тег при релизе
 tag-name = "v{{version}}"       # шаблон названия тега
 push = true                     # пушит изменения и тег
-upload-doc = false              # отключает загрузку документации на docs.rs
+publish = false                 # не публикует в crates.io
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 rust_decimal = "1.34.3"
-chrono = "0.4.35"
+chrono = { version = "0.4", features = ["serde"] }
 rust_decimal_macros = "1.34.2"
-uuid = { version = "1.8.0", features = ["v4"] }
-serde = "1.0.210"
+uuid = { version = "1.8.0", features = ["serde", "v4"] }
+serde = { version = "1.0.210", features = ["derive"] }
 serde_yaml = "0.9.34"
+clap = { version = "4.5.20", features = ["derive"] }
+serde_json = "1.0.132"

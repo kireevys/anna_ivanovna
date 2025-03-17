@@ -1,69 +1,82 @@
-use rust_decimal::Decimal;
-use std::collections::HashMap;
-use std::ops::Deref;
-use uuid::Uuid;
-
 use crate::finance::{Money, Percentage};
+use rust_decimal::Decimal;
+use serde::Serialize;
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::ops::Deref;
+use std::str::FromStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct IncomeSource {
-    id: Uuid,
     pub name: String,
+    #[serde(skip)]
     pub expected: Money,
+}
+
+impl IncomeSource {
+    #[must_use]
+    pub fn new(name: String, expected: Money) -> Self {
+        Self { name, expected }
+    }
+}
+
+impl Display for IncomeSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} [{}]", self.name, self.expected)
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
     EmptyPlan,
     TooBigExpenses,
+    InvalidPlan,
 }
 
-impl PartialEq for IncomeSource {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize)]
 pub enum ExpenseValue {
     RATE { value: Percentage },
     MONEY { value: Money },
 }
 
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+impl FromStr for ExpenseValue {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.contains('%') {
+            let percentage =
+                Percentage::from_str(s).map_err(|e| format!("Failed to parse percentage: {e}"))?;
+            return Ok(ExpenseValue::RATE { value: percentage });
+        }
+
+        if s.contains("₽") {
+            let money = Money::from_str(s).map_err(|e| format!("Failed to parse money: {e}"))?;
+            return Ok(ExpenseValue::MONEY { value: money });
+        }
+
+        Err("Invalid format".to_string())
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize)]
 pub struct Expense {
-    uuid: Uuid,
     pub name: String,
+    #[serde(skip)]
     pub value: ExpenseValue,
 }
 
 impl Expense {
     #[must_use]
     pub fn new(name: String, value: ExpenseValue) -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            name,
-            value,
-        }
-    }
-}
-
-impl IncomeSource {
-    #[must_use]
-    pub fn new(name: String, expected: Money) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            name,
-            expected,
-        }
+        Self { name, value }
     }
 }
 
 #[derive(PartialEq, Debug)]
 pub struct Plan {
-    sources: Vec<IncomeSource>,
+    pub sources: Vec<IncomeSource>,
     plan: HashMap<Expense, Percentage>,
-    rest: Percentage,
+    pub rest: Percentage,
 }
 
 impl<'a> IntoIterator for &'a Plan {
@@ -88,7 +101,10 @@ impl Plan {
     pub fn has_source(&self, source: &IncomeSource) -> bool {
         self.sources.iter().any(|p| *p == *source)
     }
+}
 
+impl TryFrom<Draft> for Plan {
+    type Error = Error;
 
     /// Создает План из Черновика
     ///
@@ -102,7 +118,7 @@ impl Plan {
     ///
     /// returns: Result<Plan, Error>
     ///
-    pub fn from_draft(draft: Draft) -> Result<Self, Error> {
+    fn try_from(draft: Draft) -> Result<Self, Self::Error> {
         if draft.expenses.is_empty() || draft.sources.is_empty() {
             return Err(Error::EmptyPlan);
         }
@@ -128,6 +144,7 @@ impl Plan {
         })
     }
 }
+
 #[derive(Clone)]
 pub struct Draft {
     pub sources: Vec<IncomeSource>,
@@ -168,12 +185,6 @@ impl Draft {
             .iter()
             .map(|s| s.expected)
             .fold(Money::new_rub(Decimal::ZERO), |acc, income| acc + income)
-
-        // let mut total_rub = Money::new_rub(Decimal::ZERO);
-        // for s in self.sources.iter() {
-        //     total_rub += s.expected
-        // }
-        // total_rub
     }
 }
 
@@ -234,28 +245,28 @@ mod test_planning {
         assert_eq!(draft.sources, vec![]);
     }
 
-    fn _rub(v: f64) -> Money {
+    fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())
     }
 
     #[test]
     fn test_empty_draft() {
         let draft = Draft::new();
-        assert_eq!(Plan::from_draft(draft), Err(Error::EmptyPlan));
+        assert_eq!(Plan::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
     fn no_expenses() {
         let draft = Draft::build(
-            &[IncomeSource::new("Gold goose".to_string(), _rub(1.0))],
+            &[IncomeSource::new("Gold goose".to_string(), rub(1.0))],
             &[],
         );
-        assert_eq!(Plan::from_draft(draft), Err(Error::EmptyPlan));
+        assert_eq!(Plan::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
     fn build_rate_plan_from_rate_expense() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -263,7 +274,7 @@ mod test_planning {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        let res = Plan::from_draft(draft).unwrap();
+        let res = Plan::try_from(draft).unwrap();
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(100))]);
 
         assert_eq!(
@@ -278,7 +289,7 @@ mod test_planning {
 
     #[test]
     fn build_plan_with_overhead_percent() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -286,12 +297,12 @@ mod test_planning {
             },
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
-        assert_eq!(Plan::from_draft(draft), Err(Error::TooBigExpenses));
+        assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
     #[test]
     fn build_rate_with_overhead_total_percent() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense_1 = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -304,16 +315,13 @@ mod test_planning {
                 value: Money::new_rub(dec!(0.01)),
             },
         );
-        let draft = Draft::build(
-            &[source.clone()],
-            &[expense_1.clone(), expense_2.clone()],
-        );
-        assert_eq!(Plan::from_draft(draft), Err(Error::TooBigExpenses));
+        let draft = Draft::build(&[source.clone()], &[expense_1.clone(), expense_2.clone()]);
+        assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
     #[test]
     fn build_rate_when_has_rest() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -324,7 +332,7 @@ mod test_planning {
 
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(50))]);
         assert_eq!(
-            Plan::from_draft(draft).unwrap(),
+            Plan::try_from(draft).unwrap(),
             Plan {
                 sources: vec![source.clone()],
                 plan: expected,
@@ -335,14 +343,14 @@ mod test_planning {
 
     #[test]
     fn build_full_plan() {
-        let source = IncomeSource::new("Gold goose".to_string(), _rub(1.0));
+        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
         let expense_1 = Expense::new(
             "Black Hole".to_string(),
-            ExpenseValue::MONEY { value: _rub(0.25) },
+            ExpenseValue::MONEY { value: rub(0.25) },
         );
         let expense_2 = Expense::new(
             "Yet Another Black Hole".to_string(),
-            ExpenseValue::MONEY { value: _rub(0.5) },
+            ExpenseValue::MONEY { value: rub(0.5) },
         );
         let expense_3 = Expense::new(
             "Rate Black Hole".to_string(),
@@ -354,7 +362,7 @@ mod test_planning {
             &[source.clone()],
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );
-        let res = Plan::from_draft(draft).unwrap();
+        let res = Plan::try_from(draft).unwrap();
         let expected = HashMap::from([
             (expense_1.clone(), Percentage::QUARTER),
             (expense_2.clone(), Percentage::HALF),
