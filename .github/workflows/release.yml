@@ -67,6 +67,7 @@ jobs:
         run: echo "Подтвердите публикацию релиза в UI"
 
   release:
+    environment: release-approval
     needs: [ build, test, approve ]
     runs-on: ubuntu-latest
 
