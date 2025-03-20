@@ -29,7 +29,7 @@ jobs:
       - name: Архивация бинарника
         run: |
           mkdir dist
-          cp target/${{ matrix.target }}/release/* dist/
+          cp -r target/${{ matrix.target }}/release/* dist/
         shell: bash
 
       - name: Загрузка артефактов
