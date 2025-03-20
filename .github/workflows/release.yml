@@ -24,8 +24,15 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ windows-latest, macos-latest ]
-        target: [ x86_64-pc-windows-msvc, x86_64-apple-darwin ]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+          - os: macos-latest
+            target: x86_64-apple-darwin
+
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
 
     runs-on: ${{ matrix.os }}
 
@@ -61,7 +68,7 @@ jobs:
           path: dist/
 
   release:
-    needs: build
+    needs: [ build, test ]
     runs-on: ubuntu-latest
 
     steps:
