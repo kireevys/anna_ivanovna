@@ -60,8 +60,14 @@ jobs:
           name: build-${{ matrix.target }}
           path: dist/
 
+  approve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ожидание подтверждения
+        run: echo "Подтвердите публикацию релиза в UI"
+
   release:
-    needs: [ build, test ]
+    needs: [ build, test, approve ]
     runs-on: ubuntu-latest
 
     steps:
