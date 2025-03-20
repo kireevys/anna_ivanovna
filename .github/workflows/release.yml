@@ -56,9 +56,9 @@ jobs:
         run: |
           mkdir -p dist
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp target/${{ matrix.target }}/release/anna_ivanovna.exe dist/
+            cp target/${{ matrix.target }}/release/anna_ivanovna.exe dist/ai_${{ matrix.target }}.exe
           else
-            cp target/${{ matrix.target }}/release/anna_ivanovna dist/
+            cp target/${{ matrix.target }}/release/anna_ivanovna dist/ai_${{ matrix.target }}
           fi
         shell: bash
 
