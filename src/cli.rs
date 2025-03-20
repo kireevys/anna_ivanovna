@@ -1,15 +1,28 @@
 use crate::distribute::{distribute, Income};
 use crate::finance::Money;
 use crate::planning::{IncomeSource, Plan};
-use crate::storage::distribute_to_yaml;
+use crate::storage::{distribute_to_yaml, plan_from_yaml};
 use chrono::Local;
 use clap::{Parser, Subcommand};
+use dotenvy::dotenv;
 use rust_decimal::Decimal;
-use std::collections::HashMap;
 use std::fs::File;
-use std::io;
 use std::io::Write;
 use std::path::Path;
+use std::{env, io};
+
+const PLAN: &str = "plan.yaml";
+const STORAGE: &str = "storage";
+const INCOMES: &str = "incomes";
+const HOMEVAR: &str = "HOMEVAR";
+
+#[derive(Debug)]
+pub enum Error {
+    NoConfig,
+    NoPlan,
+    CantWriteResult,
+    InvalidInput,
+}
 
 #[derive(Parser)]
 #[clap(name = "Anna Ivanovna", version = env!("CARGO_PKG_VERSION"), author = "github.com/kireevys")]
@@ -30,36 +43,29 @@ enum Commands {
     ShowPlan,
 }
 
-fn user_input() -> String {
+fn user_input() -> Result<usize, Error> {
     let mut source_num = String::new();
     io::stdout().flush().unwrap();
     io::stdin()
         .read_line(&mut source_num)
-        .expect("Не удалось прочитать строку");
-    source_num.trim().to_string()
+        .map_err(|_| Error::InvalidInput)?;
+    source_num
+        .trim()
+        .parse::<usize>()
+        .map_err(|_| Error::InvalidInput)
 }
 
-fn enumerated_sources(plan: &Plan) -> HashMap<String, &IncomeSource> {
-    let mut hm = HashMap::new();
-    for (n, i) in plan.sources.iter().enumerate() {
-        hm.insert((n + 1).to_string(), i);
-    }
-    hm
-}
-
-fn choose_source(plan: &Plan) -> &IncomeSource {
+fn choose_source(plan: &Plan) -> Result<&IncomeSource, Error> {
     if plan.sources.len() == 1 {
-        return &plan.sources[0];
+        return plan.sources.first().ok_or(Error::NoPlan);
     }
-    let sources = enumerated_sources(plan);
-    let mut sorted_vec: Vec<_> = sources.iter().collect();
-    sorted_vec.sort_by_key(|&(k, _)| k);
     println!("В Бюджете указано несколько источников дохода:");
-    for (n, i) in &sorted_vec {
+    for (n, i) in plan.sources.iter().enumerate() {
         println!("{n} : {i}");
     }
     print!("Введите номер источника $ ");
-    sources.get(&user_input()).expect("Неверный источник")
+    let input = user_input()?;
+    plan.sources.get(input).ok_or(Error::InvalidInput)
 }
 
 /// Запуск cli для работы с выбранным планом
@@ -68,31 +74,52 @@ fn choose_source(plan: &Plan) -> &IncomeSource {
 ///
 /// * `plan`: Ссылка на Бюджет
 ///
-/// # Panics
+/// # Errors
 /// При неожиданном пользовательском вводе
 ///
 /// returns: ()
-pub fn run(plan: &Plan, _result: &Path) {
+pub fn run() -> Result<(), Error> {
     let cli = Cli::parse();
+    if dotenv().is_err() {
+        eprintln!(
+            "⚠️ .env файл не найден, используем переменные окружения {:?}",
+            env::var(HOMEVAR)
+        );
+    }
+    let home = env::var(HOMEVAR)
+        .map(|p| Path::new(p.as_str()).to_path_buf())
+        .map_err(|_e| Error::NoConfig)?;
+    let storage = home.join(STORAGE);
+    storage.try_exists().map_err(|_| Error::NoPlan)?;
+    let result_path: String = format!("{}.yaml", Local::now().format("%Y-%m-%d"));
+    let result_path = storage.join(INCOMES).join(result_path);
+    let plan_p = storage.join(PLAN);
+    plan_p.as_path().try_exists().map_err(|_| Error::NoPlan)?;
+    println!("Используется файл плана {plan_p:?}");
+    let plan = plan_from_yaml(plan_p.as_path()).map_err(|_| Error::NoPlan)?;
 
     match cli.command {
         Commands::AddIncome { amount } => {
-            let source = choose_source(plan);
+            let source = choose_source(&plan)?;
             let income = Income::new_today(source.clone(), Money::new_rub(amount));
 
-            match distribute(plan, &income) {
+            match distribute(&plan, &income) {
                 Ok(d) => {
-                    let result = distribute_to_yaml(&d);
-                    let path = format!("storage/incomes/{}.yaml", Local::now().format("%Y-%m-%d"));
-                    let mut file = File::create(path).expect("cannot file");
-                    file.write_all(result.as_bytes()).unwrap();
+                    let mut file =
+                        File::create(&result_path).map_err(|_| Error::CantWriteResult)?;
+                    file.write_all(distribute_to_yaml(&d).as_bytes())
+                        .map_err(|_| Error::CantWriteResult)?;
+                    println!("Записано в {result_path:?}");
                     println!("{d}");
                 }
                 Err(e) => println!("{e:?}"),
             }
+            Ok(())
         }
         Commands::ShowPlan => {
+            // TODO: Красивый План
             println!("{plan:#?}");
+            Ok(())
         }
     }
 }

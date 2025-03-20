@@ -6,11 +6,16 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize)]
 pub struct IncomeSource {
     pub name: String,
     #[serde(skip)]
     pub expected: Money,
+}
+impl PartialEq for IncomeSource {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
 }
 
 impl IncomeSource {

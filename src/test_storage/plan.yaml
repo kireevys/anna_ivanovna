@@ -2,16 +2,12 @@ version: "1.0"
 
 plan:
   incomes:
-    - id: 09F203A4-C66D-44F1-A17D-09684936B338
-      source: Зарплата
+    - source: Зарплата
       value: ₽50.0
-    - id: 5F93A0DA-2B37-4547-8D59-2A52DAAF513F
-      source: Золотой гусь
+    - source: Золотой гусь
       value: ₽50.0
   expenses:
-    - id: A06BFDDA-E5D2-4E3C-8E82-502D7E3F8657
-      name: Черная дыра
+    - name: Черная дыра
       value: ₽49.99
-    - id: 1E382F5A-EABD-4DC6-B963-B53E94F2C853
-      name: Кейсы в CS:GO
+    - name: Кейсы в CS:GO
       value: 49.03%

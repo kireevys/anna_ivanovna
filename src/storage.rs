@@ -1,11 +1,19 @@
 use crate::distribute::Distribute;
 use crate::finance::Money;
-use crate::planning::{Draft, Error, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan};
+use crate::planning::{
+    Draft, Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan,
+};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
+#[derive(Debug)]
+pub enum Error {
+    CantReadPlan,
+    CantParsePlan,
+    PlanNotAdaptable,
+}
 #[derive(Deserialize)]
 struct Root {
     pub plan: PlanDetails,
@@ -29,20 +37,20 @@ struct Expense {
     pub value: String,
 }
 
-fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, Error> {
+fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, PlanningError> {
     let sources = yaml
         .incomes
         .into_iter()
         .map(|i| Money::from_str(i.value.as_str()).map(|v| IncomeSource::new(i.source, v)))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_e| Error::InvalidPlan)?;
+        .map_err(|_e| PlanningError::InvalidPlan)?;
 
     let expenses = yaml
         .expenses
         .into_iter()
         .map(|e| ExpenseValue::from_str(e.value.as_str()).map(|v| DomainExpense::new(e.name, v)))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|_e| Error::InvalidPlan)?;
+        .map_err(|_e| PlanningError::InvalidPlan)?;
     Plan::try_from(Draft::build(&sources, &expenses))
 }
 
@@ -54,14 +62,24 @@ fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, Error> {
 ///
 /// returns: Plan
 ///
-/// # Panics
-/// Паникует в любой непонятной ситуации
+/// # Errors
+/// - `CantReadPlan` - Проблема чтения файла
+/// - `CantParsePlan` - Проблема парсинга файла
+/// - `PlanNotAdaptable` - Проблема конвертации в доменный объект
 ///
-#[must_use]
-pub fn plan_from_yaml(path: &Path) -> Plan {
-    let yaml_data = fs::read_to_string(path).expect("Unable to read file {path}");
-    let root: Root = serde_yaml::from_str(&yaml_data).expect("Failed to parse YAML");
-    yaml_to_domain(root.plan).expect("Failed to convert YAML to domain")
+pub fn plan_from_yaml(path: &Path) -> Result<Plan, Error> {
+    let yaml_data = fs::read_to_string(path).map_err(|e| {
+        eprintln!("Невозможно прочитать файл: {e}");
+        Error::CantReadPlan
+    })?;
+    let root: Root = serde_yaml::from_str(&yaml_data).map_err(|e| {
+        eprintln!("Невозможно спарсить файл: {e}");
+        Error::CantParsePlan
+    })?;
+    yaml_to_domain(root.plan).map_err(|e| {
+        eprintln!("Невозможно преобразовать файл: {e:?}");
+        Error::PlanNotAdaptable
+    })
 }
 /// # Panics
 /// Паникует когда не удалось собрать yaml
@@ -79,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_basic_parse() {
-        let plan = plan_from_yaml(Path::new("src/test_storage/plan.yaml"));
+        let plan = plan_from_yaml(Path::new("src/test_storage/plan.yaml")).unwrap();
         assert_eq!(plan.rest, Percentage::from(dec!(0.98)));
     }
 }
