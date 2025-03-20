@@ -26,14 +26,17 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
+          # - os: ubuntu-latest
+          #   target: x86_64-unknown-linux-musl
+
+          # - os: macos-latest
+          #   target: x86_64-apple-darwin
+
+          # - os: windows-latest
+          #   target: x86_64-pc-windows-msvc
 
           - os: macos-latest
-            target: x86_64-apple-darwin
-
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+            target: aarch64-apple-darwin
 
     runs-on: ${{ matrix.os }}
 
@@ -52,7 +55,7 @@ jobs:
       - name: Архивация бинарника
         run: |
           mkdir dist
-          cp -r target/${{ matrix.target }}/release/* dist/
+          cp -r target/${{ matrix.target }}/release/anna_ivanovna dist/
         shell: bash
 
       - name: Загрузка артефактов
