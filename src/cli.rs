@@ -9,7 +9,7 @@ use rust_decimal::Decimal;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::{env, io};
+use std::{env, fs, io};
 
 const PLAN: &str = "plan.yaml";
 const STORAGE: &str = "storage";
@@ -22,6 +22,7 @@ pub enum Error {
     NoPlan,
     CantWriteResult,
     InvalidInput,
+    CantPrepareStorage,
 }
 
 #[derive(Parser)]
@@ -41,6 +42,8 @@ enum Commands {
     /// Отобразить план
     #[clap(alias = "plan")]
     ShowPlan,
+    #[clap(alias = "prepare")]
+    PrepareStorage,
 }
 
 fn user_input() -> Result<usize, Error> {
@@ -91,15 +94,17 @@ pub fn run() -> Result<(), Error> {
         .map_err(|_e| Error::NoConfig)?;
     let storage = home.join(STORAGE);
     storage.try_exists().map_err(|_| Error::NoPlan)?;
-    let result_path: String = format!("{}.yaml", Local::now().format("%Y-%m-%d"));
-    let result_path = storage.join(INCOMES).join(result_path);
+    let incomes_path = storage.join(INCOMES);
+    let result_path = format!("{}.yaml", Local::now().format("%Y-%m-%d"));
+    let result_path = incomes_path.join(result_path);
     let plan_p = storage.join(PLAN);
     plan_p.as_path().try_exists().map_err(|_| Error::NoPlan)?;
-    println!("Используется файл плана {plan_p:?}");
+
     let plan = plan_from_yaml(plan_p.as_path()).map_err(|_| Error::NoPlan)?;
 
     match cli.command {
         Commands::AddIncome { amount } => {
+            println!("Используется файл плана {plan_p:?}");
             let source = choose_source(&plan)?;
             let income = Income::new_today(source.clone(), Money::new_rub(amount));
 
@@ -114,12 +119,32 @@ pub fn run() -> Result<(), Error> {
                 }
                 Err(e) => println!("{e:?}"),
             }
-            Ok(())
         }
         Commands::ShowPlan => {
             // TODO: Красивый План
             println!("{plan:#?}");
-            Ok(())
+        }
+        Commands::PrepareStorage => {
+            if incomes_path.exists() {
+                println!("Хранилище уже подготовлено {incomes_path:?}");
+            } else {
+                fs::create_dir_all(incomes_path.clone()).map_err(|e| {
+                    eprintln!("{e}");
+                    Error::CantPrepareStorage
+                })?;
+                println!("Создана директория {incomes_path:?}");
+            };
+
+            if plan_p.exists() {
+                println!("Файл плана уже существует {plan_p:?}");
+            } else {
+                fs::write(plan_p.clone(), "").map_err(|e| {
+                    eprintln!("{e}");
+                    Error::CantPrepareStorage
+                })?;
+                println!("Создан файл плана {plan_p:?}");
+            }
         }
     }
+    Ok(())
 }
