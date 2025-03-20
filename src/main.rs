@@ -1,5 +1,8 @@
 use anna_ivanovna::cli;
 
 fn main() {
-    cli::run();
+    println!(
+        "{}",
+        cli::run().map_or_else(|e| format!("Ошибка: {e:?}"), |()| "Успех".to_string())
+    );
 }

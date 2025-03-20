@@ -25,7 +25,7 @@ fn plan_distribute_from_file() {
         .join("storage");
 
     let result_path = base.join(result_path);
-    let plan = plan_from_yaml(Path::new("src/test_storage/plan.yaml"));
+    let plan = plan_from_yaml(Path::new("src/test_storage/plan.yaml")).expect("Проблема");
     let source = IncomeSource::new("Зарплата".to_string(), rub(1.0));
     let income = Income::new_today(source, rub(100.0));
     let d = distribute(&plan, &income).expect("whaaaat???");
