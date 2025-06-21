@@ -1,25 +1,11 @@
-name: Release
+name: Build Binaries
 
 on:
   push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    branches:
+      - build-binaries
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Run Tests
-        run: cargo test
-      - name: clippy
-        run: cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::perf -D warnings
-
   build:
     strategy:
       matrix:
@@ -79,22 +65,4 @@ jobs:
         with:
           name: ${{ matrix.archive_name }}
           path: dist/${{ matrix.archive_name }}
-
-  release:
-    environment: release-approval
-    needs: [ build, test ]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Скачать артефакты
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Создать GitHub релиз
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/**/*
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          retention-days: 30

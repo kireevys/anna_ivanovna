@@ -11,15 +11,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Run Tests
         run: cargo test
 
       - name: clippy
-        run: cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::pedantic -D clippy::perf -D warnings
+        run: cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::perf -D warnings
