@@ -1,4 +1,4 @@
-use crate::distribute::{distribute, Income};
+use crate::distribute::{Income, distribute};
 use crate::finance::Money;
 use crate::planning::{IncomeSource, Plan};
 use crate::storage::{distribute_to_yaml, plan_from_yaml};
@@ -26,7 +26,20 @@ pub enum Error {
 }
 
 #[derive(Parser)]
-#[clap(name = "Anna Ivanovna", version = env!("CARGO_PKG_VERSION"), author = "github.com/kireevys")]
+#[clap(
+    name = "Anna Ivanovna",
+    version = env!("CARGO_PKG_VERSION"),
+    author = "github.com/kireevys",
+    about = "Планировщик бюджета - автоматическое распределение доходов по статьям расходов",
+    long_about = "Anna Ivanovna помогает автоматически распределять ваши доходы по заранее составленному плану бюджета. 
+    
+Создайте план один раз, и программа будет автоматически рассчитывать, сколько денег тратить на каждую категорию при получении дохода.
+
+Примеры:
+  anna_ivanovna prepare-storage    # Подготовить папки для работы
+  anna_ivanovna show-plan          # Показать текущий план
+  anna_ivanovna add-income 50000   # Добавить доход 50000₽"
+)]
 struct Cli {
     /// Подкоманда для работы с финансами
     #[clap(subcommand)]
@@ -35,15 +48,24 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Добавить источник дохода
+    /// Добавить доход и распределить его согласно плану
     #[clap(alias = "income")]
-    AddIncome { amount: Decimal },
+    AddIncome {
+        /// Сумма дохода в рублях
+        amount: Decimal,
+    },
 
-    /// Отобразить план
+    /// Отобразить текущий план бюджета
     #[clap(alias = "plan")]
     ShowPlan,
+
+    /// Подготовить структуру папок и файлов для работы
     #[clap(alias = "prepare")]
     PrepareStorage,
+
+    /// Вывести справку по командам
+    #[clap(alias = "readme")]
+    Manual,
 }
 
 fn user_input() -> Result<usize, Error> {
@@ -144,6 +166,9 @@ pub fn run() -> Result<(), Error> {
                 })?;
                 println!("Создан файл плана {plan_p:?}");
             }
+        }
+        Commands::Manual => {
+            println!("https://github.com/kireevys/anna_ivanovna/blob/master/README.md#2-первоначальная-настройка");
         }
     }
     Ok(())
