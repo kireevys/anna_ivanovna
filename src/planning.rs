@@ -80,7 +80,7 @@ impl Expense {
 #[derive(PartialEq, Debug)]
 pub struct Plan {
     pub sources: Vec<IncomeSource>,
-    plan: HashMap<Expense, Percentage>,
+    budget: HashMap<Expense, Percentage>,
     pub rest: Percentage,
 }
 
@@ -89,7 +89,7 @@ impl<'a> IntoIterator for &'a Plan {
     type IntoIter = std::collections::hash_map::Iter<'a, Expense, Percentage>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.plan.iter()
+        self.budget.iter()
     }
 }
 
@@ -97,14 +97,13 @@ impl Deref for Plan {
     type Target = HashMap<Expense, Percentage>;
 
     fn deref(&self) -> &Self::Target {
-        &self.plan
+        &self.budget
     }
 }
 
 impl Plan {
-    #[must_use]
     pub fn has_source(&self, source: &IncomeSource) -> bool {
-        self.sources.iter().any(|p| *p == *source)
+        self.sources.contains(source)
     }
 }
 
@@ -144,7 +143,7 @@ impl TryFrom<Draft> for Plan {
         }
         Ok(Self {
             sources: draft.sources.clone(),
-            plan: rate_plan,
+            budget: rate_plan,
             rest: Percentage::ONE_HUNDRED - total,
         })
     }
@@ -286,7 +285,7 @@ mod test_planning {
             res,
             Plan {
                 sources: vec![source.clone()],
-                plan: expected,
+                budget: expected,
                 rest: Percentage::from_int(0),
             }
         );
@@ -340,7 +339,7 @@ mod test_planning {
             Plan::try_from(draft).unwrap(),
             Plan {
                 sources: vec![source.clone()],
-                plan: expected,
+                budget: expected,
                 rest: Percentage::HALF,
             }
         );
@@ -378,7 +377,7 @@ mod test_planning {
             res,
             Plan {
                 sources: vec![source.clone()],
-                plan: expected,
+                budget: expected,
                 rest: Percentage::ZERO,
             }
         );

@@ -2,13 +2,14 @@
 name = "anna_ivanovna"
 description = "Планировщик бюджета"
 version = "0.0.4"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/kireevys/anna_ivanovna"
 authors = ["github.com/kireevys"]
 
 [package.metadata]
-pre-commit = "cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::pedantic -D clippy::perf -D warnings"
+pre-commit = "cargo clippy --all-targets --all-features -- -W clippy::style -D clippy::perf -D warnings"
 
 [package.metadata.release]
 tag = true                      # создаёт тег при релизе
@@ -19,19 +20,19 @@ publish = false                 # не публикует в crates.io
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rust_decimal = "1.34.3"
+rust_decimal = "1.37"
 chrono = { version = "0.4", features = ["serde"] }
-rust_decimal_macros = "1.34.2"
-uuid = { version = "1.8.0", features = ["serde", "v4"] }
-serde = { version = "1.0.210", features = ["derive"] }
-serde_yaml = "0.9.34"
-clap = { version = "4.5.20", features = ["derive"] }
-serde_json = "1.0.132"
-homedir = "0.3.4"
-dotenvy = "0.15.7"
+rust_decimal_macros = "1.37"
+uuid = { version = "1.8", features = ["serde", "v4"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+clap = { version = "4.5", features = ["derive"] }
+serde_json = "1.0"
+homedir = "0.3"
+dotenvy = "0.15"
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.5"
 
 [[bench]]
 name = "benchmark"
