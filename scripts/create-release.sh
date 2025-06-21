@@ -42,11 +42,11 @@ fi
 echo "Создаю тег v$VERSION..."
 git tag v$VERSION
 
-echo "✅ Тег v$VERSION создан!"
+echo "✅ v$VERSION создан!"
 echo ""
 echo "Следующие шаги:"
 echo "1. Отправьте тег: git push origin v$VERSION"
 echo "2. CI автоматически создаст релиз на GitHub"
 echo ""
 echo "Или выполните все сразу:"
-echo "   git push origin v$VERSION" 
+echo "   git push origin v$VERSION"

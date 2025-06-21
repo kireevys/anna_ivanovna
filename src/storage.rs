@@ -1,4 +1,4 @@
-use crate::distribute::Distribute;
+use crate::distribute::Budget;
 use crate::finance::Money;
 use crate::planning::{
     Draft, Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan,
@@ -13,7 +13,10 @@ pub enum Error {
     CantReadPlan,
     CantParsePlan,
     PlanNotAdaptable,
+    CantReadDistribute,
+    CantParseDistribute,
 }
+
 #[derive(Deserialize)]
 struct Root {
     pub plan: PlanDetails,
@@ -35,6 +38,7 @@ struct Income {
 struct Expense {
     pub name: String,
     pub value: String,
+    pub category: Option<String>,
 }
 
 fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, PlanningError> {
@@ -48,7 +52,10 @@ fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, PlanningError> {
     let expenses = yaml
         .expenses
         .into_iter()
-        .map(|e| ExpenseValue::from_str(e.value.as_str()).map(|v| DomainExpense::new(e.name, v)))
+        .map(|e| {
+            ExpenseValue::from_str(e.value.as_str())
+                .map(|v| DomainExpense::new(e.name, v, e.category))
+        })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_e| PlanningError::InvalidPlan)?;
     Plan::try_from(Draft::build(&sources, &expenses))
@@ -81,23 +88,59 @@ pub fn plan_from_yaml(path: &Path) -> Result<Plan, Error> {
         Error::PlanNotAdaptable
     })
 }
-/// # Panics
-/// Паникует когда не удалось собрать yaml
+
+/// Читает JSON файл с Бюджетом и возвращает его
 ///
-#[must_use]
-pub fn distribute_to_yaml(distribute: &Distribute) -> String {
-    serde_yaml::to_string(distribute).expect("Cant build yaml")
+/// # Arguments
+///
+/// * `path`: Путь к JSON файлу
+///
+/// returns: Budget
+///
+/// # Errors
+/// - `CantReadDistribute` - Проблема чтения файла
+/// - `CantParseDistribute` - Проблема парсинга файла
+///
+pub fn distribute_from_json(path: &Path) -> Result<Budget, Error> {
+    let json_data = fs::read_to_string(path).map_err(|e| {
+        eprintln!("Невозможно прочитать файл: {e}");
+        Error::CantReadDistribute
+    })?;
+
+    // Парсим JSON и переформатируем его для сравнения
+    let value: serde_json::Value = serde_json::from_str(&json_data).map_err(|e| {
+        eprintln!("Невозможно спарсить JSON файл: {e}");
+        Error::CantParseDistribute
+    })?;
+
+    // Возвращаем отформатированную строку
+    serde_json::from_value(value).map_err(|e| {
+        eprintln!("Невозможно сериализовать JSON: {e}");
+        Error::CantParseDistribute
+    })
 }
+
 #[cfg(test)]
 mod tests {
-    use crate::finance::Percentage;
-    use crate::storage::plan_from_yaml;
-    use rust_decimal_macros::dec;
+    use crate::distribute::{Income, distribute};
+    use crate::finance::Money;
+    use crate::storage::{distribute_from_json, plan_from_yaml};
+    use chrono::NaiveDate;
     use std::path::Path;
 
     #[test]
-    fn test_basic_parse() {
+    fn test_e2e() {
         let plan = plan_from_yaml(Path::new("src/test_storage/plan.yaml")).unwrap();
-        assert_eq!(plan.rest, Percentage::from(dec!(0.98)));
+        let source = plan.sources.first().unwrap();
+
+        let income = Income::new(
+            source.clone(),
+            Money::new_rub((source.expected.value / rust_decimal::Decimal::from(2)).round_dp(2)),
+            NaiveDate::from_ymd_opt(2025, 6, 21).unwrap(),
+        );
+        let result = distribute(&plan, &income).unwrap();
+
+        let expected = distribute_from_json(Path::new("src/test_storage/result.json")).unwrap();
+        assert_eq!(result, expected);
     }
 }

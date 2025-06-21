@@ -3,11 +3,21 @@ version: "1.0"
 plan:
   incomes:
     - source: Зарплата
-      value: ₽50.0
+      value: ₽100000.0
     - source: Золотой гусь
-      value: ₽50.0
+      value: ₽100000.0
   expenses:
-    - name: Черная дыра
-      value: ₽49.99
+    - name: Коммуналка
+      value: ₽15000.0
+      category: Жизнеобеспечение
+    - name: Аренда
+      value: ₽25000.0
+      category: Жизнеобеспечение
+    - name: Продукты
+      value: ₽20000.0
+      category: Питание
+    - name: Рестораны
+      value: ₽10000.0
+      category: Питание
     - name: Кейсы в CS:GO
       value: 49.03%

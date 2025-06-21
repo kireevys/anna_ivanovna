@@ -13,5 +13,9 @@ repos:
         name: Check tag version matches Cargo.toml
         entry: bash -c 'scripts/check-tag-version.sh'
         language: system
-        stages: [commit-msg]
-        pass_filenames: false 
+        pass_filenames: false
+      - id: clippy
+        name: Clippy
+        entry: cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::perf -D warnings
+        language: system
+        pass_filenames: false

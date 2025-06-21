@@ -1,13 +1,19 @@
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::iter::Sum;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, Sub, SubAssign};
 use std::str::FromStr;
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd, Serialize)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd, Serialize, Deserialize)]
 pub struct Percentage(Decimal);
+
+impl Display for Percentage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:.2}%", self.0)
+    }
+}
 
 impl FromStr for Percentage {
     type Err = rust_decimal::Error;
@@ -162,15 +168,21 @@ impl Percentage {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Hash, Copy, Clone, Serialize)]
+#[derive(PartialEq, Eq, Debug, Hash, Copy, Clone, Serialize, Deserialize)]
 pub struct Money {
     pub value: Decimal,
     pub currency: Currency,
 }
 
+impl Default for Money {
+    fn default() -> Self {
+        Self::new_rub(Decimal::ZERO)
+    }
+}
+
 impl Display for Money {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", &self.currency, &self.value)
+        write!(f, "{}{:.2}", &self.currency, &self.value)
     }
 }
 
@@ -232,7 +244,7 @@ impl Add for Money {
 }
 
 impl Sub for Money {
-    type Output = ();
+    type Output = Self;
 
     fn sub(self, other: Self) -> Self::Output {
         // Пока валюта одна - запрещаем складывать разные валюты
@@ -240,7 +252,31 @@ impl Sub for Money {
             self.currency, other.currency,
             "Нельзя складывать разные валюты"
         );
-        let _ = Self::new(self.value - other.value, self.currency);
+        Self::new(self.value - other.value, self.currency)
+    }
+}
+
+trait ToDecimal {
+    fn to_decimal(self) -> Decimal;
+}
+
+impl ToDecimal for Decimal {
+    fn to_decimal(self) -> Decimal {
+        self.round_dp(2)
+    }
+}
+
+impl ToDecimal for i64 {
+    fn to_decimal(self) -> Decimal {
+        Decimal::from(self).round_dp(2)
+    }
+}
+
+impl<T: ToDecimal> Div<T> for Money {
+    type Output = Self;
+
+    fn div(self, rhs: T) -> Self::Output {
+        Self::new(self.value / rhs.to_decimal(), self.currency)
     }
 }
 
@@ -258,7 +294,7 @@ impl Money {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub enum Currency {
     RUB,
     USD,

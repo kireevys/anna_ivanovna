@@ -1,0 +1,115 @@
+{
+  "income": {
+    "source": {
+      "name": "Зарплата",
+      "expected": {
+        "value": "100000.0",
+        "currency": "RUB"
+      }
+    },
+    "amount": {
+      "value": "50000.0",
+      "currency": "RUB"
+    },
+    "date": "2025-06-21"
+  },
+  "rest": {
+    "value": "7985.00",
+    "currency": "RUB"
+  },
+  "no_category": [
+    {
+      "expense": {
+        "name": "Кейсы в CS:GO",
+        "value": {
+          "RATE": {
+            "value": "49.03"
+          }
+        },
+        "category": null
+      },
+      "amount": {
+        "value": "24515.00",
+        "currency": "RUB"
+      }
+    }
+  ],
+  "categories": {
+    "Жизнеобеспечение": [
+      {
+        "expense": {
+          "name": "Аренда",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "25000.0",
+                "currency": "RUB"
+              }
+            }
+          },
+          "category": "Жизнеобеспечение"
+        },
+        "amount": {
+          "value": "6250.00",
+          "currency": "RUB"
+        }
+      },
+      {
+        "expense": {
+          "name": "Коммуналка",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "15000.0",
+                "currency": "RUB"
+              }
+            }
+          },
+          "category": "Жизнеобеспечение"
+        },
+        "amount": {
+          "value": "3750.00",
+          "currency": "RUB"
+        }
+      }
+    ],
+    "Питание": [
+      {
+        "expense": {
+          "name": "Продукты",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "20000.0",
+                "currency": "RUB"
+              }
+            }
+          },
+          "category": "Питание"
+        },
+        "amount": {
+          "value": "5000.00",
+          "currency": "RUB"
+        }
+      },
+      {
+        "expense": {
+          "name": "Рестораны",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "10000.0",
+                "currency": "RUB"
+              }
+            }
+          },
+          "category": "Питание"
+        },
+        "amount": {
+          "value": "2500.00",
+          "currency": "RUB"
+        }
+      }
+    ]
+  }
+}
