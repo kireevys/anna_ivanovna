@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: check-tag-version
+        name: Check tag version matches Cargo.toml
+        entry: bash -c 'scripts/check-tag-version.sh'
+        language: system
+        pass_filenames: false
+      - id: clippy
+        name: Clippy
+        entry: cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::perf -D warnings
+        language: system
+        pass_filenames: false

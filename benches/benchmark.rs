@@ -1,11 +1,11 @@
-use anna_ivanovna::distribute::{distribute, Income};
+use anna_ivanovna::distribute::{Income, distribute};
 use anna_ivanovna::finance::Money;
 use anna_ivanovna::planning::IncomeSource;
-use anna_ivanovna::storage::{distribute_to_yaml, plan_from_yaml};
+use anna_ivanovna::storage::plan_from_yaml;
 use chrono::Local;
-use criterion::{criterion_group, criterion_main, Criterion};
-use rust_decimal::prelude::FromPrimitive;
+use criterion::{Criterion, criterion_group, criterion_main};
 use rust_decimal::Decimal;
+use rust_decimal::prelude::FromPrimitive;
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -29,9 +29,9 @@ fn plan_distribute_from_file() {
     let source = IncomeSource::new("Зарплата".to_string(), rub(1.0));
     let income = Income::new_today(source, rub(100.0));
     let d = distribute(&plan, &income).expect("whaaaat???");
+    let json_result = serde_json::to_string_pretty(&d).unwrap();
     let mut file = File::create(result_path).expect("cannot file");
-    file.write_all(distribute_to_yaml(&d).as_bytes())
-        .expect("cannot write to file");
+    file.write_all(json_result.as_bytes()).expect("cannot write to file");
 }
 
 fn benchmark(c: &mut Criterion) {

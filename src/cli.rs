@@ -1,7 +1,7 @@
-use crate::distribute::{distribute, Income};
+use crate::distribute::{Income, distribute};
 use crate::finance::Money;
 use crate::planning::{IncomeSource, Plan};
-use crate::storage::{distribute_to_yaml, plan_from_yaml};
+use crate::storage::plan_from_yaml;
 use chrono::Local;
 use clap::{Parser, Subcommand};
 use dotenvy::dotenv;
@@ -26,7 +26,20 @@ pub enum Error {
 }
 
 #[derive(Parser)]
-#[clap(name = "Anna Ivanovna", version = env!("CARGO_PKG_VERSION"), author = "github.com/kireevys")]
+#[clap(
+    name = "Anna Ivanovna",
+    version = env!("CARGO_PKG_VERSION"),
+    author = "github.com/kireevys",
+    about = "Планировщик бюджета - автоматическое распределение доходов по статьям расходов",
+    long_about = "Anna Ivanovna помогает автоматически распределять ваши доходы по заранее составленному плану бюджета.
+
+Создайте план один раз, и программа будет автоматически рассчитывать, сколько денег тратить на каждую категорию при получении дохода.
+
+Примеры:
+  anna_ivanovna prepare-storage    # Подготовить папки для работы
+  anna_ivanovna show-plan          # Показать текущий план
+  anna_ivanovna add-income 50000   # Добавить доход 50000₽"
+)]
 struct Cli {
     /// Подкоманда для работы с финансами
     #[clap(subcommand)]
@@ -35,15 +48,24 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Добавить источник дохода
+    /// Добавить доход и распределить его согласно плану
     #[clap(alias = "income")]
-    AddIncome { amount: Decimal },
+    AddIncome {
+        /// Сумма дохода в рублях
+        amount: Decimal,
+    },
 
-    /// Отобразить план
-    #[clap(alias = "plan")]
-    ShowPlan,
+    /// Отобразить текущий план бюджета
+    #[clap(alias = "show-plan")]
+    Plan,
+
+    /// Подготовить структуру папок и файлов для работы
     #[clap(alias = "prepare")]
     PrepareStorage,
+
+    /// Вывести справку по командам
+    #[clap(alias = "readme")]
+    Manual,
 }
 
 fn user_input() -> Result<usize, Error> {
@@ -71,6 +93,29 @@ fn choose_source(plan: &Plan) -> Result<&IncomeSource, Error> {
     plan.sources.get(input).ok_or(Error::InvalidInput)
 }
 
+fn process_income(plan: &Plan, amount: Decimal, incomes_path: &Path) -> Result<(), Error> {
+    let source = choose_source(plan)?;
+    let income = Income::new_today(source.clone(), Money::new_rub(amount));
+
+    match distribute(plan, &income) {
+        Ok(d) => {
+            let result_path =
+                incomes_path.join(format!("{}.json", Local::now().format("%Y-%m-%d"),));
+            let mut file = File::create(&result_path).map_err(|_| Error::CantWriteResult)?;
+
+            let json_result =
+                serde_json::to_string_pretty(&d).map_err(|_| Error::CantWriteResult)?;
+            file.write_all(json_result.as_bytes())
+                .map_err(|_| Error::CantWriteResult)?;
+
+            println!("Записано в {result_path:?}");
+            println!("{d}");
+        }
+        Err(e) => println!("{e:?}"),
+    }
+    Ok(())
+}
+
 /// Запуск cli для работы с выбранным планом
 ///
 /// # Arguments
@@ -95,8 +140,6 @@ pub fn run() -> Result<(), Error> {
     let storage = home.join(STORAGE);
     storage.try_exists().map_err(|_| Error::NoPlan)?;
     let incomes_path = storage.join(INCOMES);
-    let result_path = format!("{}.yaml", Local::now().format("%Y-%m-%d"));
-    let result_path = incomes_path.join(result_path);
     let plan_p = storage.join(PLAN);
     plan_p.as_path().try_exists().map_err(|_| Error::NoPlan)?;
 
@@ -105,24 +148,10 @@ pub fn run() -> Result<(), Error> {
     match cli.command {
         Commands::AddIncome { amount } => {
             println!("Используется файл плана {plan_p:?}");
-            let source = choose_source(&plan)?;
-            let income = Income::new_today(source.clone(), Money::new_rub(amount));
-
-            match distribute(&plan, &income) {
-                Ok(d) => {
-                    let mut file =
-                        File::create(&result_path).map_err(|_| Error::CantWriteResult)?;
-                    file.write_all(distribute_to_yaml(&d).as_bytes())
-                        .map_err(|_| Error::CantWriteResult)?;
-                    println!("Записано в {result_path:?}");
-                    println!("{d}");
-                }
-                Err(e) => println!("{e:?}"),
-            }
+            process_income(&plan, amount, &incomes_path)?;
         }
-        Commands::ShowPlan => {
-            // TODO: Красивый План
-            println!("{plan:#?}");
+        Commands::Plan => {
+            println!("{plan}");
         }
         Commands::PrepareStorage => {
             if incomes_path.exists() {
@@ -144,6 +173,11 @@ pub fn run() -> Result<(), Error> {
                 })?;
                 println!("Создан файл плана {plan_p:?}");
             }
+        }
+        Commands::Manual => {
+            println!(
+                "https://github.com/kireevys/anna_ivanovna/blob/master/README.md#2-первоначальная-настройка"
+            );
         }
     }
     Ok(())

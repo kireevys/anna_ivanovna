@@ -7,8 +7,44 @@ on:
   workflow_dispatch:
 
 jobs:
+  validate-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout репозитория
+        uses: actions/checkout@v4
+
+      - name: Извлечение версии из тега
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Версия из тега: $VERSION"
+
+      - name: Получение версии из Cargo.toml
+        id: cargo_version
+        run: |
+          CARGO_VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          echo "cargo_version=$CARGO_VERSION" >> $GITHUB_OUTPUT
+          echo "Версия в Cargo.toml: $CARGO_VERSION"
+
+      - name: Проверка соответствия версий
+        run: |
+          if [ "${{ steps.get_version.outputs.version }}" != "${{ steps.cargo_version.outputs.cargo_version }}" ]; then
+            echo "❌ Версии не совпадают!"
+            echo "Версия из тега: ${{ steps.get_version.outputs.version }}"
+            echo "Версия в Cargo.toml: ${{ steps.cargo_version.outputs.cargo_version }}"
+            echo ""
+            echo "Для исправления:"
+            echo "1. Обновите версию в Cargo.toml до ${{ steps.get_version.outputs.version }}"
+            echo "2. Или создайте тег с версией ${{ steps.cargo_version.outputs.cargo_version }}"
+            exit 1
+          else
+            echo "✅ Версии совпадают!"
+          fi
+
   test:
     runs-on: ubuntu-latest
+    needs: validate-version
 
     steps:
       - name: Checkout code
@@ -18,7 +54,7 @@ jobs:
       - name: Run Tests
         run: cargo test
       - name: clippy
-        run: cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::perf -D warnings
+        run: cargo clippy --all-targets --all-features -- -W clippy::style -D clippy::perf -D warnings
 
   build:
     strategy:
@@ -45,6 +81,7 @@ jobs:
             binary_name: anna_ivanovna
 
     runs-on: ${{ matrix.os }}
+    needs: validate-version
 
     steps:
       - name: Checkout репозитория
@@ -63,9 +100,11 @@ jobs:
           mkdir -p dist
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             # Windows - создаем ZIP архив
-            cd target/${{ matrix.target }}/release
-            zip -r ../../../dist/${{ matrix.archive_name }} ${{ matrix.binary_name }}
-            cd ../../../
+            pwsh -Command "& {
+              \$src = 'target/${{ matrix.target }}/release/${{ matrix.binary_name }}';
+              \$dst = 'dist/${{ matrix.archive_name }}';
+              Compress-Archive -Path \$src -DestinationPath \$dst
+            }"
           else
             # macOS/Linux - создаем tar.gz архив
             cd target/${{ matrix.target }}/release

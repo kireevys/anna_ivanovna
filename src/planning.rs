@@ -1,16 +1,21 @@
 use crate::finance::{Money, Percentage};
 use rust_decimal::Decimal;
-use serde::Serialize;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
 use std::ops::Deref;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IncomeSource {
     pub name: String,
-    #[serde(skip)]
     pub expected: Money,
+}
+
+impl IncomeSource {
+    pub fn expected(&self) -> &Money {
+        &self.expected
+    }
 }
 impl PartialEq for IncomeSource {
     fn eq(&self, other: &Self) -> bool {
@@ -38,10 +43,18 @@ pub enum Error {
     InvalidPlan,
 }
 
-#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize, Deserialize)]
 pub enum ExpenseValue {
     RATE { value: Percentage },
     MONEY { value: Money },
+}
+
+impl Default for ExpenseValue {
+    fn default() -> Self {
+        ExpenseValue::MONEY {
+            value: Money::default(),
+        }
+    }
 }
 
 impl FromStr for ExpenseValue {
@@ -63,21 +76,24 @@ impl FromStr for ExpenseValue {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize, Deserialize)]
 pub struct Expense {
     pub name: String,
-    #[serde(skip)]
     pub value: ExpenseValue,
+    pub category: Option<String>,
 }
 
 impl Expense {
-    #[must_use]
-    pub fn new(name: String, value: ExpenseValue) -> Self {
-        Self { name, value }
+    pub fn new(name: String, value: ExpenseValue, category: Option<String>) -> Self {
+        Self {
+            name,
+            value,
+            category,
+        }
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub struct Plan {
     pub sources: Vec<IncomeSource>,
     budget: HashMap<Expense, Percentage>,
@@ -104,6 +120,61 @@ impl Deref for Plan {
 impl Plan {
     pub fn has_source(&self, source: &IncomeSource) -> bool {
         self.sources.contains(source)
+    }
+
+    /// Группирует расходы по категориям
+    fn categories(&self) -> impl Iterator<Item = (String, Vec<&Expense>)> {
+        let mut sorted_expenses: Vec<_> = self.budget.keys().collect();
+        sorted_expenses.sort_by_key(|e| &e.name);
+
+        let mut category_map: BTreeMap<String, Vec<&Expense>> = BTreeMap::new();
+
+        for expense in sorted_expenses {
+            let category_name = expense
+                .category
+                .as_deref()
+                .unwrap_or("Без категории")
+                .to_string();
+            category_map.entry(category_name).or_default().push(expense);
+        }
+
+        category_map.into_iter()
+    }
+}
+
+impl Display for Plan {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "План бюджета:")?;
+
+        // Источники дохода
+        writeln!(f, "Источники дохода:")?;
+        for source in &self.sources {
+            writeln!(f, "  {}", source)?;
+        }
+
+        let total_income = self.sources.iter().map(|s| s.expected).sum::<Money>();
+
+        let rest_amount = Money::new_rub(self.rest.apply_to(total_income.value));
+        writeln!(f)?;
+        writeln!(f, "Остаток: {:<25} [{}]", rest_amount, self.rest)?;
+        writeln!(f)?;
+        writeln!(f, "Запланированные расходы:")?;
+
+        for (category_name, expenses) in self.categories() {
+            writeln!(f, "  {}", category_name)?;
+            for expense in expenses {
+                if let Some(percentage) = self.budget.get(expense) {
+                    let estimated_amount = Money::new_rub(percentage.apply_to(total_income.value));
+                    writeln!(
+                        f,
+                        "    - {:<25} {} [{}]",
+                        expense.name, estimated_amount, percentage
+                    )?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -196,8 +267,8 @@ impl Draft {
 mod test_planning {
     use std::collections::HashMap;
 
-    use rust_decimal::prelude::FromPrimitive;
     use rust_decimal::Decimal;
+    use rust_decimal::prelude::FromPrimitive;
     use rust_decimal_macros::dec;
 
     use crate::finance::{Currency, Money, Percentage};
@@ -229,6 +300,7 @@ mod test_planning {
             ExpenseValue::MONEY {
                 value: Money::new(dec!(1), Currency::RUB),
             },
+            None,
         );
         draft.add_expense(expense.clone());
         assert_eq!(draft.expenses, vec![expense]);
@@ -243,6 +315,7 @@ mod test_planning {
             ExpenseValue::RATE {
                 value: Percentage::from_int(10),
             },
+            None,
         );
         draft.add_expense(expense.clone());
         assert_eq!(draft.expenses, vec![expense]);
@@ -276,6 +349,7 @@ mod test_planning {
             ExpenseValue::RATE {
                 value: Percentage::from_int(100),
             },
+            None,
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         let res = Plan::try_from(draft).unwrap();
@@ -299,6 +373,7 @@ mod test_planning {
             ExpenseValue::RATE {
                 value: Percentage::from_int(101),
             },
+            None,
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
         assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
@@ -312,12 +387,14 @@ mod test_planning {
             ExpenseValue::RATE {
                 value: Percentage::from_int(100),
             },
+            None,
         );
         let expense_2 = Expense::new(
             "Little bit".to_string(),
             ExpenseValue::MONEY {
                 value: Money::new_rub(dec!(0.01)),
             },
+            None,
         );
         let draft = Draft::build(&[source.clone()], &[expense_1.clone(), expense_2.clone()]);
         assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
@@ -331,6 +408,7 @@ mod test_planning {
             ExpenseValue::RATE {
                 value: Percentage::from_int(50),
             },
+            None,
         );
         let draft = Draft::build(&[source.clone()], &[expense.clone()]);
 
@@ -351,16 +429,19 @@ mod test_planning {
         let expense_1 = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.25) },
+            None,
         );
         let expense_2 = Expense::new(
             "Yet Another Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.5) },
+            None,
         );
         let expense_3 = Expense::new(
             "Rate Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::QUARTER,
             },
+            None,
         );
         let draft = Draft::build(
             &[source.clone()],
@@ -381,5 +462,39 @@ mod test_planning {
                 rest: Percentage::ZERO,
             }
         );
+    }
+
+    #[test]
+    fn test_plan_display() {
+        let source = IncomeSource::new("Зарплата".to_string(), rub(100000.0));
+        let expense_1 = Expense::new(
+            "Аренда".to_string(),
+            ExpenseValue::MONEY {
+                value: rub(25000.0),
+            },
+            Some("Жизнеобеспечение".to_string()),
+        );
+        let expense_2 = Expense::new(
+            "Продукты".to_string(),
+            ExpenseValue::MONEY {
+                value: rub(20000.0),
+            },
+            Some("Питание".to_string()),
+        );
+        let expense_3 = Expense::new(
+            "Развлечения".to_string(),
+            ExpenseValue::RATE {
+                value: Percentage::from_int(15),
+            },
+            None,
+        );
+
+        let draft = Draft::build(
+            &[source.clone()],
+            &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
+        );
+        let plan = Plan::try_from(draft).unwrap();
+
+        println!("{plan}");
     }
 }
