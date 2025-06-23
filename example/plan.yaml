@@ -1,0 +1,18 @@
+version: "1.0"
+
+plan:
+  incomes:
+    - source: Зарплата
+      value: ₽100000.0
+  expenses:
+    - name: Платить себе
+      value: 10%
+      category: Личные нужды
+    - name: Кейсы в CS:GO
+      value: ₽10000
+    - name: Резерв на непредвиденное
+      value: 5%
+      category: Финансовая подушка
+    - name: Курс английского
+      value: ₽5000
+      category: Образование

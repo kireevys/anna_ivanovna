@@ -4,17 +4,17 @@ use crate::planning::{IncomeSource, Plan};
 use crate::storage::plan_from_yaml;
 use chrono::Local;
 use clap::{Parser, Subcommand};
-use dotenvy::dotenv;
 use rust_decimal::Decimal;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use std::{env, fs, io};
+use std::{fs, io};
 
 const PLAN: &str = "plan.yaml";
 const STORAGE: &str = "storage";
 const INCOMES: &str = "incomes";
-const HOMEVAR: &str = "HOMEVAR";
+const DEFAULT_HOME: &str = ".buh";
+const ENV_BUH_HOME: &str = "BUH_HOME";
 
 #[derive(Debug)]
 pub enum Error {
@@ -37,8 +37,8 @@ pub enum Error {
 
 Примеры:
   anna_ivanovna prepare-storage    # Подготовить папки для работы
-  anna_ivanovna show-plan          # Показать текущий план
-  anna_ivanovna add-income 50000   # Добавить доход 50000₽"
+  anna_ivanovna plan               # Показать текущий план
+  anna_ivanovna income 50000       # Добавить доход 50000₽"
 )]
 struct Cli {
     /// Подкоманда для работы с финансами
@@ -116,6 +116,96 @@ fn process_income(plan: &Plan, amount: Decimal, incomes_path: &Path) -> Result<(
     Ok(())
 }
 
+fn get_buh_home() -> Result<std::path::PathBuf, Error> {
+    if let Ok(val) = std::env::var(ENV_BUH_HOME) {
+        println!(
+            "🏠 [anna_ivanovna] Использую BUH_HOME из переменной окружения: {}",
+            val
+        );
+        Ok(std::path::PathBuf::from(val))
+    } else {
+        let default = dirs::home_dir()
+            .map(|h| h.join(DEFAULT_HOME))
+            .ok_or(Error::NoConfig)?;
+        println!(
+            "🏠 [anna_ivanovna] BUH_HOME не задан, использую директорию по умолчанию: {}",
+            default.display()
+        );
+        Ok(default)
+    }
+}
+
+pub fn auto_prepare_storage() -> Result<(), String> {
+    let buh_dir = std::env::var(ENV_BUH_HOME)
+        .map(std::path::PathBuf::from)
+        .or_else(|_| {
+            dirs::home_dir()
+                .map(|h| h.join(DEFAULT_HOME))
+                .ok_or("Не удалось определить домашнюю директорию".to_string())
+        })?;
+
+    println!(
+        "📦 [anna_ivanovna] Хранилище не найдено, инициализирую: {}",
+        buh_dir.display()
+    );
+
+    if buh_dir.exists() {
+        return Err(format!(
+            "❗️ Хранилище уже инициализировано: {}",
+            buh_dir.display()
+        ));
+    }
+
+    // Создаём директорию
+    fs::create_dir_all(&buh_dir).map_err(|e| format!("Ошибка создания директории: {e}"))?;
+    println!(
+        "📁 [anna_ivanovna] Создана директория: {}",
+        buh_dir.display()
+    );
+
+    // Вызываем prepare-логику (создание поддиректорий и файлов)
+    let storage = buh_dir.join("storage");
+    let incomes_path = storage.join("incomes");
+    let plan_p = storage.join("plan.yaml");
+
+    fs::create_dir_all(&incomes_path).map_err(|e| format!("Ошибка создания incomes: {e}"))?;
+    println!(
+        "📁 [anna_ivanovna] Создана директория: {}",
+        incomes_path.display()
+    );
+    if !plan_p.exists() {
+        // Копируем example/plan.yaml, если он есть
+        let example_plan = std::path::Path::new("example/plan.yaml");
+        if example_plan.exists() {
+            fs::copy(example_plan, &plan_p)
+                .map_err(|e| format!("Ошибка копирования example/plan.yaml: {e}"))?;
+            println!(
+                "📄 [anna_ivanovna] Скопирован пример плана: {} → {}",
+                example_plan.display(),
+                plan_p.display()
+            );
+            println!(
+                "✏️  [anna_ivanovna] Перейдите к этому файлу и отредактируйте его под себя перед использованием!"
+            );
+        } else {
+            fs::write(&plan_p, "").map_err(|e| format!("Ошибка создания plan.yaml: {e}"))?;
+            println!(
+                "📄 [anna_ivanovna] Создан пустой файл плана: {}",
+                plan_p.display()
+            );
+            println!(
+                "✏️  [anna_ivanovna] Перейдите к этому файлу и заполните его перед использованием!"
+            );
+        }
+    }
+
+    println!(
+        "✅ [anna_ivanovna] Хранилище инициализировано: {}",
+        buh_dir.display()
+    );
+    Ok(())
+}
+
 /// Запуск cli для работы с выбранным планом
 ///
 /// # Arguments
@@ -127,16 +217,17 @@ fn process_income(plan: &Plan, amount: Decimal, incomes_path: &Path) -> Result<(
 ///
 /// returns: ()
 pub fn run() -> Result<(), Error> {
-    let cli = Cli::parse();
-    if dotenv().is_err() {
-        eprintln!(
-            "⚠️ .env файл не найден, используем переменные окружения {:?}",
-            env::var(HOMEVAR)
-        );
+    // Автоматическая инициализация, если хранилище не найдено
+    let buh_home = get_buh_home()?;
+    if !buh_home.exists() {
+        if let Err(e) = auto_prepare_storage() {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
     }
-    let home = env::var(HOMEVAR)
-        .map(|p| Path::new(p.as_str()).to_path_buf())
-        .map_err(|_e| Error::NoConfig)?;
+
+    let cli = Cli::parse();
+    let home = buh_home;
     let storage = home.join(STORAGE);
     storage.try_exists().map_err(|_| Error::NoPlan)?;
     let incomes_path = storage.join(INCOMES);
@@ -147,7 +238,10 @@ pub fn run() -> Result<(), Error> {
 
     match cli.command {
         Commands::AddIncome { amount } => {
-            println!("Используется файл плана {plan_p:?}");
+            println!(
+                "[anna_ivanovna] Используется файл плана: {}",
+                plan_p.display()
+            );
             process_income(&plan, amount, &incomes_path)?;
         }
         Commands::Plan => {
@@ -155,28 +249,37 @@ pub fn run() -> Result<(), Error> {
         }
         Commands::PrepareStorage => {
             if incomes_path.exists() {
-                println!("Хранилище уже подготовлено {incomes_path:?}");
+                println!(
+                    "[anna_ivanovna] Хранилище уже подготовлено: {}",
+                    incomes_path.display()
+                );
             } else {
                 fs::create_dir_all(incomes_path.clone()).map_err(|e| {
                     eprintln!("{e}");
                     Error::CantPrepareStorage
                 })?;
-                println!("Создана директория {incomes_path:?}");
+                println!(
+                    "[anna_ivanovna] Создана директория: {}",
+                    incomes_path.display()
+                );
             };
 
             if plan_p.exists() {
-                println!("Файл плана уже существует {plan_p:?}");
+                println!(
+                    "[anna_ivanovna] Файл плана уже существует: {}",
+                    plan_p.display()
+                );
             } else {
                 fs::write(plan_p.clone(), "").map_err(|e| {
                     eprintln!("{e}");
                     Error::CantPrepareStorage
                 })?;
-                println!("Создан файл плана {plan_p:?}");
+                println!("[anna_ivanovna] Создан файл плана: {}", plan_p.display());
             }
         }
         Commands::Manual => {
             println!(
-                "https://github.com/kireevys/anna_ivanovna/blob/master/README.md#2-первоначальная-настройка"
+                "Anna Ivanovna - CLI для управления бюджетом. Используйте --help для справки."
             );
         }
     }
