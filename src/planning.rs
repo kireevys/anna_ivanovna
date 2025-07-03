@@ -147,33 +147,47 @@ impl Display for Plan {
         writeln!(f, "План бюджета:")?;
 
         // Источники дохода
-        writeln!(f, "Источники дохода:")?;
-        for source in &self.sources {
-            writeln!(f, "  {}", source)?;
+        writeln!(f, "├─ 💸 Источники дохода:")?;
+        let sources_len = self.sources.len();
+        for (i, source) in self.sources.iter().enumerate() {
+            let prefix = if i + 1 == sources_len { "└──" } else { "├──" };
+            writeln!(f, "│   {prefix} {source}")?;
         }
 
         let total_income = self.sources.iter().map(|s| s.expected).sum::<Money>();
-
         let rest_amount = Money::new_rub(self.rest.apply_to(total_income.value));
-        writeln!(f)?;
-        writeln!(f, "Остаток: {:<25} [{}]", rest_amount, self.rest)?;
-        writeln!(f)?;
-        writeln!(f, "Запланированные расходы:")?;
+        writeln!(f, "│")?;
+        writeln!(f, "├─ 🏦 Остаток: {:<25} [{}]", rest_amount, self.rest)?;
+        writeln!(f, "│")?;
+        writeln!(f, "└─ Запланированные расходы:")?;
 
-        for (category_name, expenses) in self.categories() {
-            writeln!(f, "  {}", category_name)?;
-            for expense in expenses {
+        let categories: Vec<_> = self.categories().collect();
+        let cat_len = categories.len();
+        for (ci, (category_name, expenses)) in categories.into_iter().enumerate() {
+            let cat_prefix = if ci + 1 == cat_len { "    └──" } else { "    ├──" };
+            let cat_emoji = if category_name == "Без категории" { "📦" } else { "📂" };
+            writeln!(f, "{cat_prefix} {cat_emoji} {category_name}")?;
+            let exp_len = expenses.len();
+            let mut cat_total_amount = Money::new_rub(Decimal::ZERO);
+            let mut cat_total_percent = Percentage::ZERO;
+            for (ei, expense) in expenses.iter().enumerate() {
+                let exp_prefix = if ei + 1 == exp_len { "        └──" } else { "        ├──" };
                 if let Some(percentage) = self.budget.get(expense) {
                     let estimated_amount = Money::new_rub(percentage.apply_to(total_income.value));
+                    cat_total_amount += estimated_amount;
+                    cat_total_percent += percentage.clone();
                     writeln!(
                         f,
-                        "    - {:<25} {} [{}]",
+                        "{exp_prefix} {:<25} {} [{}]",
                         expense.name, estimated_amount, percentage
                     )?;
                 }
             }
+            writeln!(
+                f,
+                "         💰 {cat_total_amount:<25} [{cat_total_percent}]"
+            )?;
         }
-
         Ok(())
     }
 }

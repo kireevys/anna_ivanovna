@@ -91,34 +91,65 @@ impl Budget {
 
 impl Display for Budget {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "\nРаспределение дохода {}По источнику {}",
-            &self.income, &self.income.source
-        )?;
-
-        if !self.no_category.is_empty() {
-            let total: Money = self.no_category.iter().map(|entry| entry.amount).sum();
-            writeln!(f, "- {:20} - {}", "Без категории", total)?;
-
-            for entry in &self.no_category {
-                writeln!(f, "  {:18} - {}", entry.expense.name, entry.amount)?;
-            }
-        }
+        writeln!(f, "Распределение дохода:")?;
+        writeln!(f, "├── 💸 Источник: {}", &self.income.source)?;
+        writeln!(f, "│   Сумма: {}", &self.income.amount)?;
+        writeln!(f, "│   Дата: {}", &self.income.date)?;
+        writeln!(f, "│")?;
 
         let mut sorted_categories: Vec<_> = self.categories.iter().collect();
         sorted_categories.sort_by_key(|(category, _)| *category);
-
-        for (category, entries) in sorted_categories {
-            let total: Money = entries.iter().map(|entry| entry.amount).sum();
-            writeln!(f, "- {:20} - {}", category, total)?;
-
-            for entry in entries {
-                writeln!(f, "  {:18} - {}", entry.expense.name, entry.amount)?;
+        let has_no_category = !self.no_category.is_empty();
+        let cat_len = sorted_categories.len();
+        let branch_count = cat_len + if has_no_category { 1 } else { 0 };
+        let mut branch_idx = 0;
+        // Сначала выводим "Без категории"
+        if has_no_category {
+            branch_idx += 1;
+            let no_cat_prefix = if branch_idx == branch_count && cat_len == 0 {
+                "└──"
+            } else {
+                "├──"
+            };
+            writeln!(f, "{no_cat_prefix} 📦 Без категории")?;
+            let exp_len = self.no_category.len();
+            for (ei, entry) in self.no_category.iter().enumerate() {
+                let exp_prefix = if ei + 1 == exp_len && cat_len == 0 {
+                    "    └──"
+                } else {
+                    "    ├──"
+                };
+                writeln!(
+                    f,
+                    "{exp_prefix} {:<23} - {}",
+                    entry.expense.name, entry.amount
+                )?;
             }
         }
 
-        writeln!(f, "- {:20} - {}", "Остаток", self.rest)
+        // Затем категории
+        for (category, entries) in sorted_categories.into_iter() {
+            branch_idx += 1;
+            let cat_prefix = if branch_idx == branch_count {
+                "└──"
+            } else {
+                "├──"
+            };
+            write!(f, "{cat_prefix} 📂 {category:<25}")?;
+            let cat_total = entries.iter().map(|entry| entry.amount).sum::<Money>();
+            writeln!(f, "- {cat_total}")?;
+
+            let exp_len = entries.len();
+            for (ei, entry) in entries.iter().enumerate() {
+                let exp_prefix = if ei + 1 == exp_len {
+                    "    └──"
+                } else {
+                    "    ├──"
+                };
+                writeln!(f, "{exp_prefix} {}", entry.expense.name)?;
+            }
+        }
+        writeln!(f, "└── 🏦 Остаток{:17} -[{}]", "", self.rest)
     }
 }
 
