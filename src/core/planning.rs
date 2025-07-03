@@ -1,8 +1,8 @@
-use crate::finance::{Money, Percentage};
+use crate::core::finance::{Money, Percentage};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::Display;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -93,11 +93,33 @@ impl Expense {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize)]
 pub struct Plan {
     pub sources: Vec<IncomeSource>,
     budget: HashMap<Expense, Percentage>,
     pub rest: Percentage,
+}
+
+impl Debug for Plan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let expenses_count = self.budget.len();
+        f.debug_struct("Plan")
+            .field("sources_count", &self.sources.len())
+            .field("expenses_count", &expenses_count)
+            .field("rest", &self.rest)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+impl Clone for Plan {
+    fn clone(&self) -> Self {
+        Self {
+            sources: self.sources.clone(),
+            budget: self.budget.clone(),
+            rest: self.rest.clone(),
+        }
+    }
 }
 
 impl<'a> IntoIterator for &'a Plan {
@@ -123,7 +145,7 @@ impl Plan {
     }
 
     /// Группирует расходы по категориям
-    fn categories(&self) -> impl Iterator<Item = (String, Vec<&Expense>)> {
+    pub fn categories(&self) -> impl Iterator<Item = (String, Vec<&Expense>)> {
         let mut sorted_expenses: Vec<_> = self.budget.keys().collect();
         sorted_expenses.sort_by_key(|e| &e.name);
 
@@ -150,7 +172,11 @@ impl Display for Plan {
         writeln!(f, "├─ 💸 Источники дохода:")?;
         let sources_len = self.sources.len();
         for (i, source) in self.sources.iter().enumerate() {
-            let prefix = if i + 1 == sources_len { "└──" } else { "├──" };
+            let prefix = if i + 1 == sources_len {
+                "└──"
+            } else {
+                "├──"
+            };
             writeln!(f, "│   {prefix} {source}")?;
         }
 
@@ -164,14 +190,26 @@ impl Display for Plan {
         let categories: Vec<_> = self.categories().collect();
         let cat_len = categories.len();
         for (ci, (category_name, expenses)) in categories.into_iter().enumerate() {
-            let cat_prefix = if ci + 1 == cat_len { "    └──" } else { "    ├──" };
-            let cat_emoji = if category_name == "Без категории" { "📦" } else { "📂" };
+            let cat_prefix = if ci + 1 == cat_len {
+                "    └──"
+            } else {
+                "    ├──"
+            };
+            let cat_emoji = if category_name == "Без категории" {
+                "📦"
+            } else {
+                "📂"
+            };
             writeln!(f, "{cat_prefix} {cat_emoji} {category_name}")?;
             let exp_len = expenses.len();
             let mut cat_total_amount = Money::new_rub(Decimal::ZERO);
             let mut cat_total_percent = Percentage::ZERO;
             for (ei, expense) in expenses.iter().enumerate() {
-                let exp_prefix = if ei + 1 == exp_len { "        └──" } else { "        ├──" };
+                let exp_prefix = if ei + 1 == exp_len {
+                    "        └──"
+                } else {
+                    "        ├──"
+                };
                 if let Some(percentage) = self.budget.get(expense) {
                     let estimated_amount = Money::new_rub(percentage.apply_to(total_income.value));
                     cat_total_amount += estimated_amount;
@@ -285,7 +323,7 @@ mod test_planning {
     use rust_decimal::prelude::FromPrimitive;
     use rust_decimal_macros::dec;
 
-    use crate::finance::{Currency, Money, Percentage};
+    use crate::core::finance::{Currency, Money, Percentage};
 
     use super::*;
 
