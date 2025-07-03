@@ -1,9 +1,9 @@
-use crate::finance::{Money, Percentage};
-use crate::planning::{Expense, IncomeSource, Plan};
+use crate::core::finance::{Money, Percentage};
+use crate::core::planning::{Expense, IncomeSource, Plan};
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -55,12 +55,26 @@ impl BudgetEntry {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Budget {
     pub income: Income,
     pub rest: Money,
     pub no_category: Vec<BudgetEntry>,
     pub categories: HashMap<String, Vec<BudgetEntry>>,
+}
+
+impl Debug for Budget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let expenses_count =
+            self.no_category.len() + self.categories.values().map(|v| v.len()).sum::<usize>();
+        f.debug_struct("Budget")
+            .field("date", &self.income.date)
+            .field("amount", &self.income.amount)
+            .field("rest", &self.rest)
+            .field("categories_count", &self.categories.len())
+            .field("expenses_count", &expenses_count)
+            .finish()
+    }
 }
 
 impl Budget {
@@ -112,8 +126,10 @@ impl Display for Budget {
                 "├──"
             };
             writeln!(f, "{no_cat_prefix} 📦 Без категории")?;
-            let exp_len = self.no_category.len();
-            for (ei, entry) in self.no_category.iter().enumerate() {
+            let mut no_cat_entries = self.no_category.clone();
+            no_cat_entries.sort_by_key(|entry| entry.expense.name.clone());
+            let exp_len = no_cat_entries.len();
+            for (ei, entry) in no_cat_entries.iter().enumerate() {
                 let exp_prefix = if ei + 1 == exp_len && cat_len == 0 {
                     "    └──"
                 } else {
@@ -184,14 +200,13 @@ pub fn distribute(plan: &Plan, income: &Income) -> Result<Budget, Error> {
 
 #[cfg(test)]
 mod test_distribute {
-
     use chrono::Utc;
     use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
 
-    use crate::distribute::{Budget, Error, Income, distribute};
-    use crate::finance::{Money, Percentage};
-    use crate::planning::{Draft, Expense, ExpenseValue, IncomeSource, Plan};
+    use crate::core::distribute::{Budget, Error, Income, distribute};
+    use crate::core::finance::{Money, Percentage};
+    use crate::core::planning::{Draft, Expense, ExpenseValue, IncomeSource, Plan};
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())

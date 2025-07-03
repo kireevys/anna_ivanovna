@@ -3,3 +3,4 @@ target/
 /storage
 /buh/
 .DS_Store
+*.log
