@@ -15,6 +15,7 @@ const STORAGE: &str = "storage";
 const INCOMES: &str = "incomes";
 const DEFAULT_HOME: &str = ".buh";
 const ENV_BUH_HOME: &str = "BUH_HOME";
+const DEFAULT_PLAN_CONTENT: &str = include_str!("../example/plan.yaml");
 
 #[derive(Debug)]
 pub enum Error {
@@ -118,10 +119,7 @@ fn process_income(plan: &Plan, amount: Decimal, incomes_path: &Path) -> Result<(
 
 fn get_buh_home() -> Result<std::path::PathBuf, Error> {
     if let Ok(val) = std::env::var(ENV_BUH_HOME) {
-        println!(
-            "🏠 [anna_ivanovna] Использую BUH_HOME из переменной окружения: {}",
-            val
-        );
+        println!("🏠 [anna_ivanovna] Использую BUH_HOME из переменной окружения: {val}");
         Ok(std::path::PathBuf::from(val))
     } else {
         let default = dirs::home_dir()
@@ -188,9 +186,10 @@ pub fn auto_prepare_storage() -> Result<(), String> {
                 "✏️  [anna_ivanovna] Перейдите к этому файлу и отредактируйте его под себя перед использованием!"
             );
         } else {
-            fs::write(&plan_p, "").map_err(|e| format!("Ошибка создания plan.yaml: {e}"))?;
+            fs::write(&plan_p, DEFAULT_PLAN_CONTENT)
+                .map_err(|e| format!("Ошибка создания plan.yaml: {e}"))?;
             println!(
-                "📄 [anna_ivanovna] Создан пустой файл плана: {}",
+                "📄 [anna_ivanovna] Создан файл плана с примером: {}",
                 plan_p.display()
             );
             println!(

@@ -1,12 +1,13 @@
 [package]
 name = "anna_ivanovna"
 description = "Планировщик бюджета"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/kireevys/anna_ivanovna"
 authors = ["github.com/kireevys"]
+build = "build.rs"
 
 [package.metadata]
 pre-commit = "cargo clippy --all-targets --all-features -- -W clippy::style -D clippy::perf -D warnings"
@@ -37,3 +38,6 @@ criterion = "0.5"
 [[bench]]
 name = "benchmark"
 harness = false
+
+[build-dependencies]
+winres = "0.1"
