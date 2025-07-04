@@ -1,5 +1,6 @@
+mod api;
 pub mod cli;
-pub mod distribute;
-pub mod finance;
-pub mod planning;
+pub mod core;
 pub mod storage;
+pub mod tui;
+pub mod tree;
