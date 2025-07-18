@@ -76,6 +76,13 @@ enum Commands {
 
     /// Запустить TUI-интерфейс
     Tui,
+
+    /// Спарсить Excel-совместимый CSV и сохранить json-файлы
+    ParseExcel {
+        /// Путь к csv-файлу
+        #[clap(long)]
+        file: PathBuf,
+    },
 }
 
 fn user_input() -> Result<usize, Error> {
@@ -155,6 +162,10 @@ pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
             println!("⏱️ Время сеанса: {elapsed:.2?}");
             return Ok(());
         }
+        Commands::ParseExcel { file } => match crate::excel_parser::parse_excel_csv(file, repo) {
+            Ok(count) => println!("Успешно спарсили {count} строк"),
+            Err(e) => eprintln!("Ошибка парсинга: {e}"),
+        },
     }
     let elapsed = start.elapsed();
     println!("⏱️ Выполенено за: {elapsed:.2?}");

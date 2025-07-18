@@ -53,6 +53,10 @@ impl BudgetEntry {
     pub fn new(expense: Expense, amount: Money) -> Self {
         Self { expense, amount }
     }
+
+    pub fn name(&self) -> &str {
+        &self.expense.name
+    }
 }
 
 #[derive(PartialEq, Clone, Serialize, Deserialize)]
@@ -61,6 +65,16 @@ pub struct Budget {
     pub rest: Money,
     pub no_category: Vec<BudgetEntry>,
     pub categories: HashMap<String, Vec<BudgetEntry>>,
+}
+
+impl Budget {
+    pub fn income_date(&self) -> &NaiveDate {
+        &self.income.date
+    }
+
+    pub fn rest(&self) -> &Money {
+        &self.rest
+    }
 }
 
 impl Debug for Budget {
@@ -78,7 +92,7 @@ impl Debug for Budget {
 }
 
 impl Budget {
-    fn new(income: Income) -> Self {
+    pub fn new(income: Income) -> Self {
         Self {
             rest: income.amount,
             income,
@@ -87,19 +101,18 @@ impl Budget {
         }
     }
 
+    pub fn push(&mut self, category: Option<String>, entry: BudgetEntry) {
+        self.rest -= entry.amount;
+        if let Some(category) = category {
+            self.categories.entry(category).or_default().push(entry);
+        } else {
+            self.no_category.push(entry);
+        }
+    }
+
     fn calculate(&mut self, expense: Expense, rate: &Percentage) {
         let money = Money::new_rub(rate.apply_to(self.income.amount.value));
-
-        if let Some(category) = &expense.category {
-            self.categories
-                .entry(category.clone())
-                .or_default()
-                .push(BudgetEntry::new(expense, money));
-        } else {
-            self.no_category.push(BudgetEntry::new(expense, money));
-        }
-
-        self.rest -= money;
+        self.push(expense.category.clone(), BudgetEntry::new(expense, money));
     }
 }
 

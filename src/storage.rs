@@ -4,7 +4,6 @@ use crate::core::finance::Money;
 use crate::core::planning::{
     Draft, Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan,
 };
-use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Write;
@@ -112,14 +111,8 @@ pub fn distribute_from_json(path: &Path) -> Result<Budget, Error> {
     })?;
 
     // Парсим JSON и переформатируем его для сравнения
-    let value: serde_json::Value = serde_json::from_str(&json_data).map_err(|e| {
+    serde_json::from_str(&json_data).map_err(|e| {
         error!("Невозможно спарсить JSON файл {:?}: {e}", path.file_name());
-        Error::CantParseDistribute
-    })?;
-
-    // Возвращаем отформатированную строку
-    serde_json::from_value(value).map_err(|e| {
-        error!("Невозможно сериализовать JSON: {e}");
         Error::CantParseDistribute
     })
 }
@@ -241,7 +234,11 @@ impl CoreRepo for FileSystem {
 
     #[instrument(skip(self, budget))]
     fn save_budget(&self, budget: Budget) -> Result<BudgetId, api::Error> {
-        let filename: BudgetId = format!("{}.json", Local::now().format("%Y-%m-%d"));
+        let filename: BudgetId = format!(
+            "{}-{}.json",
+            budget.income_date().format("%Y-%m-%d"),
+            budget.income.source.name
+        );
         let result_path = &self.incomes_path().join(&filename);
         let mut file = File::create(result_path).map_err(|_| api::Error::CantSaveBudget)?;
 
@@ -274,7 +271,7 @@ impl CoreRepo for FileSystem {
         let path = self.incomes_path().join(id);
         match distribute_from_json(&path) {
             Ok(budget) => {
-                info!(budget = ?budget, id = id);
+                info!(id = id);
                 Some(api::StorageBudget {
                     id: id.clone(),
                     budget,
