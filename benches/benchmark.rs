@@ -1,6 +1,6 @@
-use anna_ivanovna::distribute::{Income, distribute};
-use anna_ivanovna::finance::Money;
-use anna_ivanovna::planning::IncomeSource;
+use anna_ivanovna::core::distribute::{Income, distribute};
+use anna_ivanovna::core::finance::Money;
+use anna_ivanovna::core::planning::IncomeSource;
 use anna_ivanovna::storage::plan_from_yaml;
 use chrono::Local;
 use criterion::{Criterion, criterion_group, criterion_main};
@@ -31,7 +31,8 @@ fn plan_distribute_from_file() {
     let d = distribute(&plan, &income).expect("whaaaat???");
     let json_result = serde_json::to_string_pretty(&d).unwrap();
     let mut file = File::create(result_path).expect("cannot file");
-    file.write_all(json_result.as_bytes()).expect("cannot write to file");
+    file.write_all(json_result.as_bytes())
+        .expect("cannot write to file");
 }
 
 fn benchmark(c: &mut Criterion) {

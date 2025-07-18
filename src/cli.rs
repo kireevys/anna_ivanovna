@@ -1,29 +1,29 @@
-use crate::distribute::{Income, distribute};
-use crate::finance::Money;
-use crate::planning::{IncomeSource, Plan};
-use crate::storage::plan_from_yaml;
-use chrono::Local;
+use crate::api::{CoreRepo, distribute_budget, get_plan, save_budget};
+use crate::core::distribute::Income;
+use crate::core::finance::Money;
+use crate::core::planning::{IncomeSource, Plan};
+use crate::storage::FileSystem;
+use crate::tui;
 use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
-use std::fs::File;
+use std::io;
 use std::io::Write;
-use std::path::Path;
-use std::{fs, io};
+use std::path::PathBuf;
+use thiserror::Error;
+use tracing;
 
-const PLAN: &str = "plan.yaml";
-const STORAGE: &str = "storage";
-const INCOMES: &str = "incomes";
-const DEFAULT_HOME: &str = ".buh";
-const ENV_BUH_HOME: &str = "BUH_HOME";
-const DEFAULT_PLAN_CONTENT: &str = include_str!("../example/plan.yaml");
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    NoConfig,
+    #[error("План бюджета не найден")]
     NoPlan,
+    #[error("Не удалось записать результат")]
     CantWriteResult,
+    #[error("Неверный ввод")]
     InvalidInput,
+    #[error("Не удалось подготовить хранилище")]
     CantPrepareStorage,
+    #[error("Не удалось распределить бюджет")]
+    CantDistribute,
 }
 
 #[derive(Parser)]
@@ -57,16 +57,32 @@ enum Commands {
     },
 
     /// Отобразить текущий план бюджета
-    #[clap(alias = "show-plan")]
     Plan,
+
+    /// Показать бюджет по id
+    #[clap(alias = "show")]
+    ShowBudget {
+        /// id бюджета
+        id: String,
+    },
 
     /// Подготовить структуру папок и файлов для работы
     #[clap(alias = "prepare")]
-    PrepareStorage,
+    PrepareStorage { path: PathBuf },
 
     /// Вывести справку по командам
     #[clap(alias = "readme")]
     Manual,
+
+    /// Запустить TUI-интерфейс
+    Tui,
+
+    /// Спарсить Excel-совместимый CSV и сохранить json-файлы
+    ParseExcel {
+        /// Путь к csv-файлу
+        #[clap(long)]
+        file: PathBuf,
+    },
 }
 
 fn user_input() -> Result<usize, Error> {
@@ -81,6 +97,7 @@ fn user_input() -> Result<usize, Error> {
         .map_err(|_| Error::InvalidInput)
 }
 
+#[tracing::instrument(skip(plan))]
 fn choose_source(plan: &Plan) -> Result<&IncomeSource, Error> {
     if plan.sources.len() == 1 {
         return plan.sources.first().ok_or(Error::NoPlan);
@@ -94,117 +111,6 @@ fn choose_source(plan: &Plan) -> Result<&IncomeSource, Error> {
     plan.sources.get(input).ok_or(Error::InvalidInput)
 }
 
-fn process_income(plan: &Plan, amount: Decimal, incomes_path: &Path) -> Result<(), Error> {
-    let source = choose_source(plan)?;
-    let income = Income::new_today(source.clone(), Money::new_rub(amount));
-
-    match distribute(plan, &income) {
-        Ok(d) => {
-            let result_path =
-                incomes_path.join(format!("{}.json", Local::now().format("%Y-%m-%d"),));
-            let mut file = File::create(&result_path).map_err(|_| Error::CantWriteResult)?;
-
-            let json_result =
-                serde_json::to_string_pretty(&d).map_err(|_| Error::CantWriteResult)?;
-            file.write_all(json_result.as_bytes())
-                .map_err(|_| Error::CantWriteResult)?;
-
-            println!("Записано в {result_path:?}");
-            println!("{d}");
-        }
-        Err(e) => println!("{e:?}"),
-    }
-    Ok(())
-}
-
-fn get_buh_home() -> Result<std::path::PathBuf, Error> {
-    if let Ok(val) = std::env::var(ENV_BUH_HOME) {
-        println!("🏠 [anna_ivanovna] Использую BUH_HOME из переменной окружения: {val}");
-        Ok(std::path::PathBuf::from(val))
-    } else {
-        let default = dirs::home_dir()
-            .map(|h| h.join(DEFAULT_HOME))
-            .ok_or(Error::NoConfig)?;
-        println!(
-            "🏠 [anna_ivanovna] BUH_HOME не задан, использую директорию по умолчанию: {}",
-            default.display()
-        );
-        Ok(default)
-    }
-}
-
-pub fn auto_prepare_storage() -> Result<(), String> {
-    let buh_dir = std::env::var(ENV_BUH_HOME)
-        .map(std::path::PathBuf::from)
-        .or_else(|_| {
-            dirs::home_dir()
-                .map(|h| h.join(DEFAULT_HOME))
-                .ok_or("Не удалось определить домашнюю директорию".to_string())
-        })?;
-
-    println!(
-        "📦 [anna_ivanovna] Хранилище не найдено, инициализирую: {}",
-        buh_dir.display()
-    );
-
-    if buh_dir.exists() {
-        return Err(format!(
-            "❗️ Хранилище уже инициализировано: {}",
-            buh_dir.display()
-        ));
-    }
-
-    // Создаём директорию
-    fs::create_dir_all(&buh_dir).map_err(|e| format!("Ошибка создания директории: {e}"))?;
-    println!(
-        "📁 [anna_ivanovna] Создана директория: {}",
-        buh_dir.display()
-    );
-
-    // Вызываем prepare-логику (создание поддиректорий и файлов)
-    let storage = buh_dir.join("storage");
-    let incomes_path = storage.join("incomes");
-    let plan_p = storage.join("plan.yaml");
-
-    fs::create_dir_all(&incomes_path).map_err(|e| format!("Ошибка создания incomes: {e}"))?;
-    println!(
-        "📁 [anna_ivanovna] Создана директория: {}",
-        incomes_path.display()
-    );
-    if !plan_p.exists() {
-        // Копируем example/plan.yaml, если он есть
-        let example_plan = std::path::Path::new("example/plan.yaml");
-        if example_plan.exists() {
-            fs::copy(example_plan, &plan_p)
-                .map_err(|e| format!("Ошибка копирования example/plan.yaml: {e}"))?;
-            println!(
-                "📄 [anna_ivanovna] Скопирован пример плана: {} → {}",
-                example_plan.display(),
-                plan_p.display()
-            );
-            println!(
-                "✏️  [anna_ivanovna] Перейдите к этому файлу и отредактируйте его под себя перед использованием!"
-            );
-        } else {
-            fs::write(&plan_p, DEFAULT_PLAN_CONTENT)
-                .map_err(|e| format!("Ошибка создания plan.yaml: {e}"))?;
-            println!(
-                "📄 [anna_ivanovna] Создан файл плана с примером: {}",
-                plan_p.display()
-            );
-            println!(
-                "✏️  [anna_ivanovna] Перейдите к этому файлу и заполните его перед использованием!"
-            );
-        }
-    }
-
-    println!(
-        "✅ [anna_ivanovna] Хранилище инициализировано: {}",
-        buh_dir.display()
-    );
-    Ok(())
-}
-
 /// Запуск cli для работы с выбранным планом
 ///
 /// # Arguments
@@ -215,65 +121,32 @@ pub fn auto_prepare_storage() -> Result<(), String> {
 /// При неожиданном пользовательском вводе
 ///
 /// returns: ()
-pub fn run() -> Result<(), Error> {
-    // Автоматическая инициализация, если хранилище не найдено
-    let buh_home = get_buh_home()?;
-    if !buh_home.exists() {
-        if let Err(e) = auto_prepare_storage() {
-            eprintln!("{e}");
-            std::process::exit(1);
-        }
-    }
-
+#[tracing::instrument(skip(repo))]
+pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
     let cli = Cli::parse();
-    let home = buh_home;
-    let storage = home.join(STORAGE);
-    storage.try_exists().map_err(|_| Error::NoPlan)?;
-    let incomes_path = storage.join(INCOMES);
-    let plan_p = storage.join(PLAN);
-    plan_p.as_path().try_exists().map_err(|_| Error::NoPlan)?;
-
-    let plan = plan_from_yaml(plan_p.as_path()).map_err(|_| Error::NoPlan)?;
-
+    let plan = get_plan(repo).ok_or(Error::NoPlan)?;
+    let start = std::time::Instant::now();
     match cli.command {
         Commands::AddIncome { amount } => {
-            println!(
-                "[anna_ivanovna] Используется файл плана: {}",
-                plan_p.display()
-            );
-            process_income(&plan, amount, &incomes_path)?;
+            let source = choose_source(&plan)?;
+            let income = Income::new_today(source.clone(), Money::new_rub(amount));
+            let budget = distribute_budget(&plan, &income).map_err(|_| Error::CantDistribute)?;
+
+            println!("{budget}");
+            let id = save_budget(budget, repo).map_err(|_| Error::CantWriteResult)?;
+
+            println!("💾 {id} сохранен");
         }
         Commands::Plan => {
             println!("{plan}");
         }
-        Commands::PrepareStorage => {
-            if incomes_path.exists() {
-                println!(
-                    "[anna_ivanovna] Хранилище уже подготовлено: {}",
-                    incomes_path.display()
-                );
-            } else {
-                fs::create_dir_all(incomes_path.clone()).map_err(|e| {
-                    eprintln!("{e}");
-                    Error::CantPrepareStorage
-                })?;
-                println!(
-                    "[anna_ivanovna] Создана директория: {}",
-                    incomes_path.display()
-                );
-            };
-
-            if plan_p.exists() {
-                println!(
-                    "[anna_ivanovna] Файл плана уже существует: {}",
-                    plan_p.display()
-                );
-            } else {
-                fs::write(plan_p.clone(), "").map_err(|e| {
-                    eprintln!("{e}");
-                    Error::CantPrepareStorage
-                })?;
-                println!("[anna_ivanovna] Создан файл плана: {}", plan_p.display());
+        Commands::ShowBudget { id } => match crate::api::budget_by_id(repo, &id) {
+            Some(budget) => println!("{budget}"),
+            None => eprintln!("Ошибка: не удалось загрузить или распарсить бюджет с id {id}"),
+        },
+        Commands::PrepareStorage { path } => {
+            if let Err(e) = FileSystem::init(path) {
+                eprintln!("{e}");
             }
         }
         Commands::Manual => {
@@ -281,6 +154,20 @@ pub fn run() -> Result<(), Error> {
                 "Anna Ivanovna - CLI для управления бюджетом. Используйте --help для справки."
             );
         }
+        Commands::Tui => {
+            if let Err(e) = tui::run(repo) {
+                eprintln!("Ошибка TUI: {e}");
+            }
+            let elapsed = start.elapsed();
+            println!("⏱️ Время сеанса: {elapsed:.2?}");
+            return Ok(());
+        }
+        Commands::ParseExcel { file } => match crate::excel_parser::parse_excel_csv(file, repo) {
+            Ok(count) => println!("Успешно спарсили {count} строк"),
+            Err(e) => eprintln!("Ошибка парсинга: {e}"),
+        },
     }
+    let elapsed = start.elapsed();
+    println!("⏱️ Выполенено за: {elapsed:.2?}");
     Ok(())
 }

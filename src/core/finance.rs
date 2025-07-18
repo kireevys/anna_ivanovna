@@ -45,7 +45,7 @@ impl Percentage {
     ///
     /// Basic usage:
     /// ```
-    /// use anna_ivanovna::finance::Percentage;
+    /// use anna_ivanovna::core::finance::Percentage;
     /// assert_eq!(Percentage::ONE_HUNDRED, Percentage::from_int(100));
     /// assert_eq!(Percentage::TOTAL, Percentage::from_int(100));
     /// ```
@@ -58,7 +58,7 @@ impl Percentage {
     ///
     /// Basic usage:
     /// ```
-    /// use anna_ivanovna::finance::Percentage;
+    /// use anna_ivanovna::core::finance::Percentage;
     /// assert_eq!(Percentage::HALF, Percentage::from_int(50));
     /// ```
     pub const HALF: Percentage = Percentage(dec!(50));
@@ -69,7 +69,7 @@ impl Percentage {
     ///
     /// Basic usage:
     /// ```
-    /// use anna_ivanovna::finance::Percentage;
+    /// use anna_ivanovna::core::finance::Percentage;
     /// assert_eq!(Percentage::QUARTER, Percentage::from_int(25));
     /// ```
     pub const QUARTER: Percentage = Percentage(dec!(25));
@@ -80,7 +80,7 @@ impl Percentage {
     ///
     /// Basic usage:
     /// ```
-    /// use anna_ivanovna::finance::Percentage;
+    /// use anna_ivanovna::core::finance::Percentage;
     /// assert_eq!(Percentage::ZERO, Percentage::from_int(0));
     /// ```
     pub const ONE: Percentage = Percentage(Decimal::ONE);
@@ -91,7 +91,7 @@ impl Percentage {
     ///
     /// Basic usage:
     /// ```
-    /// use anna_ivanovna::finance::Percentage;
+    /// use anna_ivanovna::core::finance::Percentage;
     /// assert_eq!(Percentage::ZERO, Percentage::from_int(0));
     /// ```
     pub const ZERO: Percentage = Percentage(Decimal::ZERO);
@@ -122,7 +122,7 @@ impl Percentage {
     /// ```
     /// use rust_decimal::Decimal;
     /// use rust_decimal_macros::dec;
-    /// use anna_ivanovna::finance::Percentage;
+    /// use anna_ivanovna::core::finance::Percentage;
     ///
     /// assert_eq!(Percentage::of(Decimal::ONE, Decimal::ONE_HUNDRED), Percentage::ONE);
     /// assert_eq!(Percentage::of(Decimal::ONE, Decimal::ONE), Percentage::ONE_HUNDRED);
@@ -155,7 +155,7 @@ impl Percentage {
     /// ```
     /// use rust_decimal::Decimal;
     /// use rust_decimal_macros::dec;
-    /// use anna_ivanovna::finance::Percentage;
+    /// use anna_ivanovna::core::finance::Percentage;
     ///
     /// assert_eq!(Percentage::HALF.apply_to(Decimal::ONE_HUNDRED), dec!(50));
     /// assert_eq!(Percentage::ONE.apply_to(Decimal::ONE), dec!(0.01));

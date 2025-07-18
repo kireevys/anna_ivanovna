@@ -1,9 +1,9 @@
-use crate::finance::{Money, Percentage};
-use crate::planning::{Expense, IncomeSource, Plan};
+use crate::core::finance::{Money, Percentage};
+use crate::core::planning::{Expense, IncomeSource, Plan};
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -53,9 +53,13 @@ impl BudgetEntry {
     pub fn new(expense: Expense, amount: Money) -> Self {
         Self { expense, amount }
     }
+
+    pub fn name(&self) -> &str {
+        &self.expense.name
+    }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Serialize, Deserialize)]
 pub struct Budget {
     pub income: Income,
     pub rest: Money,
@@ -64,7 +68,31 @@ pub struct Budget {
 }
 
 impl Budget {
-    fn new(income: Income) -> Self {
+    pub fn income_date(&self) -> &NaiveDate {
+        &self.income.date
+    }
+
+    pub fn rest(&self) -> &Money {
+        &self.rest
+    }
+}
+
+impl Debug for Budget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let expenses_count =
+            self.no_category.len() + self.categories.values().map(|v| v.len()).sum::<usize>();
+        f.debug_struct("Budget")
+            .field("date", &self.income.date)
+            .field("amount", &self.income.amount)
+            .field("rest", &self.rest)
+            .field("categories_count", &self.categories.len())
+            .field("expenses_count", &expenses_count)
+            .finish()
+    }
+}
+
+impl Budget {
+    pub fn new(income: Income) -> Self {
         Self {
             rest: income.amount,
             income,
@@ -73,19 +101,18 @@ impl Budget {
         }
     }
 
+    pub fn push(&mut self, category: Option<String>, entry: BudgetEntry) {
+        self.rest -= entry.amount;
+        if let Some(category) = category {
+            self.categories.entry(category).or_default().push(entry);
+        } else {
+            self.no_category.push(entry);
+        }
+    }
+
     fn calculate(&mut self, expense: Expense, rate: &Percentage) {
         let money = Money::new_rub(rate.apply_to(self.income.amount.value));
-
-        if let Some(category) = &expense.category {
-            self.categories
-                .entry(category.clone())
-                .or_default()
-                .push(BudgetEntry::new(expense, money));
-        } else {
-            self.no_category.push(BudgetEntry::new(expense, money));
-        }
-
-        self.rest -= money;
+        self.push(expense.category.clone(), BudgetEntry::new(expense, money));
     }
 }
 
@@ -112,8 +139,10 @@ impl Display for Budget {
                 "├──"
             };
             writeln!(f, "{no_cat_prefix} 📦 Без категории")?;
-            let exp_len = self.no_category.len();
-            for (ei, entry) in self.no_category.iter().enumerate() {
+            let mut no_cat_entries = self.no_category.clone();
+            no_cat_entries.sort_by_key(|entry| entry.expense.name.clone());
+            let exp_len = no_cat_entries.len();
+            for (ei, entry) in no_cat_entries.iter().enumerate() {
                 let exp_prefix = if ei + 1 == exp_len && cat_len == 0 {
                     "    └──"
                 } else {
@@ -184,14 +213,13 @@ pub fn distribute(plan: &Plan, income: &Income) -> Result<Budget, Error> {
 
 #[cfg(test)]
 mod test_distribute {
-
     use chrono::Utc;
     use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
 
-    use crate::distribute::{Budget, Error, Income, distribute};
-    use crate::finance::{Money, Percentage};
-    use crate::planning::{Draft, Expense, ExpenseValue, IncomeSource, Plan};
+    use crate::core::distribute::{Budget, Error, Income, distribute};
+    use crate::core::finance::{Money, Percentage};
+    use crate::core::planning::{Draft, Expense, ExpenseValue, IncomeSource, Plan};
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())
