@@ -2,7 +2,7 @@ use crate::core::finance::{Money, Percentage};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::ops::Deref;
 use std::str::FromStr;
 
@@ -30,11 +30,6 @@ impl IncomeSource {
     }
 }
 
-impl Display for IncomeSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} [{}]", self.name, self.expected)
-    }
-}
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -164,71 +159,6 @@ impl Plan {
     }
 }
 
-impl Display for Plan {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "План бюджета:")?;
-
-        // Источники дохода
-        writeln!(f, "├─ 💸 Источники дохода:")?;
-        let sources_len = self.sources.len();
-        for (i, source) in self.sources.iter().enumerate() {
-            let prefix = if i + 1 == sources_len {
-                "└──"
-            } else {
-                "├──"
-            };
-            writeln!(f, "│   {prefix} {source}")?;
-        }
-
-        let total_income = self.sources.iter().map(|s| s.expected).sum::<Money>();
-        let rest_amount = Money::new_rub(self.rest.apply_to(total_income.value));
-        writeln!(f, "│")?;
-        writeln!(f, "├─ 🏦 Остаток: {:<25} [{}]", rest_amount, self.rest)?;
-        writeln!(f, "│")?;
-        writeln!(f, "└─ Запланированные расходы:")?;
-
-        let categories: Vec<_> = self.categories().collect();
-        let cat_len = categories.len();
-        for (ci, (category_name, expenses)) in categories.into_iter().enumerate() {
-            let cat_prefix = if ci + 1 == cat_len {
-                "    └──"
-            } else {
-                "    ├──"
-            };
-            let cat_emoji = if category_name == "Без категории" {
-                "📦"
-            } else {
-                "📂"
-            };
-            writeln!(f, "{cat_prefix} {cat_emoji} {category_name}")?;
-            let exp_len = expenses.len();
-            let mut cat_total_amount = Money::new_rub(Decimal::ZERO);
-            let mut cat_total_percent = Percentage::ZERO;
-            for (ei, expense) in expenses.iter().enumerate() {
-                let exp_prefix = if ei + 1 == exp_len {
-                    "        └──"
-                } else {
-                    "        ├──"
-                };
-                if let Some(percentage) = self.budget.get(expense) {
-                    let estimated_amount = Money::new_rub(percentage.apply_to(total_income.value));
-                    cat_total_amount += estimated_amount;
-                    cat_total_percent += percentage.clone();
-                    writeln!(
-                        f,
-                        "{exp_prefix} {:<25} {} [{}]",
-                        expense.name, estimated_amount, percentage
-                    )?;
-                }
-            }
-            writeln!(
-                f,
-                "         💰 {cat_total_amount:<25} [{cat_total_percent}]"
-            )?;
-        }
-        Ok(())
-    }
-}
 
 impl TryFrom<Draft> for Plan {
     type Error = Error;
@@ -403,7 +333,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let res = Plan::try_from(draft).unwrap();
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(100))]);
 
@@ -427,7 +357,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
@@ -448,7 +378,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense_1.clone(), expense_2.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), &[expense_1.clone(), expense_2.clone()]);
         assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
@@ -462,7 +392,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
 
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(50))]);
         assert_eq!(
@@ -496,7 +426,7 @@ mod test_planning {
             None,
         );
         let draft = Draft::build(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );
         let res = Plan::try_from(draft).unwrap();
@@ -542,11 +472,9 @@ mod test_planning {
         );
 
         let draft = Draft::build(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );
-        let plan = Plan::try_from(draft).unwrap();
-
-        println!("{plan}");
+        let _plan = Plan::try_from(draft).unwrap();
     }
 }

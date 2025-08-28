@@ -3,7 +3,7 @@ use crate::core::planning::{Expense, IncomeSource, Plan};
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -18,11 +18,6 @@ pub struct Income {
     pub date: NaiveDate,
 }
 
-impl Display for Income {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} от {}", &self.amount, &self.date)
-    }
-}
 
 impl Income {
     #[must_use]
@@ -116,71 +111,6 @@ impl Budget {
     }
 }
 
-impl Display for Budget {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Распределение дохода:")?;
-        writeln!(f, "├── 💸 Источник: {}", &self.income.source)?;
-        writeln!(f, "│   Сумма: {}", &self.income.amount)?;
-        writeln!(f, "│   Дата: {}", &self.income.date)?;
-        writeln!(f, "│")?;
-
-        let mut sorted_categories: Vec<_> = self.categories.iter().collect();
-        sorted_categories.sort_by_key(|(category, _)| *category);
-        let has_no_category = !self.no_category.is_empty();
-        let cat_len = sorted_categories.len();
-        let branch_count = cat_len + if has_no_category { 1 } else { 0 };
-        let mut branch_idx = 0;
-        // Сначала выводим "Без категории"
-        if has_no_category {
-            branch_idx += 1;
-            let no_cat_prefix = if branch_idx == branch_count && cat_len == 0 {
-                "└──"
-            } else {
-                "├──"
-            };
-            writeln!(f, "{no_cat_prefix} 📦 Без категории")?;
-            let mut no_cat_entries = self.no_category.clone();
-            no_cat_entries.sort_by_key(|entry| entry.expense.name.clone());
-            let exp_len = no_cat_entries.len();
-            for (ei, entry) in no_cat_entries.iter().enumerate() {
-                let exp_prefix = if ei + 1 == exp_len && cat_len == 0 {
-                    "    └──"
-                } else {
-                    "    ├──"
-                };
-                writeln!(
-                    f,
-                    "{exp_prefix} {:<23} - {}",
-                    entry.expense.name, entry.amount
-                )?;
-            }
-        }
-
-        // Затем категории
-        for (category, entries) in sorted_categories.into_iter() {
-            branch_idx += 1;
-            let cat_prefix = if branch_idx == branch_count {
-                "└──"
-            } else {
-                "├──"
-            };
-            write!(f, "{cat_prefix} 📂 {category:<25}")?;
-            let cat_total = entries.iter().map(|entry| entry.amount).sum::<Money>();
-            writeln!(f, "- {cat_total}")?;
-
-            let exp_len = entries.len();
-            for (ei, entry) in entries.iter().enumerate() {
-                let exp_prefix = if ei + 1 == exp_len {
-                    "    └──"
-                } else {
-                    "    ├──"
-                };
-                writeln!(f, "{exp_prefix} {}", entry.expense.name)?;
-            }
-        }
-        writeln!(f, "└── 🏦 Остаток{:17} -[{}]", "", self.rest)
-    }
-}
 
 /// Функция занимается распределением Дохода согласно Плана
 ///
@@ -248,7 +178,7 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(0.5) },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let plan = Plan::try_from(draft).unwrap();
         let income = Income::new_today(source, rub(1.0));
         let mut expected = Budget::new(income.clone());
@@ -265,7 +195,7 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(1.0) },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let income = Income::new_today(source, rub(0.5));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -284,7 +214,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -303,7 +233,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -322,7 +252,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -341,7 +271,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -367,7 +297,7 @@ mod test_distribute {
         );
 
         let draft = Draft::build(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             &[expense_no_category.clone(), expense_with_category.clone()],
         );
         let income = Income::new_today(source, rub(1.0));
@@ -391,7 +321,7 @@ mod test_distribute {
             Some("Развлечения".to_string()),
         );
 
-        let draft = Draft::build(&[source.clone()], &[expense.clone()]);
+        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
 
