@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Deref};
+use std::ops::Deref;
 
 use thiserror::Error;
 use tracing::{debug, instrument};
@@ -21,13 +21,6 @@ pub type BudgetId = String;
 pub struct StorageBudget {
     pub id: BudgetId,
     pub budget: Budget,
-}
-
-impl Display for StorageBudget {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.id)?;
-        writeln!(f, "{}", self.budget)
-    }
 }
 
 impl From<(BudgetId, Budget)> for StorageBudget {
@@ -88,6 +81,10 @@ impl<T> Page<T> {
 
     pub fn len(&self) -> usize {
         self.items.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
     }
 }
 

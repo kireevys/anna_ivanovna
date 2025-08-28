@@ -11,7 +11,8 @@ use thiserror::Error;
 use tracing::{error, instrument};
 
 use crate::api::{self, CoreRepo};
-use crate::tree::{PlanNode, TreeNode};
+use crate::interfaces::presentation::{budget_to_tree, plan_to_tree};
+use crate::interfaces::tree::{PlanNode, TreeNode};
 
 const WELCOME: &str = "Anna Ivanovna помогает автоматически распределять ваши доходы по заранее составленному плану бюджета.\n\nСоздайте план один раз, и программа будет автоматически рассчитывать, сколько денег тратить на каждую категорию при получении дохода.";
 
@@ -154,7 +155,7 @@ enum Screen {
 }
 
 impl Screen {
-    fn hints(&self) -> Paragraph {
+    fn hints(&self) -> Paragraph<'_> {
         let actions = match self {
             Screen::Welcome { .. } => vec![
                 Action::Down,
@@ -382,7 +383,7 @@ fn component_widget<'a>(component: &Component<'a>) -> WidgetComponent<'a> {
                         .fg(Color::Black)
                         .add_modifier(Modifier::BOLD);
                 }
-                lines.push(Line::from(Span::styled(format!("{src}"), style)));
+                lines.push(Line::from(Span::styled(format!("{} [{}]", src.name, src.expected), style)));
             }
             if let Some(err) = error {
                 lines.push(Line::from(Span::styled(
@@ -469,7 +470,7 @@ fn build_buidget<R: CoreRepo>(
     if !page.is_empty() && selected < orig_len {
         if let Some(budget_id) = page.get(budget_index) {
             if let Some(budget) = api::budget_by_id(repo, budget_id) {
-                trees.push(TreeNode::<PlanNode>::from(&budget.budget));
+                trees.push(budget_to_tree(&budget.budget));
                 let tree_ref = trees.last().unwrap();
                 tree = Some(tree_ref.clone());
             } else {
@@ -505,7 +506,7 @@ fn run_app<B: Backend, R: CoreRepo>(
     let red = Rc::new(Style::default().fg(Color::Red));
 
     let plan = api::get_plan(repo).unwrap();
-    let plan_tree = TreeNode::<PlanNode>::from(&plan);
+    let plan_tree = plan_to_tree(&plan);
     let income_sources = plan.sources.clone();
 
     loop {
@@ -634,7 +635,7 @@ fn run_app<B: Backend, R: CoreRepo>(
                             Constraint::Length(1), // подпись
                         ])
                         .split(size);
-                    let tree = TreeNode::<PlanNode>::from(budget);
+                    let tree = budget_to_tree(budget);
                     let items: Vec<ListItem> = (&tree).into();
                     let list =
                         List::new(items).block(block.clone().title("Результат распределения"));
