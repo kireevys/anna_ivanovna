@@ -1,8 +1,9 @@
 use crate::api::{self, BudgetId, CoreRepo};
 use crate::core::distribute::Budget;
+use crate::core::editor::Draft;
 use crate::core::finance::Money;
 use crate::core::planning::{
-    Draft, Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan,
+    Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan,
 };
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -61,7 +62,8 @@ fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, PlanningError> {
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_e| PlanningError::InvalidPlan)?;
-    Plan::try_from(Draft::build(&sources, &expenses))
+    let draft = Draft::build(sources, expenses).unwrap();
+    Plan::try_from(draft)
 }
 
 /// Парсит переданный файл в Бюджет

@@ -18,7 +18,6 @@ pub struct Income {
     pub date: NaiveDate,
 }
 
-
 impl Income {
     #[must_use]
     pub fn new(source: IncomeSource, money: Money, date: NaiveDate) -> Self {
@@ -111,7 +110,6 @@ impl Budget {
     }
 }
 
-
 /// Функция занимается распределением Дохода согласно Плана
 ///
 /// # Arguments
@@ -147,9 +145,10 @@ mod test_distribute {
     use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
 
+    use crate::core::basic_draft::Draft;
     use crate::core::distribute::{Budget, Error, Income, distribute};
     use crate::core::finance::{Money, Percentage};
-    use crate::core::planning::{Draft, Expense, ExpenseValue, IncomeSource, Plan};
+    use crate::core::planning::{Expense, ExpenseValue, IncomeSource, Plan};
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())
@@ -178,7 +177,10 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(0.5) },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let plan = Plan::try_from(draft).unwrap();
         let income = Income::new_today(source, rub(1.0));
         let mut expected = Budget::new(income.clone());
@@ -195,7 +197,10 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(1.0) },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let income = Income::new_today(source, rub(0.5));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -214,7 +219,10 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -233,7 +241,10 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -252,7 +263,10 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -271,7 +285,10 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
@@ -321,7 +338,10 @@ mod test_distribute {
             Some("Развлечения".to_string()),
         );
 
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let income = Income::new_today(source, rub(1.0));
         let plan = Plan::try_from(draft).unwrap();
 

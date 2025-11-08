@@ -30,6 +30,12 @@ impl AddAssign for Percentage {
     }
 }
 
+impl SubAssign for Percentage {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
 impl Sub for Percentage {
     type Output = Self;
 
@@ -215,7 +221,7 @@ impl SubAssign for Money {
             self.currency, other.currency,
             "Нельзя складывать разные валюты"
         );
-        self.value = self.value - other.value;
+        self.value -= other.value;
     }
 }
 
@@ -226,7 +232,7 @@ impl AddAssign for Money {
             self.currency, other.currency,
             "Нельзя складывать разные валюты"
         );
-        self.value = self.value + other.value;
+        self.value += other.value;
     }
 }
 
@@ -240,6 +246,28 @@ impl Add for Money {
             "Нельзя складывать разные валюты"
         );
         Self::new(self.value + other.value, self.currency)
+    }
+}
+
+impl SubAssign<Decimal> for Money {
+    fn sub_assign(&mut self, other: Decimal) {
+        self.value -= other;
+    }
+}
+
+impl Add<Decimal> for Money {
+    type Output = Money;
+
+    fn add(self, rhs: Decimal) -> Self::Output {
+        Self::Output::new(self.value + rhs, self.currency)
+    }
+}
+
+impl Sub<Decimal> for Money {
+    type Output = Self;
+
+    fn sub(self, rhs: Decimal) -> Self::Output {
+        Self::new(self.value - rhs, self.currency)
     }
 }
 
