@@ -30,7 +30,6 @@ impl IncomeSource {
     }
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum Error {
     EmptyPlan,
@@ -158,7 +157,6 @@ impl Plan {
         category_map.into_iter()
     }
 }
-
 
 impl TryFrom<Draft> for Plan {
     type Error = Error;
@@ -333,7 +331,10 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         let res = Plan::try_from(draft).unwrap();
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(100))]);
 
@@ -357,7 +358,10 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
         assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
@@ -378,7 +382,10 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), &[expense_1.clone(), expense_2.clone()]);
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            &[expense_1.clone(), expense_2.clone()],
+        );
         assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
     }
 
@@ -392,7 +399,10 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(std::slice::from_ref(&source), std::slice::from_ref(&expense));
+        let draft = Draft::build(
+            std::slice::from_ref(&source),
+            std::slice::from_ref(&expense),
+        );
 
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(50))]);
         assert_eq!(
