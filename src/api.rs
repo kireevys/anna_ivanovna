@@ -5,7 +5,8 @@ use tracing::{debug, instrument};
 
 use crate::core::{
     distribute::{Budget, Income, distribute as core_dist},
-    planning::Plan,
+    editor::Plan,
+    planning::DistributionWeights,
 };
 #[derive(Debug, Error)]
 pub enum Error {
@@ -16,6 +17,7 @@ pub enum Error {
 }
 
 pub type BudgetId = String;
+pub type PlanId = String;
 
 #[derive(Debug, Clone)]
 pub struct StorageBudget {
@@ -35,6 +37,7 @@ impl From<(BudgetId, Budget)> for StorageBudget {
 pub trait CoreRepo {
     fn location(&self) -> &str;
     fn get_plan(&self) -> Option<Plan>;
+    fn save_plan(&self, plan: Plan, id: PlanId) -> Result<PlanId, Error>;
     fn save_budget(&self, budget: Budget) -> Result<BudgetId, Error>;
     fn budget_ids<'r>(
         &'r self,
@@ -50,8 +53,13 @@ pub fn get_plan<R: CoreRepo>(provider: &R) -> Option<Plan> {
 }
 
 #[instrument(skip(plan, income))]
-pub fn distribute_budget(plan: &Plan, income: &Income) -> Result<Budget, Error> {
+pub fn distribute(plan: &DistributionWeights, income: &Income) -> Result<Budget, Error> {
     core_dist(plan, income).map_err(|_| Error::CantDistribute)
+}
+
+#[instrument(skip(plan, repo))]
+pub fn save_plan<R: CoreRepo>(plan: Plan, id: PlanId, repo: &R) -> Result<PlanId, Error> {
+    repo.save_plan(plan, id).map_err(|_| Error::CantSaveBudget)
 }
 
 #[instrument(skip(budget, repo))]
@@ -126,7 +134,7 @@ mod test {
     use super::*;
     use crate::core::distribute::Budget;
     use crate::core::finance::Money;
-    use crate::core::planning::{IncomeSource, Plan};
+    use crate::core::planning::IncomeSource;
     use std::collections::HashMap;
 
     struct InMemoryRepo {
@@ -140,6 +148,9 @@ mod test {
         }
         fn get_plan(&self) -> Option<Plan> {
             self.plan.clone()
+        }
+        fn save_plan(&self, _plan: Plan, id: PlanId) -> Result<PlanId, Error> {
+            Ok(id)
         }
         fn save_budget(&self, _budget: Budget) -> Result<BudgetId, Error> {
             unimplemented!()

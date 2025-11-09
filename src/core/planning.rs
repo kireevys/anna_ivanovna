@@ -86,13 +86,13 @@ impl Expense {
 }
 
 #[derive(PartialEq, Serialize, Deserialize)]
-pub struct Plan {
+pub struct DistributionWeights {
     pub sources: Vec<IncomeSource>,
     pub budget: HashMap<Expense, Percentage>,
     pub rest: Percentage,
 }
 
-impl Debug for Plan {
+impl Debug for DistributionWeights {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let expenses_count = self.budget.len();
         f.debug_struct("Plan")
@@ -104,7 +104,7 @@ impl Debug for Plan {
 }
 
 #[cfg(test)]
-impl Clone for Plan {
+impl Clone for DistributionWeights {
     fn clone(&self) -> Self {
         Self {
             sources: self.sources.clone(),
@@ -114,7 +114,7 @@ impl Clone for Plan {
     }
 }
 
-impl<'a> IntoIterator for &'a Plan {
+impl<'a> IntoIterator for &'a DistributionWeights {
     type Item = (&'a Expense, &'a Percentage);
     type IntoIter = std::collections::hash_map::Iter<'a, Expense, Percentage>;
 
@@ -123,7 +123,7 @@ impl<'a> IntoIterator for &'a Plan {
     }
 }
 
-impl Deref for Plan {
+impl Deref for DistributionWeights {
     type Target = HashMap<Expense, Percentage>;
 
     fn deref(&self) -> &Self::Target {
@@ -131,7 +131,7 @@ impl Deref for Plan {
     }
 }
 
-impl Plan {
+impl DistributionWeights {
     pub fn has_source(&self, source: &IncomeSource) -> bool {
         self.sources.contains(source)
     }
@@ -141,17 +141,16 @@ impl Plan {
         let mut sorted_expenses: Vec<_> = self.budget.keys().collect();
         sorted_expenses.sort_by_key(|e| &e.name);
 
-        let mut category_map: BTreeMap<String, Vec<&Expense>> = BTreeMap::new();
-
-        for expense in sorted_expenses {
-            let category_name = expense
-                .category
-                .as_deref()
-                .unwrap_or("Без категории")
-                .to_string();
-            category_map.entry(category_name).or_default().push(expense);
-        }
-
-        category_map.into_iter()
+        sorted_expenses
+            .iter()
+            .fold(
+                BTreeMap::new(),
+                |mut map: std::collections::BTreeMap<_, Vec<&Expense>>, e| {
+                    let entry = e.category.as_deref().unwrap_or("Без категории").to_string();
+                    map.entry(entry).or_default().push(*e);
+                    map
+                },
+            )
+            .into_iter()
     }
 }

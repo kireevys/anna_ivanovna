@@ -1,5 +1,5 @@
 use crate::core::finance::{Money, Percentage};
-use crate::core::planning::{Expense, IncomeSource, Plan};
+use crate::core::planning::{Expense, IncomeSource, DistributionWeights};
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -122,8 +122,8 @@ impl Budget {
 ///
 /// returns: Result<Distribute, `DistributeError`>
 ///
-pub fn distribute(plan: &Plan, income: &Income) -> Result<Budget, Error> {
-    if !&plan.has_source(&income.source) {
+pub fn distribute(plan: &DistributionWeights, income: &Income) -> Result<Budget, Error> {
+    if !plan.has_source(&income.source) {
         return Err(Error::UnknownSource);
     }
 
@@ -148,7 +148,7 @@ mod test_distribute {
     use crate::core::basic_draft::Draft;
     use crate::core::distribute::{Budget, Error, Income, distribute};
     use crate::core::finance::{Money, Percentage};
-    use crate::core::planning::{Expense, ExpenseValue, IncomeSource, Plan};
+    use crate::core::planning::{Expense, ExpenseValue, IncomeSource, DistributionWeights};
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())
@@ -164,7 +164,7 @@ mod test_distribute {
             None,
         );
         let draft = Draft::build(&[source], &[expense]);
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
         let income = Income::new(source_1, rub(1.0), Utc::now().date_naive());
         assert_eq!(distribute(&plan, &income), Err(Error::UnknownSource));
     }
@@ -181,7 +181,7 @@ mod test_distribute {
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
         let income = Income::new_today(source, rub(1.0));
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense.clone(), &Percentage::from_int(50));
@@ -202,7 +202,7 @@ mod test_distribute {
             std::slice::from_ref(&expense),
         );
         let income = Income::new_today(source, rub(0.5));
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense.clone(), &Percentage::from_int(100));
         expected.rest = rub(0.0);
@@ -224,7 +224,7 @@ mod test_distribute {
             std::slice::from_ref(&expense),
         );
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense.clone(), &Percentage::from_int(100));
         expected.rest = rub(0.0);
@@ -246,7 +246,7 @@ mod test_distribute {
             std::slice::from_ref(&expense),
         );
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense.clone(), &Percentage::from_int(50));
         expected.rest = rub(0.5);
@@ -268,7 +268,7 @@ mod test_distribute {
             std::slice::from_ref(&expense),
         );
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense.clone(), &Percentage::from_int(0));
         expected.rest = rub(1.0);
@@ -290,7 +290,7 @@ mod test_distribute {
             std::slice::from_ref(&expense),
         );
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense.clone(), &Percentage::from_int(1));
         expected.rest = rub(0.99);
@@ -318,7 +318,7 @@ mod test_distribute {
             &[expense_no_category.clone(), expense_with_category.clone()],
         );
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
 
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense_no_category.clone(), &Percentage::from_int(30));
@@ -343,7 +343,7 @@ mod test_distribute {
             std::slice::from_ref(&expense),
         );
         let income = Income::new_today(source, rub(1.0));
-        let plan = Plan::try_from(draft).unwrap();
+        let plan = DistributionWeights::try_from(draft).unwrap();
 
         let mut expected = Budget::new(income.clone());
         expected.calculate(expense.clone(), &Percentage::from_int(40));

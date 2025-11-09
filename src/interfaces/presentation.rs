@@ -1,9 +1,9 @@
 use crate::core::distribute::Budget;
 use crate::core::finance::Money;
 use crate::core::finance::Percentage;
-use crate::core::planning::Plan;
+use crate::core::planning::DistributionWeights;
 use crate::interfaces::tree::{PlanNode, TreeNode};
-pub(crate) fn plan_to_tree(plan: &Plan) -> TreeNode<PlanNode> {
+pub(crate) fn plan_to_tree(plan: &DistributionWeights) -> TreeNode<PlanNode> {
     let mut root = TreeNode::new(PlanNode::Title("План бюджета".to_string()));
     // Источники дохода
     let mut sources_node = TreeNode::new(PlanNode::Other("💸 Источники дохода:".to_string()));

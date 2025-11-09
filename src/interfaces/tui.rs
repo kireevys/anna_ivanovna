@@ -383,7 +383,10 @@ fn component_widget<'a>(component: &Component<'a>) -> WidgetComponent<'a> {
                         .fg(Color::Black)
                         .add_modifier(Modifier::BOLD);
                 }
-                lines.push(Line::from(Span::styled(format!("{} [{}]", src.name, src.expected), style)));
+                lines.push(Line::from(Span::styled(
+                    format!("{} [{}]", src.name, src.expected),
+                    style,
+                )));
             }
             if let Some(err) = error {
                 lines.push(Line::from(Span::styled(
@@ -505,7 +508,10 @@ fn run_app<B: Backend, R: CoreRepo>(
 
     let red = Rc::new(Style::default().fg(Color::Red));
 
-    let plan = api::get_plan(repo).unwrap();
+    let draft = api::get_plan(repo).ok_or(io::Error::other("cannot read plan"))?;
+    let plan = draft
+        .try_into()
+        .map_err(|_| io::Error::other("cannot build plan"))?;
     let plan_tree = plan_to_tree(&plan);
     let income_sources = plan.sources.clone();
 
@@ -820,7 +826,7 @@ fn run_app<B: Backend, R: CoreRepo>(
                                 (Some(source), Ok(money)) => {
                                     let income =
                                         crate::core::distribute::Income::new_today(source, money);
-                                    match api::distribute_budget(&plan, &income) {
+                                    match api::distribute(&plan, &income) {
                                         Ok(budget) => {
                                             screen = Screen::DistributionResult {
                                                 budget,

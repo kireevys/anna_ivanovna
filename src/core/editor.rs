@@ -5,7 +5,7 @@ use std::{
 
 use crate::core::{
     finance::{Money, Percentage},
-    planning::{Error as PlanningError, Expense, ExpenseValue, IncomeSource, Plan},
+    planning::{DistributionWeights, Error as PlanningError, Expense, ExpenseValue, IncomeSource},
 };
 use thiserror;
 
@@ -33,35 +33,23 @@ pub enum Error {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct Draft {
+pub struct Plan {
     pub sources: BTreeMap<String, IncomeSource>,
     pub expenses: BTreeMap<String, Expense>,
 }
 
-impl TryFrom<Draft> for Plan {
+impl TryFrom<Plan> for DistributionWeights {
     type Error = PlanningError;
 
-    /// Создает План из Черновика
-    ///
-    /// # Arguments
-    ///
-    /// * `draft`: Черновик
-    ///
-    /// # Errors
-    /// `EmptyPlan`: Нельзя создать План из пустого Черновика
-    /// `TooBigExpenses`: Нужно запланировать свои Расходы так, чтобы они не превышали Доходы
-    ///
-    /// returns: Result<Plan, Error>
-    ///
-    fn try_from(draft: Draft) -> Result<Self, Self::Error> {
-        if draft.is_empty() {
+    fn try_from(plan: Plan) -> Result<Self, Self::Error> {
+        if plan.is_empty() {
             return Err(Self::Error::EmptyPlan);
         }
 
-        let plan_total = draft.total_incomes();
-        let mut rate_plan = HashMap::with_capacity(draft.expenses.len());
+        let plan_total = plan.total_incomes();
+        let mut rate_plan = HashMap::with_capacity(plan.expenses.len());
         let mut total = Percentage::ZERO;
-        for e in draft.expenses.values() {
+        for e in plan.expenses.values() {
             let current = match &e.value {
                 ExpenseValue::MONEY { value } => Percentage::of(value.value, plan_total.value),
                 ExpenseValue::RATE { value } => value.clone(),
@@ -73,14 +61,14 @@ impl TryFrom<Draft> for Plan {
             rate_plan.insert(e.clone(), current);
         }
         Ok(Self {
-            sources: draft.sources.values().cloned().collect(),
+            sources: plan.sources.values().cloned().collect(),
             budget: rate_plan,
             rest: Percentage::ONE_HUNDRED - total,
         })
     }
 }
 
-impl Draft {
+impl Plan {
     pub fn new(
         sources: BTreeMap<String, IncomeSource>,
         expenses: BTreeMap<String, Expense>,
@@ -255,12 +243,12 @@ impl Rest {
 #[derive(Debug, Default)]
 pub struct Editor {
     state: State,
-    _source: Draft,
-    current: Draft,
+    _source: Plan,
+    current: Plan,
 }
 
-impl From<Draft> for Editor {
-    fn from(value: Draft) -> Self {
+impl From<Plan> for Editor {
+    fn from(value: Plan) -> Self {
         Self {
             state: State::NotChanged,
             _source: value.clone(),
@@ -302,7 +290,7 @@ impl Editor {
         self.draft().rest()
     }
 
-    pub fn draft(&self) -> &Draft {
+    pub fn draft(&self) -> &Plan {
         &self.current
     }
 }
@@ -320,7 +308,7 @@ mod tests {
     }
 
     fn salary_editor() -> Editor {
-        let draft = Draft::build(
+        let draft = Plan::build(
             vec![IncomeSource::new(
                 "salary".to_string(),
                 Money::new_rub(100000.into()),
@@ -350,7 +338,7 @@ mod tests {
         assert_eq!(editor.rest(), Rest::new(income, Percentage::TOTAL));
         assert_eq!(
             Ok(editor.draft()),
-            Draft::build(vec![salary.clone()], vec![]).as_ref()
+            Plan::build(vec![salary.clone()], vec![]).as_ref()
         );
         assert_eq!(editor.state(), &State::Changed { count: 1 });
 
@@ -366,7 +354,7 @@ mod tests {
         );
         assert_eq!(
             Ok(editor.draft()),
-            Draft::build(vec![salary, bottles], vec![]).as_ref()
+            Plan::build(vec![salary, bottles], vec![]).as_ref()
         );
         assert_eq!(editor.state(), &State::Changed { count: 2 });
 
@@ -397,7 +385,7 @@ mod tests {
     fn from_draft() {
         let income = Money::new_rub(10000.into());
         let source = IncomeSource::new("salary".to_string(), income);
-        let draft = Draft::build(vec![source], vec![]).unwrap();
+        let draft = Plan::build(vec![source], vec![]).unwrap();
         let editor: Editor = draft.clone().into();
 
         assert_eq!(editor._source, draft);

@@ -1,10 +1,10 @@
 use crate::core::finance::{Money, Percentage};
-use crate::core::planning::{Error, Expense, ExpenseValue, IncomeSource, Plan};
+use crate::core::planning::{Error, Expense, ExpenseValue, IncomeSource, DistributionWeights};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-impl TryFrom<Draft> for Plan {
+impl TryFrom<Draft> for DistributionWeights {
     type Error = Error;
 
     /// Создает План из Черновика
@@ -159,7 +159,7 @@ mod test_planning {
     #[test]
     fn test_empty_draft() {
         let draft = Draft::new();
-        assert_eq!(Plan::try_from(draft), Err(Error::EmptyPlan));
+        assert_eq!(DistributionWeights::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
@@ -168,7 +168,7 @@ mod test_planning {
             &[IncomeSource::new("Gold goose".to_string(), rub(1.0))],
             &[],
         );
-        assert_eq!(Plan::try_from(draft), Err(Error::EmptyPlan));
+        assert_eq!(DistributionWeights::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
@@ -185,12 +185,12 @@ mod test_planning {
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
-        let res = Plan::try_from(draft).unwrap();
+        let res = DistributionWeights::try_from(draft).unwrap();
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(100))]);
 
         assert_eq!(
             res,
-            Plan {
+            DistributionWeights {
                 sources: vec![source.clone()],
                 budget: expected,
                 rest: Percentage::from_int(0),
@@ -212,7 +212,7 @@ mod test_planning {
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
-        assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
+        assert_eq!(DistributionWeights::try_from(draft), Err(Error::TooBigExpenses));
     }
 
     #[test]
@@ -236,7 +236,7 @@ mod test_planning {
             std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone()],
         );
-        assert_eq!(Plan::try_from(draft), Err(Error::TooBigExpenses));
+        assert_eq!(DistributionWeights::try_from(draft), Err(Error::TooBigExpenses));
     }
 
     #[test]
@@ -256,8 +256,8 @@ mod test_planning {
 
         let expected = HashMap::from([(expense.clone(), Percentage::from_int(50))]);
         assert_eq!(
-            Plan::try_from(draft).unwrap(),
-            Plan {
+            DistributionWeights::try_from(draft).unwrap(),
+            DistributionWeights {
                 sources: vec![source.clone()],
                 budget: expected,
                 rest: Percentage::HALF,
@@ -289,7 +289,7 @@ mod test_planning {
             std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );
-        let res = Plan::try_from(draft).unwrap();
+        let res = DistributionWeights::try_from(draft).unwrap();
         let expected = HashMap::from([
             (expense_1.clone(), Percentage::QUARTER),
             (expense_2.clone(), Percentage::HALF),
@@ -298,7 +298,7 @@ mod test_planning {
 
         assert_eq!(
             res,
-            Plan {
+            DistributionWeights {
                 sources: vec![source.clone()],
                 budget: expected,
                 rest: Percentage::ZERO,
@@ -335,6 +335,6 @@ mod test_planning {
             std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );
-        let _plan = Plan::try_from(draft).unwrap();
+        let _plan = DistributionWeights::try_from(draft).unwrap();
     }
 }

@@ -1,9 +1,9 @@
-use crate::api::{self, BudgetId, CoreRepo};
+use crate::api::{self, BudgetId, CoreRepo, PlanId};
 use crate::core::distribute::Budget;
-use crate::core::editor::Draft;
+use crate::core::editor::Plan;
 use crate::core::finance::Money;
 use crate::core::planning::{
-    Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource, Plan,
+    Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource,
 };
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -21,7 +21,7 @@ pub enum Error {
     CantParseDistribute,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Root {
     pub plan: PlanDetails,
 }
@@ -62,8 +62,39 @@ fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, PlanningError> {
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_e| PlanningError::InvalidPlan)?;
-    let draft = Draft::build(sources, expenses).unwrap();
-    Plan::try_from(draft)
+    Plan::build(sources, expenses).map_err(|_| PlanningError::InvalidPlan)
+}
+
+fn plan_to_yaml(plan: &Plan) -> Result<String, Error> {
+    let plan_details = PlanDetails {
+        incomes: plan
+            .sources
+            .values()
+            .map(|s| Income {
+                source: s.name.clone(),
+                value: format!("{}", s.expected()),
+            })
+            .collect(),
+        expenses: plan
+            .expenses
+            .values()
+            .map(|e| Expense {
+                name: e.name.clone(),
+                value: match &e.value {
+                    ExpenseValue::MONEY { value } => format!("{}", value),
+                    ExpenseValue::RATE { value } => format!("{}", value),
+                },
+                category: e.category.clone(),
+            })
+            .collect(),
+    };
+    let root = Root {
+        plan: plan_details,
+    };
+    serde_yaml::to_string(&root).map_err(|e| {
+        error!("Невозможно сериализовать план: {e}");
+        Error::CantParsePlan
+    })
 }
 
 /// Парсит переданный файл в Бюджет
@@ -121,18 +152,17 @@ pub fn distribute_from_json(path: &Path) -> Result<Budget, Error> {
 #[derive(Debug)]
 pub struct FileSystem {
     root_dir: PathBuf,
-    plan_path: PathBuf,
+    plans_path: PathBuf,
     incomes_path: PathBuf,
 }
 
 impl FileSystem {
-    const DEFAULT_PLAN_CONTENT: &'static str = include_str!("../example/plan.yaml");
     fn root(&self) -> &PathBuf {
         &self.root_dir
     }
 
-    fn plan_path(&self) -> &PathBuf {
-        &self.plan_path
+    fn plans_path(&self) -> &PathBuf {
+        &self.plans_path
     }
 
     fn incomes_path(&self) -> &PathBuf {
@@ -140,11 +170,7 @@ impl FileSystem {
     }
 
     /// Подготавливает структуру хранилища (директории, файлы)
-    fn prepare_storage(
-        &self,
-        default_plan_content: &str,
-        example_plan_path: &Path,
-    ) -> Result<(), String> {
+    fn prepare_storage(&self) -> Result<(), String> {
         let buh_dir = &self.root_dir;
         info!("Хранилище не найдено, инициализирую: {}", buh_dir.display());
         if buh_dir.exists() {
@@ -156,29 +182,13 @@ impl FileSystem {
         std::fs::create_dir_all(buh_dir).map_err(|e| format!("Ошибка создания директории: {e}"))?;
         info!("Создана директория: {}", buh_dir.display());
         let incomes_path = self.incomes_path();
-        let plan_p = self.plan_path();
         std::fs::create_dir_all(incomes_path)
             .map_err(|e| format!("Ошибка создания incomes: {e}"))?;
         info!("Создана директория: {}", incomes_path.display());
-        if !plan_p.exists() {
-            if example_plan_path.exists() {
-                std::fs::copy(example_plan_path, plan_p)
-                    .map_err(|e| format!("Ошибка копирования example/plan.yaml: {e}"))?;
-                info!(
-                    "Скопирован пример плана: {} → {}",
-                    example_plan_path.display(),
-                    plan_p.display()
-                );
-                info!(
-                    "Перейдите к этому файлу и отредактируйте его под себя перед использованием!"
-                );
-            } else {
-                std::fs::write(plan_p, default_plan_content)
-                    .map_err(|e| format!("Ошибка создания plan.yaml: {e}"))?;
-                info!("Создан файл плана с примером: {}", plan_p.display());
-                info!("Перейдите к этому файлу и заполните его перед использованием!");
-            }
-        }
+        let plans_path = self.plans_path();
+        std::fs::create_dir_all(plans_path)
+            .map_err(|e| format!("Ошибка создания plans: {e}"))?;
+        info!("Создана директория: {}", plans_path.display());
         info!("Хранилище инициализировано: {}", buh_dir.display());
         Ok(())
     }
@@ -189,16 +199,40 @@ impl FileSystem {
         let root_dir = root_dir.as_ref().to_path_buf();
         let fs = Self {
             root_dir: root_dir.clone(),
-            plan_path: root_dir.join("plan.yaml"),
+            plans_path: root_dir.join("plans"),
             incomes_path: root_dir.join("incomes"),
         };
-        // Если уже инициализировано, просто возвращаем
-        if fs.root_dir.exists() && fs.plan_path().exists() && fs.incomes_path().exists() {
+
+        // Если хранилище уже существует, проверяем и создаем недостающие директории
+        if fs.root_dir.exists() {
+            // Создаем plans, если его нет (миграция со старой структуры)
+            if !fs.plans_path().exists() {
+                std::fs::create_dir_all(fs.plans_path())
+                    .map_err(|e| format!("Ошибка создания plans: {e}"))?;
+                info!("Создана директория plans для миграции: {}", fs.plans_path().display());
+            }
+            // Создаем incomes, если его нет
+            if !fs.incomes_path().exists() {
+                std::fs::create_dir_all(fs.incomes_path())
+                    .map_err(|e| format!("Ошибка создания incomes: {e}"))?;
+                info!("Создана директория incomes: {}", fs.incomes_path().display());
+            }
+
+            // Миграция: если plans пуст, но есть старый plan.yaml, копируем его
+            let old_plan_path = fs.root_dir.join("plan.yaml");
+            if old_plan_path.exists() && fs.get_latest_plan_path().is_none() {
+                let migration_date = chrono::Utc::now().format("%Y-%m-%d");
+                let new_plan_path = fs.plans_path().join(format!("{}.yaml", migration_date));
+                std::fs::copy(&old_plan_path, &new_plan_path)
+                    .map_err(|e| format!("Ошибка миграции plan.yaml: {e}"))?;
+                info!("Мигрирован plan.yaml → {}", new_plan_path.display());
+            }
+
             return Ok(fs);
         }
-        // Иначе инициализируем
-        let example_plan_path = Path::new("example/plan.yaml");
-        fs.prepare_storage(Self::DEFAULT_PLAN_CONTENT, example_plan_path)?;
+
+        // Иначе инициализируем с нуля
+        fs.prepare_storage()?;
         Ok(fs)
     }
 
@@ -221,6 +255,28 @@ impl FileSystem {
         files.sort_by(|a, b| b.cmp(a));
         files.into_iter()
     }
+
+    fn get_latest_plan_path(&self) -> Option<PathBuf> {
+        let mut files: Vec<_> = match std::fs::read_dir(self.plans_path()) {
+            Ok(rd) => rd
+                .filter_map(|e| {
+                    let path = e.ok()?.path();
+                    if path.extension().is_some_and(|ext| ext == "yaml") {
+                        Some(path)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        };
+        files.sort_by(|a, b| {
+            b.file_name()
+                .and_then(|n| n.to_str())
+                .cmp(&a.file_name().and_then(|n| n.to_str()))
+        });
+        files.into_iter().next()
+    }
 }
 
 impl CoreRepo for FileSystem {
@@ -231,7 +287,19 @@ impl CoreRepo for FileSystem {
 
     #[instrument(skip(self))]
     fn get_plan(&self) -> Option<Plan> {
-        plan_from_yaml(self.plan_path()).ok()
+        self.get_latest_plan_path()
+            .and_then(|path| plan_from_yaml(&path).ok())
+    }
+
+    #[instrument(skip(self, plan))]
+    fn save_plan(&self, plan: Plan, id: PlanId) -> Result<PlanId, api::Error> {
+        let yaml_content = plan_to_yaml(&plan).map_err(|_| api::Error::CantSaveBudget)?;
+        let plan_path = self.plans_path().join(&id);
+        let mut file = File::create(&plan_path).map_err(|_| api::Error::CantSaveBudget)?;
+        file.write_all(yaml_content.as_bytes())
+            .map_err(|_| api::Error::CantSaveBudget)?;
+        info!("План сохранен в {plan_path:?}");
+        Ok(id)
     }
 
     #[instrument(skip(self, budget))]
@@ -291,6 +359,7 @@ impl CoreRepo for FileSystem {
 mod tests {
     use crate::core::distribute::{Income, distribute};
     use crate::core::finance::Money;
+    use crate::core::planning::DistributionWeights;
     use crate::storage::{distribute_from_json, plan_from_yaml};
     use chrono::NaiveDate;
     use std::path::Path;
@@ -298,14 +367,15 @@ mod tests {
     #[test]
     fn test_e2e() {
         let plan = plan_from_yaml(Path::new("src/test_storage/plan.yaml")).unwrap();
-        let source = plan.sources.first().unwrap();
+        let (_, source) = plan.sources.first_key_value().unwrap();
 
         let income = Income::new(
             source.clone(),
             Money::new_rub((source.expected.value / rust_decimal::Decimal::from(2)).round_dp(2)),
             NaiveDate::from_ymd_opt(2025, 6, 21).unwrap(),
         );
-        let result = distribute(&plan, &income).unwrap();
+        let weights: DistributionWeights = plan.try_into().unwrap();
+        let result = distribute(&weights, &income).unwrap();
 
         let expected = distribute_from_json(Path::new("src/test_storage/result.json")).unwrap();
         assert_eq!(result, expected);

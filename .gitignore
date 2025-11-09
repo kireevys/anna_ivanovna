@@ -4,3 +4,4 @@ target/
 /buh/
 .DS_Store
 *.log
+bench_result.json

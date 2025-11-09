@@ -1,11 +1,11 @@
-use crate::api::{CoreRepo, distribute_budget, get_plan, save_budget};
+use crate::api::{CoreRepo, distribute, get_plan, save_budget};
 use crate::core::distribute::Income;
 use crate::core::finance::Money;
-use crate::core::planning::{IncomeSource, Plan};
+use crate::core::planning::{DistributionWeights, IncomeSource};
 use crate::interfaces::presentation::{budget_to_tree, plan_to_tree};
-use crate::storage::FileSystem;
 use crate::interfaces::tree::to_text;
 use crate::interfaces::tui;
+use crate::storage::FileSystem;
 use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
 use std::io;
@@ -32,7 +32,11 @@ pub struct Cli {
 pub enum Commands {
     /// Добавить доход и распределить его согласно плану
     #[clap(alias = "income")]
-    AddIncome { amount: Decimal, #[clap(long)] dry_run: bool },
+    AddIncome {
+        amount: Decimal,
+        #[clap(long)]
+        dry_run: bool,
+    },
 
     /// Отобразить текущий план бюджета
     Plan,
@@ -45,12 +49,14 @@ pub enum Commands {
     #[clap(alias = "prepare")]
     PrepareStorage { path: PathBuf },
 
-
     /// Запустить TUI-интерфейс
     Tui,
 
     /// Спарсить Excel-совместимый CSV и сохранить json-файлы
-    ParseExcel { #[clap(long)] file: PathBuf },
+    ParseExcel {
+        #[clap(long)]
+        file: PathBuf,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -63,6 +69,8 @@ pub enum Error {
     InvalidInput,
     #[error("Не удалось распределить бюджет")]
     CantDistribute,
+    #[error("Не удалось построить план распределения бюджета")]
+    InvalidPlan,
 }
 
 fn user_input() -> Result<usize, Error> {
@@ -78,7 +86,7 @@ fn user_input() -> Result<usize, Error> {
 }
 
 #[tracing::instrument(skip(plan))]
-fn choose_source(plan: &Plan) -> Result<&IncomeSource, Error> {
+fn choose_source(plan: &DistributionWeights) -> Result<&IncomeSource, Error> {
     if plan.sources.len() == 1 {
         return plan.sources.first().ok_or(Error::NoPlan);
     }
@@ -106,12 +114,13 @@ pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
     println!("{}", repo.location());
     let cli = Cli::parse();
     let plan = get_plan(repo).ok_or(Error::NoPlan)?;
+    let weghts = plan.try_into().map_err(|_| Error::InvalidPlan)?;
     let start = std::time::Instant::now();
     match cli.command {
         Commands::AddIncome { amount, dry_run } => {
-            let source = choose_source(&plan)?;
+            let source = choose_source(&weghts)?;
             let income = Income::new_today(source.clone(), Money::new_rub(amount));
-            let budget = distribute_budget(&plan, &income).map_err(|_| Error::CantDistribute)?;
+            let budget = distribute(&weghts, &income).map_err(|_| Error::CantDistribute)?;
 
             let tree = budget_to_tree(&budget);
             println!("{}", to_text(&tree));
@@ -123,7 +132,7 @@ pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
             }
         }
         Commands::Plan => {
-            let tree = plan_to_tree(&plan);
+            let tree = plan_to_tree(&weghts);
             println!("{}", to_text(&tree));
         }
         Commands::ShowBudget { id } => match crate::api::budget_by_id(repo, &id) {
@@ -146,10 +155,12 @@ pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
             println!("⏱️ Время работы TUI: {elapsed:.2?}");
             return Ok(());
         }
-        Commands::ParseExcel { file } => match crate::interfaces::excel_parser::parse_excel_csv(file, repo) {
-            Ok(count) => println!("✅ Успешно обработано {count} строк из CSV"),
-            Err(e) => eprintln!("❌ Ошибка парсинга CSV: {e}"),
-        },
+        Commands::ParseExcel { file } => {
+            match crate::interfaces::excel_parser::parse_excel_csv(file, repo) {
+                Ok(count) => println!("✅ Успешно обработано {count} строк из CSV"),
+                Err(e) => eprintln!("❌ Ошибка парсинга CSV: {e}"),
+            }
+        }
     }
     let elapsed = start.elapsed();
     println!("⏱️ Время выполнения: {elapsed:.2?}");
