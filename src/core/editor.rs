@@ -7,6 +7,7 @@ use crate::core::{
     finance::{Money, Percentage},
     planning::{DistributionWeights, Error as PlanningError, Expense, ExpenseValue, IncomeSource},
 };
+use serde::Serialize;
 use thiserror;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -32,7 +33,7 @@ pub enum Error {
     NotFound(EntityType, String),
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
 pub struct Plan {
     pub sources: BTreeMap<String, IncomeSource>,
     pub expenses: BTreeMap<String, Expense>,

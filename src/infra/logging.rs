@@ -1,6 +1,6 @@
 use std::fs::{OpenOptions, create_dir_all};
 use std::path::Path;
-use tracing_subscriber::fmt::writer::BoxMakeWriter;
+use tracing_subscriber::fmt::writer::MakeWriterExt;
 
 pub fn init(dir: &Path, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
     let logdir = dir.join("logs");
@@ -10,8 +10,9 @@ pub fn init(dir: &Path, filename: &str) -> Result<(), Box<dyn std::error::Error>
         std::process::exit(1);
     }
     let file = OpenOptions::new().create(true).append(true).open(logfile)?;
+    let writer = std::io::stderr.and(file);
     tracing_subscriber::fmt()
-        .with_writer(BoxMakeWriter::new(file))
+        .with_writer(writer)
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
         .init();
     Ok(())

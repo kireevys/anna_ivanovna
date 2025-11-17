@@ -86,7 +86,11 @@ fn render_plan_tree<'a>(
         }
     }
     let formatted = match &tree.value {
-        PlanNode::Expense { name, amount, percent } => {
+        PlanNode::Expense {
+            name,
+            amount,
+            percent,
+        } => {
             let dots_w = name_w + 5 - name.chars().count();
             let dots_w = if dots_w > 0 { dots_w } else { 0 };
             if percent.is_empty() {
@@ -174,13 +178,32 @@ fn render_plan_tree_text_impl(
         }
     }
     let formatted = match &tree.value {
-        PlanNode::Expense { name, amount, percent } => {
+        PlanNode::Expense {
+            name,
+            amount,
+            percent,
+        } => {
             let dots_w = name_w + 5 - name.chars().count();
             let dots_w = if dots_w > 0 { dots_w } else { 0 };
             if percent.is_empty() {
-                format!("{}{}{} {:>amount_w$}", line_prefix, name, "·".repeat(dots_w), amount, amount_w = amount_w)
+                format!(
+                    "{}{}{} {:>amount_w$}",
+                    line_prefix,
+                    name,
+                    "·".repeat(dots_w),
+                    amount,
+                    amount_w = amount_w
+                )
             } else {
-                format!("{}{}{} {:>amount_w$} [{}]", line_prefix, name, "·".repeat(dots_w), amount, percent, amount_w = amount_w)
+                format!(
+                    "{}{}{} {:>amount_w$} [{}]",
+                    line_prefix,
+                    name,
+                    "·".repeat(dots_w),
+                    amount,
+                    percent,
+                    amount_w = amount_w
+                )
             }
         }
         PlanNode::Total { amount, percent } => {
@@ -200,7 +223,13 @@ fn render_plan_tree_text_impl(
         let last = i + 1 == len;
         let mut new_parent_has_sibling = parent_has_sibling.to_vec();
         new_parent_has_sibling.push(!last);
-        lines.extend(render_plan_tree_text_impl(child, &new_parent_has_sibling, last, name_w, amount_w));
+        lines.extend(render_plan_tree_text_impl(
+            child,
+            &new_parent_has_sibling,
+            last,
+            name_w,
+            amount_w,
+        ));
     }
     lines
 }

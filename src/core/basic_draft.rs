@@ -1,5 +1,5 @@
 use crate::core::finance::{Money, Percentage};
-use crate::core::planning::{Error, Expense, ExpenseValue, IncomeSource, DistributionWeights};
+use crate::core::planning::{DistributionWeights, Error, Expense, ExpenseValue, IncomeSource};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -212,7 +212,10 @@ mod test_planning {
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
-        assert_eq!(DistributionWeights::try_from(draft), Err(Error::TooBigExpenses));
+        assert_eq!(
+            DistributionWeights::try_from(draft),
+            Err(Error::TooBigExpenses)
+        );
     }
 
     #[test]
@@ -236,7 +239,10 @@ mod test_planning {
             std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone()],
         );
-        assert_eq!(DistributionWeights::try_from(draft), Err(Error::TooBigExpenses));
+        assert_eq!(
+            DistributionWeights::try_from(draft),
+            Err(Error::TooBigExpenses)
+        );
     }
 
     #[test]

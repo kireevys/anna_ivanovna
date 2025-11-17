@@ -1,4 +1,4 @@
-use crate::api::{self, BudgetId, CoreRepo, PlanId};
+use crate::api::{self, BudgetId, CoreRepo, Page, PlanId};
 use crate::core::distribute::Budget;
 use crate::core::editor::Plan;
 use crate::core::finance::Money;
@@ -88,9 +88,7 @@ fn plan_to_yaml(plan: &Plan) -> Result<String, Error> {
             })
             .collect(),
     };
-    let root = Root {
-        plan: plan_details,
-    };
+    let root = Root { plan: plan_details };
     serde_yaml::to_string(&root).map_err(|e| {
         error!("Невозможно сериализовать план: {e}");
         Error::CantParsePlan
@@ -149,7 +147,7 @@ pub fn distribute_from_json(path: &Path) -> Result<Budget, Error> {
         Error::CantParseDistribute
     })
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileSystem {
     root_dir: PathBuf,
     plans_path: PathBuf,
@@ -186,8 +184,7 @@ impl FileSystem {
             .map_err(|e| format!("Ошибка создания incomes: {e}"))?;
         info!("Создана директория: {}", incomes_path.display());
         let plans_path = self.plans_path();
-        std::fs::create_dir_all(plans_path)
-            .map_err(|e| format!("Ошибка создания plans: {e}"))?;
+        std::fs::create_dir_all(plans_path).map_err(|e| format!("Ошибка создания plans: {e}"))?;
         info!("Создана директория: {}", plans_path.display());
         info!("Хранилище инициализировано: {}", buh_dir.display());
         Ok(())
@@ -209,13 +206,19 @@ impl FileSystem {
             if !fs.plans_path().exists() {
                 std::fs::create_dir_all(fs.plans_path())
                     .map_err(|e| format!("Ошибка создания plans: {e}"))?;
-                info!("Создана директория plans для миграции: {}", fs.plans_path().display());
+                info!(
+                    "Создана директория plans для миграции: {}",
+                    fs.plans_path().display()
+                );
             }
             // Создаем incomes, если его нет
             if !fs.incomes_path().exists() {
                 std::fs::create_dir_all(fs.incomes_path())
                     .map_err(|e| format!("Ошибка создания incomes: {e}"))?;
-                info!("Создана директория incomes: {}", fs.incomes_path().display());
+                info!(
+                    "Создана директория incomes: {}",
+                    fs.incomes_path().display()
+                );
             }
 
             // Миграция: если plans пуст, но есть старый plan.yaml, копируем его
@@ -237,18 +240,11 @@ impl FileSystem {
     }
 
     fn full_storage(&self) -> impl Iterator<Item = BudgetId> {
-        let mut files: Vec<_> = match std::fs::read_dir(self.incomes_path()) {
+        let mut files: Vec<BudgetId> = match std::fs::read_dir(self.incomes_path()) {
             Ok(rd) => rd
-                .filter_map(|e| {
-                    let path = e.ok()?.path();
-                    if path.extension().is_some_and(|ext| ext == "json") {
-                        // Возвращаем имя файла как BudgetId, а не PathBuf
-                        path.file_name()
-                            .map(|os_str| os_str.to_string_lossy().to_string())
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|f| f.ok())
+                .filter(|path| path.path().extension().is_some_and(|ext| ext == "json"))
+                .map(|path| path.file_name().to_string_lossy().to_string())
                 .collect(),
             Err(_) => Vec::new(),
         };
@@ -303,13 +299,8 @@ impl CoreRepo for FileSystem {
     }
 
     #[instrument(skip(self, budget))]
-    fn save_budget(&self, budget: Budget) -> Result<BudgetId, api::Error> {
-        let filename: BudgetId = format!(
-            "{}-{}.json",
-            budget.income_date().format("%Y-%m-%d"),
-            budget.income.source.name
-        );
-        let result_path = &self.incomes_path().join(&filename);
+    fn save_budget(&self, budget_id: BudgetId, budget: Budget) -> Result<BudgetId, api::Error> {
+        let result_path = &self.incomes_path().join(&budget_id);
         let mut file = File::create(result_path).map_err(|_| api::Error::CantSaveBudget)?;
 
         let json_result =
@@ -318,22 +309,21 @@ impl CoreRepo for FileSystem {
             .map_err(|_| api::Error::CantSaveBudget)?;
 
         info!("Записано в {result_path:?}");
-        Ok(filename)
+        Ok(budget_id)
     }
 
     #[instrument(skip(self))]
-    fn budget_ids<'r>(
-        &'r self,
-        from: Option<api::Cursor>,
-        limit: usize,
-    ) -> Box<dyn Iterator<Item = BudgetId> + 'r> {
-        let files: Vec<_> = self.full_storage().collect();
-        let start = from
-            .as_ref()
-            .and_then(|cursor| files.iter().position(|p| p == cursor))
-            .map_or(0, |idx| idx + 1);
-        let files: Vec<_> = files.into_iter().skip(start).take(limit).collect();
-        Box::new(files.into_iter())
+    fn budgets(&self, from: Option<api::Cursor>, limit: usize) -> api::Page<api::StorageBudget> {
+        let files = self
+            .full_storage()
+            .skip_while(|id| from.as_ref().is_some_and(|cursor| cursor <= id));
+
+        let items: Vec<api::StorageBudget> = files
+            .take(limit)
+            .filter_map(|id| self.budget_by_id(&id))
+            .collect();
+        let next_cursor = items.last().map(|b| b.id.clone());
+        Page::new(items, next_cursor)
     }
 
     #[instrument(skip(self))]

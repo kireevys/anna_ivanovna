@@ -1,13 +1,16 @@
 use crate::core::finance::{Money, Percentage};
-use crate::core::planning::{Expense, IncomeSource, DistributionWeights};
+use crate::core::planning::{DistributionWeights, Expense, IncomeSource};
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use thiserror::Error;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Error {
+    #[error("empty plan")]
     EmptyPlan,
+    #[error("unknown source")]
     UnknownSource,
 }
 
@@ -148,7 +151,7 @@ mod test_distribute {
     use crate::core::basic_draft::Draft;
     use crate::core::distribute::{Budget, Error, Income, distribute};
     use crate::core::finance::{Money, Percentage};
-    use crate::core::planning::{Expense, ExpenseValue, IncomeSource, DistributionWeights};
+    use crate::core::planning::{DistributionWeights, Expense, ExpenseValue, IncomeSource};
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())

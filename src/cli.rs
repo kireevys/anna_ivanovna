@@ -1,10 +1,10 @@
-use crate::api::{CoreRepo, distribute, get_plan, save_budget};
+use crate::api::{BudgetId, CoreApi, CoreRepo};
 use crate::core::distribute::Income;
 use crate::core::finance::Money;
 use crate::core::planning::{DistributionWeights, IncomeSource};
 use crate::interfaces::presentation::{budget_to_tree, plan_to_tree};
 use crate::interfaces::tree::to_text;
-use crate::interfaces::tui;
+use crate::interfaces::{self};
 use crate::storage::FileSystem;
 use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
@@ -12,7 +12,8 @@ use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use thiserror::Error;
-use tracing;
+use tokio::runtime::Runtime;
+use tracing::{self, info};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -43,20 +44,22 @@ pub enum Commands {
 
     /// Показать бюджет по id
     #[clap(alias = "show")]
-    ShowBudget { id: String },
+    ShowBudget {
+        id: String,
+    },
 
     /// Подготовить структуру папок и файлов для работы
     #[clap(alias = "prepare")]
-    PrepareStorage { path: PathBuf },
-
-    /// Запустить TUI-интерфейс
-    Tui,
+    PrepareStorage {
+        path: PathBuf,
+    },
 
     /// Спарсить Excel-совместимый CSV и сохранить json-файлы
     ParseExcel {
         #[clap(long)]
         file: PathBuf,
     },
+    Web,
 }
 
 #[derive(Debug, Error)]
@@ -109,25 +112,37 @@ fn choose_source(plan: &DistributionWeights) -> Result<&IncomeSource, Error> {
 /// При неожиданном пользовательском вводе
 ///
 /// returns: ()
-#[tracing::instrument(skip(repo))]
-pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
-    println!("{}", repo.location());
+#[tracing::instrument(skip(api))]
+pub fn run<R>(api: crate::api::CoreApi<R>) -> Result<(), Error>
+where
+    R: CoreRepo + Clone + Send + Sync + 'static,
+{
+    info!(location = api.location());
     let cli = Cli::parse();
-    let plan = get_plan(repo).ok_or(Error::NoPlan)?;
+    let plan = api.get_plan().ok_or(Error::NoPlan)?;
     let weghts = plan.try_into().map_err(|_| Error::InvalidPlan)?;
     let start = std::time::Instant::now();
     match cli.command {
         Commands::AddIncome { amount, dry_run } => {
             let source = choose_source(&weghts)?;
             let income = Income::new_today(source.clone(), Money::new_rub(amount));
-            let budget = distribute(&weghts, &income).map_err(|_| Error::CantDistribute)?;
+            let budget = api
+                .distribute(&weghts, &income)
+                .map_err(|_| Error::CantDistribute)?;
 
             let tree = budget_to_tree(&budget);
             println!("{}", to_text(&tree));
+            let id: BudgetId = format!(
+                "{}-{}.json",
+                budget.income_date().format("%Y-%m-%d"),
+                budget.income.source.name
+            );
             if dry_run {
-                println!("🔍 DRY-RUN: Результат НЕ сохранён (тестовый режим)");
+                println!("🔍 DRY-RUN: Результат НЕ сохранён");
             } else {
-                let id = save_budget(budget, repo).map_err(|_| Error::CantWriteResult)?;
+                let id = api
+                    .save_budget(id, budget)
+                    .map_err(|_| Error::CantWriteResult)?;
                 println!("💾 Бюджет сохранён с ID: {id}");
             }
         }
@@ -135,7 +150,7 @@ pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
             let tree = plan_to_tree(&weghts);
             println!("{}", to_text(&tree));
         }
-        Commands::ShowBudget { id } => match crate::api::budget_by_id(repo, &id) {
+        Commands::ShowBudget { id } => match api.budget_by_id(&id) {
             Some(budget) => {
                 let tree = budget_to_tree(&budget.budget);
                 println!("{}", to_text(&tree));
@@ -147,19 +162,28 @@ pub fn run<R: CoreRepo>(repo: &R) -> Result<(), Error> {
                 eprintln!("{e}");
             }
         }
-        Commands::Tui => {
-            if let Err(e) = tui::run(repo) {
-                eprintln!("Ошибка TUI: {e}");
-            }
-            let elapsed = start.elapsed();
-            println!("⏱️ Время работы TUI: {elapsed:.2?}");
-            return Ok(());
-        }
         Commands::ParseExcel { file } => {
-            match crate::interfaces::excel_parser::parse_excel_csv(file, repo) {
-                Ok(count) => println!("✅ Успешно обработано {count} строк из CSV"),
+            match crate::interfaces::excel_parser::parse_excel_csv(file) {
+                Ok(budgets) => {
+                    let mut count = 0;
+                    for b in budgets {
+                        api.save_budget(CoreApi::<R>::build_budget_id(&b), b)
+                            .map_err(|_| Error::CantWriteResult)?;
+                        count += 1;
+                    }
+                    println!("✅ Успешно обработано {count} строк")
+                }
                 Err(e) => eprintln!("❌ Ошибка парсинга CSV: {e}"),
             }
+        }
+        Commands::Web => {
+            let runtime = Runtime::new().expect("failed to create tokio runtime");
+            runtime.block_on(async {
+                if let Err(err) = interfaces::web::run(api.clone(), "0.0.0.0:3000").await {
+                    eprintln!("Ошибка web-сервера: {err}");
+                }
+            });
+            return Ok(());
         }
     }
     let elapsed = start.elapsed();

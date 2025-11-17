@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use crate::api::CoreRepo;
 use crate::core::distribute::{Budget, BudgetEntry, Income};
 use crate::core::finance::Money;
 use crate::core::planning::{Expense, ExpenseValue, IncomeSource};
@@ -32,28 +31,27 @@ fn read<P: AsRef<Path>>(csv_path: &P) -> io::Result<(Vec<String>, Reader<BufRead
     let headers: Vec<String> = headers.iter().map(|h| h.trim().to_string()).collect();
     Ok((headers, rdr))
 }
-pub fn parse_excel_csv<P: AsRef<Path>, R: CoreRepo>(csv_path: P, repo: &R) -> io::Result<usize> {
+pub fn parse_excel_csv<P: AsRef<Path>>(csv_path: P) -> io::Result<impl Iterator<Item = Budget>> {
     let (headers, mut rdr) = read(&csv_path)?;
 
-    let records: Vec<csv::StringRecord> = rdr
+    let res: Vec<Budget> = rdr
         .records()
-        .collect::<Result<_, _>>()
-        .map_err(io::Error::other)?;
-
-    let full_result: Vec<Budget> = records
-        .iter()
+        // .collect::<Result<_, _>>()
         .enumerate()
         .map(|(lineno, record)| {
-            parse_row(&headers, record).map_err(|_| {
+            let record = record.map_err(io::Error::other)?;
+            parse_row(&headers, &record).map_err(|_| {
                 io::Error::other(format!("Ошибка парсинга строки {lineno} {record:?}"))
             })
         })
         .collect::<io::Result<_>>()?;
-    let count = full_result.len();
-    for b in full_result {
-        repo.save_budget(b).map_err(io::Error::other)?;
-    }
-    Ok(count)
+
+    Ok(res.into_iter())
+
+    // Ok(records.iter().enumerate().map(|(lineno, record)| {
+    //     parse_row(&headers, record)
+    //         .map_err(|_| io::Error::other(format!("Ошибка парсинга строки {lineno} {record:?}")))?
+    // }))
 }
 
 fn parse_date(s: &str) -> Option<NaiveDate> {

@@ -1,6 +1,11 @@
+use std::sync::Arc;
+
+use anna_ivanovna::api::CoreApi;
 
 type Error = anna_ivanovna::infra::config::Error;
-fn get_buh_home() -> Result<std::path::PathBuf, Error> { anna_ivanovna::infra::config::get_buh_home() }
+fn get_buh_home() -> Result<std::path::PathBuf, Error> {
+    anna_ivanovna::infra::config::get_buh_home()
+}
 
 fn logging_init(dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     anna_ivanovna::infra::logging::init(dir, "anna_ivanovna.log")
@@ -30,20 +35,11 @@ fn main() {
         }
     };
 
-    // Проверяем, есть ли аргументы командной строки
-    let args: Vec<String> = std::env::args().collect();
+    let repo = Arc::new(fs_repo);
+    let core = CoreApi::new(repo);
 
-    if args.len() > 1 {
-        // Есть аргументы - запускаем CLI
-        if let Err(e) = anna_ivanovna::cli::run(&fs_repo) {
-            eprintln!("Ошибка CLI: {e}");
-            std::process::exit(1);
-        }
-    } else {
-        // Нет аргументов - запускаем TUI
-        if let Err(e) = anna_ivanovna::interfaces::tui::run(&fs_repo) {
-            eprintln!("Ошибка TUI: {e}");
-            std::process::exit(1);
-        }
+    if let Err(e) = anna_ivanovna::cli::run(core) {
+        eprintln!("Ошибка CLI: {e}");
+        std::process::exit(1);
     }
 }
