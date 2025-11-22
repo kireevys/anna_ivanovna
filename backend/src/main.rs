@@ -1,14 +1,17 @@
+use ai_core::api::CoreApi;
 use std::sync::Arc;
+mod cli;
+mod infra;
+mod interfaces;
+mod storage;
 
-use anna_ivanovna::api::CoreApi;
-
-type Error = anna_ivanovna::infra::config::Error;
+type Error = infra::config::Error;
 fn get_buh_home() -> Result<std::path::PathBuf, Error> {
-    anna_ivanovna::infra::config::get_buh_home()
+    infra::config::get_buh_home()
 }
 
 fn logging_init(dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    anna_ivanovna::infra::logging::init(dir, "anna_ivanovna.log")
+    infra::logging::init(dir, "anna_ivanovna.log")
 }
 
 fn main() {
@@ -27,7 +30,7 @@ fn main() {
     }
 
     // Автоматическая инициализация, если хранилище не найдено
-    let fs_repo = match anna_ivanovna::storage::FileSystem::init(buh_home.join("storage")) {
+    let fs_repo = match storage::FileSystem::init(buh_home.join("storage")) {
         Ok(fs) => fs,
         Err(e) => {
             eprintln!("{e}");
@@ -38,7 +41,7 @@ fn main() {
     let repo = Arc::new(fs_repo);
     let core = CoreApi::new(repo);
 
-    if let Err(e) = anna_ivanovna::cli::run(core) {
+    if let Err(e) = cli::run(core) {
         eprintln!("Ошибка CLI: {e}");
         std::process::exit(1);
     }

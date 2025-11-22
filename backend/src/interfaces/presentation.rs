@@ -1,8 +1,8 @@
-use crate::core::distribute::Budget;
-use crate::core::finance::Money;
-use crate::core::finance::Percentage;
-use crate::core::planning::DistributionWeights;
 use crate::interfaces::tree::{PlanNode, TreeNode};
+use ai_core::distribute::Budget;
+use ai_core::finance::Money;
+use ai_core::finance::Percentage;
+use ai_core::planning::DistributionWeights;
 pub(crate) fn plan_to_tree(plan: &DistributionWeights) -> TreeNode<PlanNode> {
     let mut root = TreeNode::new(PlanNode::Title("План бюджета".to_string()));
     // Источники дохода

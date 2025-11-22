@@ -5,9 +5,9 @@ use std::fs::File;
 use std::io::{self, BufReader};
 use std::path::Path;
 
-use crate::core::distribute::{Budget, BudgetEntry, Income};
-use crate::core::finance::Money;
-use crate::core::planning::{Expense, ExpenseValue, IncomeSource};
+use ai_core::distribute::{Budget, BudgetEntry, Income};
+use ai_core::finance::Money;
+use ai_core::planning::{Expense, ExpenseValue, IncomeSource};
 
 const STATICS_KEYS: [&str; 5] = [
     "Дата входа",

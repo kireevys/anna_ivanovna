@@ -1,4 +1,4 @@
-use crate::core::finance::{Money, Percentage};
+use crate::finance::{Money, Percentage};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Formatter};

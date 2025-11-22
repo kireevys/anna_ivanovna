@@ -4,11 +4,12 @@ use serde::Serialize;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::core::{
+use crate::{
     distribute::{Budget, Income, distribute as core_dist},
     editor::Plan,
     planning::DistributionWeights,
 };
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("distribution error")]

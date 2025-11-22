@@ -1,5 +1,5 @@
-use crate::core::finance::{Money, Percentage};
-use crate::core::planning::{DistributionWeights, Error, Expense, ExpenseValue, IncomeSource};
+use crate::finance::{Money, Percentage};
+use crate::planning::{DistributionWeights, Error, Expense, ExpenseValue, IncomeSource};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -101,7 +101,7 @@ mod test_planning {
     use rust_decimal::prelude::FromPrimitive;
     use rust_decimal_macros::dec;
 
-    use crate::core::finance::{Currency, Money, Percentage};
+    use crate::finance::{Currency, Money, Percentage};
 
     use super::*;
 

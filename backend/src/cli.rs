@@ -1,11 +1,11 @@
-use crate::api::{BudgetId, CoreApi, CoreRepo};
-use crate::core::distribute::Income;
-use crate::core::finance::Money;
-use crate::core::planning::{DistributionWeights, IncomeSource};
+use crate::interfaces;
 use crate::interfaces::presentation::{budget_to_tree, plan_to_tree};
 use crate::interfaces::tree::to_text;
-use crate::interfaces::{self};
 use crate::storage::FileSystem;
+use ai_core::api::{BudgetId, CoreApi, CoreRepo};
+use ai_core::distribute::Income;
+use ai_core::finance::Money;
+use ai_core::planning::{DistributionWeights, IncomeSource};
 use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
 use std::io;
@@ -59,7 +59,10 @@ pub enum Commands {
         #[clap(long)]
         file: PathBuf,
     },
-    Web,
+    Web {
+        host: String,
+        port: u16,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -113,7 +116,7 @@ fn choose_source(plan: &DistributionWeights) -> Result<&IncomeSource, Error> {
 ///
 /// returns: ()
 #[tracing::instrument(skip(api))]
-pub fn run<R>(api: crate::api::CoreApi<R>) -> Result<(), Error>
+pub fn run<R>(api: CoreApi<R>) -> Result<(), Error>
 where
     R: CoreRepo + Clone + Send + Sync + 'static,
 {
@@ -176,10 +179,11 @@ where
                 Err(e) => eprintln!("❌ Ошибка парсинга CSV: {e}"),
             }
         }
-        Commands::Web => {
+        Commands::Web { host, port } => {
             let runtime = Runtime::new().expect("failed to create tokio runtime");
             runtime.block_on(async {
-                if let Err(err) = interfaces::web::run(api.clone(), "0.0.0.0:3000").await {
+                if let Err(err) = interfaces::web::run(api.clone(), &format!("{host}:{port}")).await
+                {
                     eprintln!("Ошибка web-сервера: {err}");
                 }
             });

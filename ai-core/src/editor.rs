@@ -3,11 +3,11 @@ use std::{
     fmt,
 };
 
-use crate::core::{
+use crate::{
     finance::{Money, Percentage},
     planning::{DistributionWeights, Error as PlanningError, Expense, ExpenseValue, IncomeSource},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,7 +33,7 @@ pub enum Error {
     NotFound(EntityType, String),
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Plan {
     pub sources: BTreeMap<String, IncomeSource>,
     pub expenses: BTreeMap<String, Expense>,
@@ -300,7 +300,7 @@ impl Editor {
 mod tests {
     use rstest::rstest;
 
-    use crate::core::{finance::Money, planning::ExpenseValue};
+    use crate::{finance::Money, planning::ExpenseValue};
 
     use super::*;
 

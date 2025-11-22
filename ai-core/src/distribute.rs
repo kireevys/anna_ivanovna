@@ -1,5 +1,5 @@
-use crate::core::finance::{Money, Percentage};
-use crate::core::planning::{DistributionWeights, Expense, IncomeSource};
+use crate::finance::{Money, Percentage};
+use crate::planning::{DistributionWeights, Expense, IncomeSource};
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -148,10 +148,10 @@ mod test_distribute {
     use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
 
-    use crate::core::basic_draft::Draft;
-    use crate::core::distribute::{Budget, Error, Income, distribute};
-    use crate::core::finance::{Money, Percentage};
-    use crate::core::planning::{DistributionWeights, Expense, ExpenseValue, IncomeSource};
+    use crate::basic_draft::Draft;
+    use crate::distribute::{Budget, Error, Income, distribute};
+    use crate::finance::{Money, Percentage};
+    use crate::planning::{DistributionWeights, Expense, ExpenseValue, IncomeSource};
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())

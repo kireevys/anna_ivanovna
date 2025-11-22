@@ -1,8 +1,8 @@
-use crate::api::{self, BudgetId, CoreRepo, Page, PlanId};
-use crate::core::distribute::Budget;
-use crate::core::editor::Plan;
-use crate::core::finance::Money;
-use crate::core::planning::{
+use ai_core::api::{self, BudgetId, CoreRepo, Page, PlanId};
+use ai_core::distribute::Budget;
+use ai_core::editor::Plan;
+use ai_core::finance::Money;
+use ai_core::planning::{
     Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource,
 };
 use serde::{Deserialize, Serialize};
@@ -347,10 +347,10 @@ impl CoreRepo for FileSystem {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::distribute::{Income, distribute};
-    use crate::core::finance::Money;
-    use crate::core::planning::DistributionWeights;
     use crate::storage::{distribute_from_json, plan_from_yaml};
+    use ai_core::distribute::{Income, distribute};
+    use ai_core::finance::Money;
+    use ai_core::planning::DistributionWeights;
     use chrono::NaiveDate;
     use std::path::Path;
 

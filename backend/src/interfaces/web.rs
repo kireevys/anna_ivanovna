@@ -1,3 +1,9 @@
+use ai_core::{
+    api::{self, BudgetId, CoreApi, CoreRepo, Cursor, Page, StorageBudget},
+    distribute::{Budget, Income},
+    editor::Plan,
+    finance::Money,
+};
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
@@ -7,16 +13,8 @@ use axum::{
 };
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use tower_http::cors::CorsLayer;
 use tracing::info;
-
-use crate::{
-    api::{self, BudgetId, CoreApi, CoreRepo, Cursor, Page, StorageBudget},
-    core::{
-        distribute::{Budget, Income},
-        editor::Plan,
-        finance::Money,
-    },
-};
 
 #[derive(Debug)]
 enum ApiError {
@@ -130,6 +128,12 @@ where
         .route("/v1/add_income", post(add_income::<R>))
         .route("/v1/save_budget", post(save_budget::<R>))
         .route("/v1/budget/{id}", get(budget::<R>))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(tower_http::cors::Any)
+                .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+                .allow_headers(tower_http::cors::Any),
+        )
         .layer(
             tower_http::trace::TraceLayer::new_for_http()
                 .make_span_with(|request: &axum::http::Request<_>| {
