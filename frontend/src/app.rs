@@ -1,16 +1,58 @@
 use crate::api;
-use ai_core::editor::Plan;
+use crate::components::{Error, HistoryView, Loading, PlanView, ThemeSwitcher};
+use crate::presentation::history::HistoryEntry;
+use crate::presentation::plan::Plan;
+use ai_core::api::{Cursor, Page, StorageBudget};
+use ai_core::editor::Plan as CorePlan;
 use yew::{Component, Context, Html, html};
 
+#[derive(Clone, PartialEq)]
+pub enum View {
+    Plan,
+    History,
+}
+
+#[derive(Clone, PartialEq)]
+enum DataState<T> {
+    Loading,
+    Loaded(T),
+    Error(String),
+}
+
+#[derive(Clone, PartialEq)]
+enum PaginatableDataState<T> {
+    Loading,
+    Loaded {
+        items: Vec<T>,
+        next_cursor: Option<Cursor>,
+    },
+    LoadingMore {
+        items: Vec<T>,
+        next_cursor: Option<Cursor>,
+    },
+    Error(String),
+}
+
+struct PlanState {
+    data: DataState<Plan>,
+}
+
+struct HistoryState {
+    data: PaginatableDataState<HistoryEntry>,
+}
+
 pub struct App {
-    plan: Option<Plan>,
-    loading: bool,
-    error: Option<String>,
+    view: View,
+    plan: PlanState,
+    history: HistoryState,
 }
 
 pub enum AppMsg {
+    SwitchView(View),
     LoadPlan,
-    PlanLoaded(Result<Plan, String>),
+    PlanLoaded(Result<CorePlan, String>),
+    LoadHistory,
+    HistoryLoaded(Result<Page<StorageBudget>, String>),
 }
 
 impl Component for App {
@@ -20,17 +62,27 @@ impl Component for App {
     fn create(ctx: &Context<Self>) -> Self {
         ctx.link().send_message(AppMsg::LoadPlan);
         Self {
-            plan: None,
-            loading: true,
-            error: None,
+            view: View::Plan,
+            plan: PlanState {
+                data: DataState::Loading,
+            },
+            history: HistoryState {
+                data: PaginatableDataState::Loading,
+            },
         }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            AppMsg::SwitchView(view) => {
+                self.view = view.clone();
+                if view == View::History && matches!(&self.history.data, PaginatableDataState::Loading) {
+                    ctx.link().send_message(AppMsg::LoadHistory);
+                }
+                true
+            }
             AppMsg::LoadPlan => {
-                self.loading = true;
-                self.error = None;
+                self.plan.data = DataState::Loading;
                 let link = ctx.link().clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     let result = api::get_plan().await;
@@ -39,13 +91,62 @@ impl Component for App {
                 true
             }
             AppMsg::PlanLoaded(Ok(plan)) => {
-                self.plan = Some(plan);
-                self.loading = false;
+                self.plan.data = DataState::Loaded(Plan::from(&plan));
                 true
             }
             AppMsg::PlanLoaded(Err(e)) => {
-                self.error = Some(e);
-                self.loading = false;
+                self.plan.data = DataState::Error(e);
+                true
+            }
+            AppMsg::LoadHistory => {
+                let cursor = match self.history.data.clone() {
+                    PaginatableDataState::Loaded { items, next_cursor } => {
+                        self.history.data = PaginatableDataState::LoadingMore {
+                            items,
+                            next_cursor: next_cursor.clone(),
+                        };
+                        next_cursor
+                    }
+                    PaginatableDataState::LoadingMore { next_cursor, .. } => next_cursor,
+                    _ => {
+                        self.history.data = PaginatableDataState::Loading;
+                        None
+                    }
+                };
+
+                let link = ctx.link().clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let result = api::get_history(cursor).await;
+                    link.send_message(AppMsg::HistoryLoaded(result));
+                });
+                true
+            }
+            AppMsg::HistoryLoaded(Ok(page)) => {
+                let new_entries: Vec<HistoryEntry> =
+                    page.items.iter().map(HistoryEntry::from).collect();
+
+                match &mut self.history.data {
+                    PaginatableDataState::Loading => {
+                        self.history.data = PaginatableDataState::Loaded {
+                            items: new_entries,
+                            next_cursor: page.next_cursor,
+                        };
+                    }
+                    PaginatableDataState::Loaded { items, next_cursor }
+                    | PaginatableDataState::LoadingMore { items, next_cursor } => {
+                        items.extend(new_entries);
+                        *next_cursor = page.next_cursor;
+                        self.history.data = PaginatableDataState::Loaded {
+                            items: items.clone(),
+                            next_cursor: next_cursor.clone(),
+                        };
+                    }
+                    _ => {}
+                }
+                true
+            }
+            AppMsg::HistoryLoaded(Err(e)) => {
+                self.history.data = PaginatableDataState::Error(e);
                 true
             }
         }
@@ -53,9 +154,30 @@ impl Component for App {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html! {
-            <div>
-                <h1>{ "Anna Ivanovna - План бюджета" }</h1>
-                {self.render_content(ctx)}
+            <div class="min-h-screen bg-base-200">
+                <div class="container mx-auto px-4 py-8">
+                    <div class="flex justify-between items-center mb-8">
+                        <h1 class="text-4xl font-bold">
+                            { "Anna Ivanovna" }
+                        </h1>
+                        <ThemeSwitcher />
+                    </div>
+                    <div class="tabs tabs-boxed mb-6">
+                        <button
+                            class={format!("tab {}", if self.view == View::Plan { "tab-active" } else { "" })}
+                            onclick={ctx.link().callback(|_| AppMsg::SwitchView(View::Plan))}
+                        >
+                            { "План" }
+                        </button>
+                        <button
+                            class={format!("tab {}", if self.view == View::History { "tab-active" } else { "" })}
+                            onclick={ctx.link().callback(|_| AppMsg::SwitchView(View::History))}
+                        >
+                            { "История" }
+                        </button>
+                    </div>
+                    {self.render_content(ctx)}
+                </div>
             </div>
         }
     }
@@ -63,51 +185,55 @@ impl Component for App {
 
 impl App {
     fn render_content(&self, ctx: &Context<Self>) -> Html {
-        if self.loading {
-            return html! { <p>{ "Загрузка..." }</p> };
-        }
-
-        if let Some(ref error) = self.error {
-            return html! {
-                <div>
-                    <p style="color: red;">{ format!("Ошибка: {}", error) }</p>
-                    <button onclick={ctx.link().callback(|_| AppMsg::LoadPlan)}>
-                        { "Повторить" }
-                    </button>
-                </div>
-            };
-        }
-
-        if let Some(ref plan) = self.plan {
-            html! {
-                <div>
-                    <h2>{ "Источники дохода" }</h2>
-                    <ul>
-                        {for plan.sources.values().map(|source| {
-                            html! {
-                                <li>{ format!("{}: {} {}", source.name, source.expected.value, source.expected.currency) }</li>
-                            }
-                        })}
-                    </ul>
-                    <h2>{ "Расходы" }</h2>
-                    <ul>
-                        {for plan.expenses.values().map(|expense| {
-                            html! {
-                                <li>
-                                    { format!("{}: {:?}", expense.name, expense.value) }
-                                    {if let Some(ref cat) = expense.category {
-                                        html! { <span>{ format!(" [{}]", cat) }</span> }
-                                    } else {
-                                        html! {}
-                                    }}
-                                </li>
-                            }
-                        })}
-                    </ul>
-                </div>
-            }
-        } else {
-            html! { <p>{ "План не найден" }</p> }
+        match self.view {
+            View::Plan => match &self.plan.data {
+                DataState::Loading => html! { <Loading /> },
+                DataState::Loaded(view_model) => html! {
+                    <PlanView
+                        view_model={view_model.clone()}
+                        on_plan_updated={ctx.link().callback(|_| AppMsg::LoadPlan)}
+                    />
+                },
+                DataState::Error(error) => html! {
+                    <Error
+                        message={format!("Ошибка: {}", error)}
+                        on_retry={ctx.link().callback(|_| AppMsg::LoadPlan)}
+                    />
+                },
+            },
+            View::History => match &self.history.data {
+                PaginatableDataState::Loading => html! { <Loading /> },
+                PaginatableDataState::Error(error) => html! {
+                    <Error
+                        message={format!("Ошибка: {}", error)}
+                        on_retry={ctx.link().callback(|_| AppMsg::LoadHistory)}
+                    />
+                },
+                PaginatableDataState::Loaded { items, next_cursor }
+                | PaginatableDataState::LoadingMore { items, next_cursor } => {
+                    html! {
+                        <>
+                            <HistoryView entries={items.clone()} />
+                            {if matches!(&self.history.data, PaginatableDataState::LoadingMore { .. }) {
+                                html! { <div class="text-center mt-4"><span class="loading loading-spinner loading-md"></span></div> }
+                            } else if next_cursor.is_some() {
+                                html! {
+                                    <div class="text-center mt-4">
+                                        <button
+                                            class="btn btn-primary"
+                                            onclick={ctx.link().callback(|_| AppMsg::LoadHistory)}
+                                        >
+                                            { "Загрузить еще" }
+                                        </button>
+                                    </div>
+                                }
+                            } else {
+                                html! {}
+                            }}
+                        </>
+                    }
+                }
+            },
         }
     }
 }

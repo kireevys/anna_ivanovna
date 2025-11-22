@@ -11,6 +11,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
@@ -62,7 +63,9 @@ async fn history<R: CoreRepo>(
 
 #[derive(Debug, Deserialize)]
 struct NewIncome {
+    source_id: String,
     amount: Decimal,
+    date: NaiveDate,
 }
 
 async fn add_income<R: CoreRepo>(
@@ -71,8 +74,13 @@ async fn add_income<R: CoreRepo>(
 ) -> Result<Success<Budget>, ApiError> {
     let plan = api.get_plan().unwrap();
     let (_, source) = plan.sources.first_key_value().unwrap();
-    let NewIncome { amount } = income;
-    let income = Income::new_today(source.clone(), Money::new_rub(amount));
+    let NewIncome {
+        source_id,
+        amount,
+        date,
+    } = income;
+    info!(source_id = source_id, date = %date, amount = %amount);
+    let income = Income::new(source.clone(), Money::new_rub(amount), date);
     let weights = plan.try_into().map_err(|_| ApiError::Internal)?;
     let budget = api
         .distribute(&weights, &income)

@@ -1,6 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::instrument;
 
@@ -23,7 +23,7 @@ pub enum Error {
 pub type PlanId = String;
 pub type BudgetId = String;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageBudget {
     pub id: BudgetId,
     pub budget: Budget,
@@ -56,7 +56,7 @@ pub trait CoreRepo {
 
 pub type Cursor = String;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Page<T> {
     pub items: Vec<T>,
     pub next_cursor: Option<Cursor>,

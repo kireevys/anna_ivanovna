@@ -1,0 +1,92 @@
+use ai_core::api::StorageBudget;
+use crate::presentation::formatting::format_money;
+use std::collections::HashMap;
+
+const NO_CATEGORY: &str = "Без категории";
+
+#[derive(Clone, PartialEq)]
+pub struct HistoryEntry {
+    pub id: String,
+    pub date: String,
+    pub source_name: String,
+    pub income_amount: String,
+    pub rest: String,
+    pub categories: Vec<Category>,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct Category {
+    pub name: String,
+    pub entries: Vec<ExpenseEntry>,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct ExpenseEntry {
+    pub name: String,
+    pub amount: String,
+}
+
+impl From<&StorageBudget> for HistoryEntry {
+    fn from(storage_budget: &StorageBudget) -> Self {
+        let budget = &storage_budget.budget;
+
+        // Дата и источник дохода
+        let date = budget.income.date.format("%Y-%m-%d").to_string();
+        let source_name = budget.income.source.name.clone();
+        let income_amount = format_money(&budget.income.amount);
+        let rest = format_money(&budget.rest);
+
+        // Группируем расходы по категориям
+        let mut categories_map: HashMap<String, Vec<ExpenseEntry>> = HashMap::new();
+
+        // Расходы без категории
+        if !budget.no_category.is_empty() {
+            let entries: Vec<ExpenseEntry> = budget.no_category.iter()
+                .map(|entry| ExpenseEntry {
+                    name: entry.expense.name.clone(),
+                    amount: format_money(&entry.amount),
+                })
+                .collect();
+            categories_map.insert(NO_CATEGORY.to_string(), entries);
+        }
+
+        // Расходы по категориям
+        for (category_name, entries) in &budget.categories {
+            let expense_entries: Vec<ExpenseEntry> = entries.iter()
+                .map(|entry| ExpenseEntry {
+                    name: entry.expense.name.clone(),
+                    amount: format_money(&entry.amount),
+                })
+                .collect();
+            categories_map.insert(category_name.clone(), expense_entries);
+        }
+
+        // Преобразуем в Vec<Category> и сортируем
+        let mut categories: Vec<Category> = categories_map.iter()
+            .map(|(name, entries)| Category {
+                name: name.clone(),
+                entries: {
+                    let mut sorted = entries.clone();
+                    sorted.sort_by(|a, b| a.name.cmp(&b.name));
+                    sorted
+                },
+            })
+            .collect();
+
+        // Сортируем категории (сначала "Без категории", потом по алфавиту)
+        categories.sort_by(|a, b| match (a.name.as_str(), b.name.as_str()) {
+            (NO_CATEGORY, _) => std::cmp::Ordering::Less,
+            (_, NO_CATEGORY) => std::cmp::Ordering::Greater,
+            _ => a.name.cmp(&b.name),
+        });
+
+        Self {
+            id: storage_budget.id.clone(),
+            date,
+            source_name,
+            income_amount,
+            rest,
+            categories,
+        }
+    }
+}
