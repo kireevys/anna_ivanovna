@@ -1,6 +1,6 @@
 use ai_core::api::{Cursor, Page, StorageBudget};
 use ai_core::distribute::Budget;
-use ai_core::editor::Plan;
+use ai_core::plan::Plan;
 use gloo_net::http::Request;
 use once_cell::sync::Lazy;
 use rust_decimal::Decimal;

@@ -1,10 +1,11 @@
 use crate::finance::{Money, Percentage};
 use crate::planning::{DistributionWeights, Error, Expense, ExpenseValue, IncomeSource};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-impl TryFrom<Draft> for DistributionWeights {
+impl TryFrom<Plan> for DistributionWeights {
     type Error = Error;
 
     /// Создает План из Черновика
@@ -19,7 +20,7 @@ impl TryFrom<Draft> for DistributionWeights {
     ///
     /// returns: Result<Plan, Error>
     ///
-    fn try_from(draft: Draft) -> Result<Self, Self::Error> {
+    fn try_from(draft: Plan) -> Result<Self, Self::Error> {
         if draft.is_empty() {
             return Err(Error::EmptyPlan);
         }
@@ -46,24 +47,24 @@ impl TryFrom<Draft> for DistributionWeights {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Draft {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Plan {
     pub sources: Vec<IncomeSource>,
     pub expenses: Vec<Expense>,
 }
 
-impl Default for Draft {
+impl Default for Plan {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Draft {
-    pub fn add_expense(&mut self, expense: Expense) {
+impl Plan {
+    fn add_expense(&mut self, expense: Expense) {
         self.expenses.push(expense);
     }
 
-    pub fn add_source(&mut self, income_source: IncomeSource) {
+    fn add_source(&mut self, income_source: IncomeSource) {
         self.sources.push(income_source);
     }
 
@@ -107,14 +108,14 @@ mod test_planning {
 
     #[test]
     fn new_plan() {
-        let draft = Draft::new();
+        let draft = Plan::new();
         assert_eq!(draft.expenses, vec![]);
         assert_eq!(draft.sources, vec![]);
     }
 
     #[test]
     fn add_source() {
-        let mut draft = Draft::new();
+        let mut draft = Plan::new();
         let source =
             IncomeSource::new("Gold goose".to_string(), Money::new(dec!(1), Currency::RUB));
         draft.add_source(source.clone());
@@ -124,7 +125,7 @@ mod test_planning {
 
     #[test]
     fn add_value_expense() {
-        let mut draft = Draft::new();
+        let mut draft = Plan::new();
         let expense = Expense::new(
             "Black hole".to_string(),
             ExpenseValue::MONEY {
@@ -139,7 +140,7 @@ mod test_planning {
 
     #[test]
     fn add_rate_expense() {
-        let mut draft = Draft::new();
+        let mut draft = Plan::new();
         let expense = Expense::new(
             "Black hole".to_string(),
             ExpenseValue::RATE {
@@ -158,13 +159,13 @@ mod test_planning {
 
     #[test]
     fn test_empty_draft() {
-        let draft = Draft::new();
+        let draft = Plan::new();
         assert_eq!(DistributionWeights::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
     fn no_expenses() {
-        let draft = Draft::build(
+        let draft = Plan::build(
             &[IncomeSource::new("Gold goose".to_string(), rub(1.0))],
             &[],
         );
@@ -181,7 +182,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -208,7 +209,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -235,7 +236,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone()],
         );
@@ -255,7 +256,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -291,7 +292,7 @@ mod test_planning {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );
@@ -337,7 +338,7 @@ mod test_planning {
             None,
         );
 
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             &[expense_1.clone(), expense_2.clone(), expense_3.clone()],
         );

@@ -3,7 +3,7 @@ use crate::components::{Error, HistoryView, Loading, PlanView, ThemeSwitcher};
 use crate::presentation::history::HistoryEntry;
 use crate::presentation::plan::Plan;
 use ai_core::api::{Cursor, Page, StorageBudget};
-use ai_core::editor::Plan as CorePlan;
+use ai_core::plan::Plan as CorePlan;
 use yew::{Component, Context, Html, html};
 
 #[derive(Clone, PartialEq)]
@@ -76,7 +76,9 @@ impl Component for App {
         match msg {
             AppMsg::SwitchView(view) => {
                 self.view = view.clone();
-                if view == View::History && matches!(&self.history.data, PaginatableDataState::Loading) {
+                if view == View::History {
+                    // Всегда загружаем историю заново при переключении на вкладку
+                    self.history.data = PaginatableDataState::Loading;
                     ctx.link().send_message(AppMsg::LoadHistory);
                 }
                 true

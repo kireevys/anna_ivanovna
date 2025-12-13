@@ -1,5 +1,5 @@
 use crate::presentation::formatting::{format_decimal, format_money};
-use ai_core::editor::Plan as CorePlan;
+use ai_core::plan::Plan as CorePlan;
 use ai_core::planning::{Expense as ExpenseCore, ExpenseValue as ExpenseValueCore};
 use std::collections::HashMap;
 const NO_CATEGORY: &str = "Без категории";
@@ -38,8 +38,8 @@ impl From<&CorePlan> for Plan {
         let sources: Vec<IncomeSource> = plan
             .sources
             .iter()
-            .map(|(id, source)| IncomeSource {
-                id: id.clone(),
+            .map(|source| IncomeSource {
+                id: source.name.clone(),
                 name: source.name.clone(),
                 amount: format_money(&source.expected),
             })
@@ -47,11 +47,13 @@ impl From<&CorePlan> for Plan {
 
         // Общий доход
         let total_income_decimal: rust_decimal::Decimal =
-            plan.sources.values().map(|s| s.expected.value).sum();
+            plan.sources.iter().map(|s| s.expected.value).sum();
         let total_income = format!("₽{}", format_decimal(&total_income_decimal));
 
         // Общие расходы
-        let total_expenses_decimal: rust_decimal::Decimal = plan.expenses.values()
+        let total_expenses_decimal: rust_decimal::Decimal = plan
+            .expenses
+            .iter()
             .map(|expense| match &expense.value {
                 ExpenseValueCore::MONEY { value } => value.value,
                 ExpenseValueCore::RATE { value } => value.apply_to(total_income_decimal),
@@ -65,7 +67,7 @@ impl From<&CorePlan> for Plan {
 
         // Группируем расходы по категориям
         let expenses_by_category: HashMap<Option<String>, Vec<&ExpenseCore>> =
-            plan.expenses.values().fold(HashMap::new(), |mut s, e| {
+            plan.expenses.iter().fold(HashMap::new(), |mut s, e| {
                 s.entry(e.category.clone()).or_default().push(e);
                 s
             });

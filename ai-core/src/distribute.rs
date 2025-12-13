@@ -148,9 +148,9 @@ mod test_distribute {
     use rust_decimal::Decimal;
     use rust_decimal::prelude::FromPrimitive;
 
-    use crate::basic_draft::Draft;
     use crate::distribute::{Budget, Error, Income, distribute};
     use crate::finance::{Money, Percentage};
+    use crate::plan::Plan;
     use crate::planning::{DistributionWeights, Expense, ExpenseValue, IncomeSource};
 
     fn rub(v: f64) -> Money {
@@ -166,7 +166,7 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(0.5) },
             None,
         );
-        let draft = Draft::build(&[source], &[expense]);
+        let draft = Plan::build(&[source], &[expense]);
         let plan = DistributionWeights::try_from(draft).unwrap();
         let income = Income::new(source_1, rub(1.0), Utc::now().date_naive());
         assert_eq!(distribute(&plan, &income), Err(Error::UnknownSource));
@@ -180,7 +180,7 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(0.5) },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -200,7 +200,7 @@ mod test_distribute {
             ExpenseValue::MONEY { value: rub(1.0) },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -222,7 +222,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -244,7 +244,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -266,7 +266,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -288,7 +288,7 @@ mod test_distribute {
             },
             None,
         );
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );
@@ -316,7 +316,7 @@ mod test_distribute {
             Some("Досуг".to_string()),
         );
 
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             &[expense_no_category.clone(), expense_with_category.clone()],
         );
@@ -341,7 +341,7 @@ mod test_distribute {
             Some("Развлечения".to_string()),
         );
 
-        let draft = Draft::build(
+        let draft = Plan::build(
             std::slice::from_ref(&source),
             std::slice::from_ref(&expense),
         );

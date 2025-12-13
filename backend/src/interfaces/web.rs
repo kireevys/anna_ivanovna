@@ -1,7 +1,7 @@
 use ai_core::{
     api::{self, BudgetId, CoreApi, CoreRepo, Cursor, Page, StorageBudget},
     distribute::{Budget, Income},
-    editor::Plan,
+    plan::Plan,
     finance::Money,
 };
 use axum::{
@@ -72,8 +72,12 @@ async fn add_income<R: CoreRepo>(
     State(api): State<CoreApi<R>>,
     Json(income): Json<NewIncome>,
 ) -> Result<Success<Budget>, ApiError> {
-    let plan = api.get_plan().unwrap();
-    let (_, source) = plan.sources.first_key_value().unwrap();
+    let plan = api.get_plan().ok_or(ApiError::NotFound)?;
+    let source = plan
+        .sources
+        .iter()
+        .find(|s| s.name == income.source_id)
+        .ok_or(ApiError::NotFound)?;
     let NewIncome {
         source_id,
         amount,

@@ -1,7 +1,7 @@
-use ai_core::api::{self, BudgetId, CoreRepo, Page, PlanId};
+use ai_core::api::{self, BudgetId, CoreRepo, Page};
 use ai_core::distribute::Budget;
-use ai_core::editor::Plan;
 use ai_core::finance::Money;
+use ai_core::plan::Plan;
 use ai_core::planning::{
     Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource,
 };
@@ -62,37 +62,7 @@ fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, PlanningError> {
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_e| PlanningError::InvalidPlan)?;
-    Plan::build(sources, expenses).map_err(|_| PlanningError::InvalidPlan)
-}
-
-fn plan_to_yaml(plan: &Plan) -> Result<String, Error> {
-    let plan_details = PlanDetails {
-        incomes: plan
-            .sources
-            .values()
-            .map(|s| Income {
-                source: s.name.clone(),
-                value: format!("{}", s.expected()),
-            })
-            .collect(),
-        expenses: plan
-            .expenses
-            .values()
-            .map(|e| Expense {
-                name: e.name.clone(),
-                value: match &e.value {
-                    ExpenseValue::MONEY { value } => format!("{}", value),
-                    ExpenseValue::RATE { value } => format!("{}", value),
-                },
-                category: e.category.clone(),
-            })
-            .collect(),
-    };
-    let root = Root { plan: plan_details };
-    serde_yaml::to_string(&root).map_err(|e| {
-        error!("Невозможно сериализовать план: {e}");
-        Error::CantParsePlan
-    })
+    Ok(Plan::build(&sources, &expenses))
 }
 
 /// Парсит переданный файл в Бюджет
@@ -287,17 +257,6 @@ impl CoreRepo for FileSystem {
             .and_then(|path| plan_from_yaml(&path).ok())
     }
 
-    #[instrument(skip(self, plan))]
-    fn save_plan(&self, plan: Plan, id: PlanId) -> Result<PlanId, api::Error> {
-        let yaml_content = plan_to_yaml(&plan).map_err(|_| api::Error::CantSaveBudget)?;
-        let plan_path = self.plans_path().join(&id);
-        let mut file = File::create(&plan_path).map_err(|_| api::Error::CantSaveBudget)?;
-        file.write_all(yaml_content.as_bytes())
-            .map_err(|_| api::Error::CantSaveBudget)?;
-        info!("План сохранен в {plan_path:?}");
-        Ok(id)
-    }
-
     #[instrument(skip(self, budget))]
     fn save_budget(&self, budget_id: BudgetId, budget: Budget) -> Result<BudgetId, api::Error> {
         let result_path = &self.incomes_path().join(&budget_id);
@@ -357,7 +316,7 @@ mod tests {
     #[test]
     fn test_e2e() {
         let plan = plan_from_yaml(Path::new("src/test_storage/plan.yaml")).unwrap();
-        let (_, source) = plan.sources.first_key_value().unwrap();
+        let source = plan.sources.first().unwrap();
 
         let income = Income::new(
             source.clone(),

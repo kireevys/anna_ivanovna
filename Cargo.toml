@@ -17,3 +17,17 @@ tag = true                # создаёт тег при релизе
 tag-name = "v{{version}}" # шаблон названия тега
 push = true               # пушит изменения и тег
 publish = false
+
+[workspace.lints.clippy]
+indexing_slicing = "deny"
+fallible_impl_from = "deny"
+wildcard_enum_match_arm = "deny"
+fn_params_excessive_bools = "deny"
+must_use_candidate = "deny"
+
+[profile.release]
+lto = "thin"
+debug = "full"
+
+[profile.bench]
+inherits = "release"

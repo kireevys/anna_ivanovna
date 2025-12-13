@@ -6,7 +6,7 @@ use tracing::instrument;
 
 use crate::{
     distribute::{Budget, Income, distribute as core_dist},
-    editor::Plan,
+    plan::Plan,
     planning::DistributionWeights,
 };
 
@@ -16,8 +16,6 @@ pub enum Error {
     CantDistribute { message: String },
     #[error("cant save budget")]
     CantSaveBudget,
-    #[error("cant save plan")]
-    CantSavePlan,
 }
 
 pub type PlanId = String;
@@ -41,7 +39,6 @@ impl From<(BudgetId, Budget)> for StorageBudget {
 pub trait CoreRepo {
     fn location(&self) -> &str;
     fn get_plan(&self) -> Option<Plan>;
-    fn save_plan(&self, plan: Plan, id: PlanId) -> Result<PlanId, Error>;
     fn save_budget(&self, budget_id: BudgetId, budget: Budget) -> Result<BudgetId, Error>;
     fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget>;
     fn budgets(&self, from: Option<Cursor>, limit: usize) -> Page<StorageBudget>;
@@ -96,13 +93,6 @@ impl<R: CoreRepo> CoreApi<R> {
         core_dist(plan, income).map_err(|e| Error::CantDistribute {
             message: e.to_string(),
         })
-    }
-
-    #[instrument(skip(plan, self))]
-    pub fn save_plan(&self, plan: Plan, id: PlanId) -> Result<PlanId, Error> {
-        self.repo
-            .save_plan(plan, id)
-            .map_err(|_| Error::CantSavePlan)
     }
 
     #[instrument(skip(budget, self))]
