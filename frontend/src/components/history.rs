@@ -32,8 +32,8 @@ impl Component for HistoryView {
                                             <p class="text-sm text-base-content/70">{ &entry.source_name }</p>
                                         </div>
                                         <div class="text-right">
-                                            <p class="text-lg font-semibold text-success">{ "Доход: " }{ &entry.income_amount }</p>
-                                            <p class="text-lg font-semibold text-warning">{ "Остаток: " }{ &entry.rest }</p>
+                                            <p class="text-lg font-semibold text-success">{ "Доход: " }{ entry.income_amount.to_string() }</p>
+                                            <p class="text-lg font-semibold text-warning">{ "Остаток: " }{ entry.rest.to_string() }</p>
                                         </div>
                                     </div>
                                 </div>
@@ -49,7 +49,7 @@ impl Component for HistoryView {
                                                                 html! {
                                                                     <div class="flex justify-between items-center text-sm">
                                                                         <span>{ &expense.name }</span>
-                                                                        <span class="font-bold">{ &expense.amount }</span>
+                                                                        <span class="font-bold">{ expense.amount.to_string() }</span>
                                                                     </div>
                                                                 }
                                                             })}

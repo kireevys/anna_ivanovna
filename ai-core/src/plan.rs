@@ -89,6 +89,21 @@ impl Plan {
             .fold(Money::new_rub(Decimal::ZERO), |acc, income| acc + income)
     }
 
+    pub fn total_expenses(&self) -> Money {
+        let total_income = self.total_incomes();
+        self.expenses
+            .iter()
+            .map(|expense| match &expense.value {
+                ExpenseValue::MONEY { value } => *value,
+                ExpenseValue::RATE { value } => Money::new_rub(value.apply_to(total_income.value)),
+            })
+            .fold(Money::new_rub(Decimal::ZERO), |acc, expense| acc + expense)
+    }
+
+    pub fn balance(&self) -> Money {
+        self.total_incomes() - self.total_expenses()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty() || self.expenses.is_empty()
     }

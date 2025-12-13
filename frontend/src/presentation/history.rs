@@ -1,5 +1,5 @@
 use ai_core::api::StorageBudget;
-use crate::presentation::formatting::format_money;
+use crate::presentation::formatting::FormattedMoney;
 use std::collections::HashMap;
 
 const NO_CATEGORY: &str = "Без категории";
@@ -9,8 +9,8 @@ pub struct HistoryEntry {
     pub id: String,
     pub date: String,
     pub source_name: String,
-    pub income_amount: String,
-    pub rest: String,
+    pub income_amount: FormattedMoney,
+    pub rest: FormattedMoney,
     pub categories: Vec<Category>,
 }
 
@@ -23,7 +23,7 @@ pub struct Category {
 #[derive(Clone, PartialEq)]
 pub struct ExpenseEntry {
     pub name: String,
-    pub amount: String,
+    pub amount: FormattedMoney,
 }
 
 impl From<&StorageBudget> for HistoryEntry {
@@ -33,8 +33,8 @@ impl From<&StorageBudget> for HistoryEntry {
         // Дата и источник дохода
         let date = budget.income.date.format("%Y-%m-%d").to_string();
         let source_name = budget.income.source.name.clone();
-        let income_amount = format_money(&budget.income.amount);
-        let rest = format_money(&budget.rest);
+        let income_amount = FormattedMoney::from_money(budget.income.amount);
+        let rest = FormattedMoney::from_money(budget.rest);
 
         // Группируем расходы по категориям
         let mut categories_map: HashMap<String, Vec<ExpenseEntry>> = HashMap::new();
@@ -44,7 +44,7 @@ impl From<&StorageBudget> for HistoryEntry {
             let entries: Vec<ExpenseEntry> = budget.no_category.iter()
                 .map(|entry| ExpenseEntry {
                     name: entry.expense.name.clone(),
-                    amount: format_money(&entry.amount),
+                        amount: FormattedMoney::from_money(entry.amount),
                 })
                 .collect();
             categories_map.insert(NO_CATEGORY.to_string(), entries);
@@ -55,7 +55,7 @@ impl From<&StorageBudget> for HistoryEntry {
             let expense_entries: Vec<ExpenseEntry> = entries.iter()
                 .map(|entry| ExpenseEntry {
                     name: entry.expense.name.clone(),
-                    amount: format_money(&entry.amount),
+                        amount: FormattedMoney::from_money(entry.amount),
                 })
                 .collect();
             categories_map.insert(category_name.clone(), expense_entries);

@@ -1,4 +1,5 @@
-use crate::api;
+use crate::api::{ApiClient, ApiError, AddIncomeRequest};
+use std::rc::Rc;
 use crate::presentation::history::HistoryEntry;
 use ai_core::api::StorageBudget;
 use ai_core::distribute::Budget;
@@ -12,6 +13,7 @@ pub struct IncomeModalProps {
     pub on_close: Callback<()>,
     pub on_saved: Callback<()>,
     pub source_id: String,
+    pub api: Rc<ApiClient>,
 }
 
 pub enum IncomeModalMsg {
@@ -67,11 +69,15 @@ impl Component for IncomeModal {
             IncomeModalMsg::Calculate => {
                 if let Ok(amount) = self.amount.parse::<Decimal>() {
                     self.state = IncomeModalState::Calculating;
-                    let source_id = ctx.props().source_id.clone();
-                    let date = self.date;
+                    let api = ctx.props().api.clone();
+                    let request = AddIncomeRequest {
+                        source_id: ctx.props().source_id.clone(),
+                        amount,
+                        date: self.date,
+                    };
                     let link = ctx.link().clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        let result = api::add_income(source_id, amount, date).await;
+                        let result = api.add_income(request).await.map_err(|e: ApiError| e.to_string());
                         link.send_message(IncomeModalMsg::Calculated(result));
                     });
                     true
@@ -89,15 +95,15 @@ impl Component for IncomeModal {
                 true
             }
             IncomeModalMsg::Save => {
-                let budget = if let IncomeModalState::Result(ref budget) = self.state {
-                    budget.clone()
-                } else {
-                    return false;
+                let budget = match &self.state {
+                    IncomeModalState::Result(budget) => budget.clone(),
+                    _ => return false,
                 };
                 self.state = IncomeModalState::Saving;
+                let api = ctx.props().api.clone();
                 let link = ctx.link().clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    let result = api::save_budget(&budget).await;
+                    let result = api.save_budget(&budget).await.map_err(|e: ApiError| e.to_string());
                     link.send_message(IncomeModalMsg::Saved(result));
                 });
                 true
@@ -240,12 +246,10 @@ impl IncomeModal {
             if let Some(body) = document.body() {
                 let _ = body.append_child(&toast);
 
-                let toast_clone = toast.clone();
-                let window_clone = window.clone();
                 let closure = Closure::wrap(Box::new(move || {
-                    toast_clone.remove();
+                    toast.remove();
                 }) as Box<dyn FnMut()>);
-                let _ = window_clone.set_timeout_with_callback_and_timeout_and_arguments_0(
+                let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
                     closure.as_ref().unchecked_ref(),
                     TOAST_LIVE.num_milliseconds() as i32,
                 );
@@ -269,13 +273,13 @@ impl IncomeModal {
                             <div>
                                 <div class="text-sm text-base-content/70">{ "Доход" }</div>
                                 <div class="text-2xl font-bold text-success">
-                                    { &entry.income_amount }
+                                    { entry.income_amount.to_string() }
                                 </div>
                             </div>
                             <div class="text-right">
                                 <div class="text-sm text-base-content/70">{ "Остаток" }</div>
                                 <div class="text-2xl font-bold text-warning">
-                                    { &entry.rest }
+                                    { entry.rest.to_string() }
                                 </div>
                             </div>
                         </div>
@@ -293,7 +297,7 @@ impl IncomeModal {
                                             html! {
                                                 <div class="flex justify-between items-center text-sm">
                                                     <span>{ &expense.name }</span>
-                                                    <span class="font-bold">{ &expense.amount }</span>
+                                                    <span class="font-bold">{ expense.amount.to_string() }</span>
                                                 </div>
                                             }
                                         })}

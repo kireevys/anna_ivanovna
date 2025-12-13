@@ -1,35 +1,93 @@
-use crate::presentation::formatting::{format_decimal, format_money};
+use crate::presentation::formatting::{FormattedMoney, FormattedPercentage};
 use ai_core::plan::Plan as CorePlan;
-use ai_core::planning::{Expense as ExpenseCore, ExpenseValue as ExpenseValueCore};
-use std::collections::HashMap;
+use ai_core::planning::{Expense as ExpenseCore, ExpenseValue as ExpenseValueCore, IncomeSource as IncomeSourceCore};
+use std::collections::BTreeMap;
+use std::fmt;
+
 const NO_CATEGORY: &str = "Без категории";
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CategoryKey {
+    NoCategory,
+    Named(String),
+}
+
+impl CategoryKey {
+    pub fn display_name(&self) -> &str {
+        match self {
+            CategoryKey::NoCategory => NO_CATEGORY,
+            CategoryKey::Named(name) => name,
+        }
+    }
+}
 
 #[derive(Clone, PartialEq)]
 pub struct IncomeSource {
     pub id: String,
     pub name: String,
-    pub amount: String,
+    pub amount: FormattedMoney,
+}
+
+impl From<&IncomeSourceCore> for IncomeSource {
+    fn from(source: &IncomeSourceCore) -> Self {
+        Self {
+            id: source.name.clone(), // FIXME: source_id == name
+            name: source.name.clone(),
+            amount: FormattedMoney::from_money(source.expected),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub enum ExpenseValue {
+    Money(FormattedMoney),
+    Percentage(FormattedPercentage),
+}
+
+impl fmt::Display for ExpenseValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ExpenseValue::Money(money) => write!(f, "{}", money),
+            ExpenseValue::Percentage(percentage) => write!(f, "{}", percentage),
+        }
+    }
+}
+
+impl From<&ExpenseValueCore> for ExpenseValue {
+    fn from(value: &ExpenseValueCore) -> Self {
+        match value {
+            ExpenseValueCore::MONEY { value } => {
+                ExpenseValue::Money(FormattedMoney::from_money(*value))
+            }
+            ExpenseValueCore::RATE { value } => {
+                ExpenseValue::Percentage(FormattedPercentage::from_percentage(value.clone()))
+            }
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
 pub struct Expense {
     pub name: String,
-    pub value: String,
+    pub value: ExpenseValue,
 }
 
-#[derive(Clone, PartialEq)]
-pub struct Category {
-    pub name: String,
-    pub expenses: Vec<Expense>,
+impl From<&ExpenseCore> for Expense {
+    fn from(expense: &ExpenseCore) -> Self {
+        Self {
+            name: expense.name.clone(),
+            value: ExpenseValue::from(&expense.value),
+        }
+    }
 }
 
 #[derive(Clone, PartialEq)]
 pub struct Plan {
     pub sources: Vec<IncomeSource>,
-    pub total_income: String,
-    pub total_expenses: String,
-    pub balance: String,
-    pub categories: Vec<Category>,
+    pub total_income: FormattedMoney,
+    pub total_expenses: FormattedMoney,
+    pub balance: FormattedMoney,
+    pub categories: BTreeMap<CategoryKey, Vec<Expense>>,
 }
 
 impl From<&CorePlan> for Plan {
@@ -38,72 +96,30 @@ impl From<&CorePlan> for Plan {
         let sources: Vec<IncomeSource> = plan
             .sources
             .iter()
-            .map(|source| IncomeSource {
-                id: source.name.clone(),
-                name: source.name.clone(),
-                amount: format_money(&source.expected),
-            })
+            .map(IncomeSource::from)
             .collect();
 
-        // Общий доход
-        let total_income_decimal: rust_decimal::Decimal =
-            plan.sources.iter().map(|s| s.expected.value).sum();
-        let total_income = format!("₽{}", format_decimal(&total_income_decimal));
+        let total_income = FormattedMoney::from_money(plan.total_incomes());
+        let total_expenses = FormattedMoney::from_money(plan.total_expenses());
+        let balance = FormattedMoney::from_money(plan.balance());
 
-        // Общие расходы
-        let total_expenses_decimal: rust_decimal::Decimal = plan
-            .expenses
-            .iter()
-            .map(|expense| match &expense.value {
-                ExpenseValueCore::MONEY { value } => value.value,
-                ExpenseValueCore::RATE { value } => value.apply_to(total_income_decimal),
-            })
-            .sum();
-        let total_expenses = format!("₽{}", format_decimal(&total_expenses_decimal));
+        // Группируем расходы по категориям и преобразуем в ViewModel за один проход
+        let mut categories: BTreeMap<CategoryKey, Vec<Expense>> =
+            plan.expenses
+                .iter()
+                .fold(BTreeMap::new(), |mut acc, expense| {
+                    let key = match &expense.category {
+                        None => CategoryKey::NoCategory,
+                        Some(name) => CategoryKey::Named(name.clone()),
+                    };
+                    acc.entry(key).or_default().push(Expense::from(expense));
+                    acc
+                });
 
-        // Остаток
-        let balance_decimal = total_income_decimal - total_expenses_decimal;
-        let balance = format!("₽{}", format_decimal(&balance_decimal));
-
-        // Группируем расходы по категориям
-        let expenses_by_category: HashMap<Option<String>, Vec<&ExpenseCore>> =
-            plan.expenses.iter().fold(HashMap::new(), |mut s, e| {
-                s.entry(e.category.clone()).or_default().push(e);
-                s
-            });
-
-        // Преобразуем в ViewModel
-        let mut categories: Vec<Category> = expenses_by_category
-            .iter()
-            .map(|(category, expenses)| {
-                let name = category
-                    .as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or(NO_CATEGORY)
-                    .to_string();
-
-                let mut expenses: Vec<Expense> = expenses
-                    .iter()
-                    .map(|expense| Expense {
-                        name: expense.name.clone(),
-                        value: match &expense.value {
-                            ExpenseValueCore::MONEY { value } => format_money(value),
-                            ExpenseValueCore::RATE { value } => value.to_string(),
-                        },
-                    })
-                    .collect();
-
-                expenses.sort_by(|a, b| a.name.cmp(&b.name));
-                Category { name, expenses }
-            })
-            .collect();
-
-        // Сортируем категории (сначала "Без категории", потом по алфавиту)
-        categories.sort_by(|a, b| match (a.name.as_str(), b.name.as_str()) {
-            (NO_CATEGORY, _) => std::cmp::Ordering::Less,
-            (_, NO_CATEGORY) => std::cmp::Ordering::Greater,
-            _ => a.name.cmp(&b.name),
-        });
+        // Сортируем расходы внутри каждой категории
+        for expenses in categories.values_mut() {
+            expenses.sort_by(|a, b| a.name.cmp(&b.name));
+        }
 
         Self {
             sources,
