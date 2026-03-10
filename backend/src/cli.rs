@@ -1,10 +1,6 @@
-use crate::{
-    interfaces,
-    interfaces::{
-        presentation::{budget_to_tree, plan_to_tree},
-        tree::to_text,
-    },
-    storage::FileSystem,
+use crate::interfaces::{
+    presentation::{budget_to_tree, plan_to_tree},
+    tree::to_text,
 };
 use ai_core::{
     api::{BudgetId, CoreApi, CoreRepo},
@@ -16,7 +12,6 @@ use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
 use std::{io, io::Write, path::PathBuf};
 use thiserror::Error;
-use tokio::runtime::Runtime;
 use tracing::{self, info};
 
 #[derive(Parser, Debug)]
@@ -25,16 +20,30 @@ use tracing::{self, info};
     version = env!("CARGO_PKG_VERSION"),
     author = "github.com/kireevys",
     about = "Планировщик бюджета - автоматическое распределение доходов по статьям расходов",
-    long_about = "Anna Ivanovna помогает автоматически распределять ваши доходы по заранее составленному плану бюджета.\n\nСоздайте план один раз, и программа будет автоматически рассчитывать, сколько денег тратить на каждую категорию при получении дохода.\n\nПримеры:\n  anna_ivanovna prepare-storage    # Подготовить папки для работы\n  anna_ivanovna plan               # Показать текущий план\n  anna_ivanovna income 50000       # Добавить доход 50000₽"
+    long_about = "Anna Ivanovna помогает автоматически распределять ваши доходы по заранее составленному плану бюджета.\n\nСоздайте план один раз, и программа будет автоматически рассчитывать, сколько денег тратить на каждую категорию при получении дохода.\n\nПримеры:\n  anna_ivanovna plan               # Показать текущий план\n  anna_ivanovna income 50000       # Добавить доход 50000₽\n  anna_ivanovna web 0.0.0.0 8080   # Запустить web-интерфейс"
 )]
 pub struct Cli {
-    /// Подкоманда для работы с финансами
     #[clap(subcommand)]
     pub command: Commands,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    #[command(flatten)]
+    Budget(BudgetCommand),
+
+    /// Запустить web-интерфейс
+    Web { host: String, port: u16 },
+
+    /// Миграция данных в SQLite
+    Migrate {
+        #[clap(subcommand)]
+        source: MigrateSource,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BudgetCommand {
     /// Добавить доход и распределить его согласно плану
     #[clap(alias = "income")]
     AddIncome {
@@ -48,24 +57,17 @@ pub enum Commands {
 
     /// Показать бюджет по id
     #[clap(alias = "show")]
-    ShowBudget {
-        id: String,
-    },
+    ShowBudget { id: String },
+}
 
-    /// Подготовить структуру папок и файлов для работы
-    #[clap(alias = "prepare")]
-    PrepareStorage {
-        path: PathBuf,
-    },
-
-    /// Спарсить Excel-совместимый CSV и сохранить json-файлы
-    ParseExcel {
+#[derive(Subcommand, Debug)]
+pub enum MigrateSource {
+    /// Из файловой системы
+    Fs,
+    /// Из Excel CSV
+    Excel {
         #[clap(long)]
         file: PathBuf,
-    },
-    Web {
-        host: String,
-        port: u16,
     },
 }
 
@@ -109,41 +111,26 @@ fn choose_source(plan: &DistributionWeights) -> Result<&IncomeSource, Error> {
     plan.sources.get(input).ok_or(Error::InvalidInput)
 }
 
-/// Запуск cli для работы с выбранным планом
-///
-/// # Arguments
-///
-/// * `plan`: Ссылка на Бюджет
-///
-/// # Errors
-/// При неожиданном пользовательском вводе
-///
-/// returns: ()
-#[tracing::instrument(skip(api))]
-pub fn run<R>(api: CoreApi<R>) -> Result<(), Error>
+#[tracing::instrument(skip(api, cmd))]
+pub fn run<R>(api: CoreApi<R>, cmd: BudgetCommand) -> Result<(), Error>
 where
     R: CoreRepo + Clone + Send + Sync + 'static,
 {
     info!(location = api.location());
-    let cli = Cli::parse();
     let plan = api.get_plan().ok_or(Error::NoPlan)?;
-    let weghts = plan.try_into().map_err(|_| Error::InvalidPlan)?;
+    let weights = plan.try_into().map_err(|_| Error::InvalidPlan)?;
     let start = std::time::Instant::now();
-    match cli.command {
-        Commands::AddIncome { amount, dry_run } => {
-            let source = choose_source(&weghts)?;
+    match cmd {
+        BudgetCommand::AddIncome { amount, dry_run } => {
+            let source = choose_source(&weights)?;
             let income = Income::new_today(source.clone(), Money::new_rub(amount));
             let budget = api
-                .distribute(&weghts, &income)
+                .distribute(&weights, &income)
                 .map_err(|_| Error::CantDistribute)?;
 
             let tree = budget_to_tree(&budget);
             println!("{}", to_text(&tree));
-            let id: BudgetId = format!(
-                "{}-{}.json",
-                budget.income_date().format("%Y-%m-%d"),
-                budget.income.source.name
-            );
+            let id: BudgetId = CoreApi::<R>::build_budget_id();
             if dry_run {
                 println!("🔍 DRY-RUN: Результат НЕ сохранён");
             } else {
@@ -153,47 +140,17 @@ where
                 println!("💾 Бюджет сохранён с ID: {id}");
             }
         }
-        Commands::Plan => {
-            let tree = plan_to_tree(&weghts);
+        BudgetCommand::Plan => {
+            let tree = plan_to_tree(&weights);
             println!("{}", to_text(&tree));
         }
-        Commands::ShowBudget { id } => match api.budget_by_id(&id) {
+        BudgetCommand::ShowBudget { id } => match api.budget_by_id(&id) {
             Some(budget) => {
                 let tree = budget_to_tree(&budget.budget);
                 println!("{}", to_text(&tree));
             }
             None => eprintln!("❌ Ошибка: не удалось загрузить бюджет с ID {id}"),
         },
-        Commands::PrepareStorage { path } => {
-            if let Err(e) = FileSystem::init(path) {
-                eprintln!("{e}");
-            }
-        }
-        Commands::ParseExcel { file } => {
-            match crate::interfaces::excel_parser::parse_excel_csv(file) {
-                Ok(budgets) => {
-                    let mut count = 0;
-                    for b in budgets {
-                        api.save_budget(CoreApi::<R>::build_budget_id(&b), b)
-                            .map_err(|_| Error::CantWriteResult)?;
-                        count += 1;
-                    }
-                    println!("✅ Успешно обработано {count} строк")
-                }
-                Err(e) => eprintln!("❌ Ошибка парсинга CSV: {e}"),
-            }
-        }
-        Commands::Web { host, port } => {
-            let runtime = Runtime::new().expect("failed to create tokio runtime");
-            runtime.block_on(async {
-                if let Err(err) =
-                    interfaces::web::run(api.clone(), &format!("{host}:{port}")).await
-                {
-                    eprintln!("Ошибка web-сервера: {err}");
-                }
-            });
-            return Ok(());
-        }
     }
     let elapsed = start.elapsed();
     println!("⏱️ Время выполнения: {elapsed:.2?}");

@@ -118,7 +118,7 @@ async fn save_budget<R: CoreRepo>(
     Json(budget): Json<Budget>,
 ) -> Result<Success<BudgetId>, ApiError> {
     let budget_id = api
-        .save_budget(CoreApi::<R>::build_budget_id(&budget), budget)
+        .save_budget(CoreApi::<R>::build_budget_id(), budget)
         .map_err(|e| ApiError::Storage(e.to_string()))?;
     Ok(Success::new(budget_id))
 }

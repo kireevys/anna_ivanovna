@@ -16,6 +16,8 @@ pub enum Error {
     CantDistribute { message: String },
     #[error("cant save budget")]
     CantSaveBudget,
+    #[error("cant save plan")]
+    CantSavePlan,
 }
 
 pub type PlanId = String;
@@ -39,6 +41,7 @@ impl From<(BudgetId, Budget)> for StorageBudget {
 pub trait CoreRepo {
     fn location(&self) -> &str;
     fn get_plan(&self) -> Option<Plan>;
+    fn save_plan(&self, plan_id: PlanId, plan: Plan) -> Result<PlanId, Error>;
     fn save_budget(
         &self,
         budget_id: BudgetId,
@@ -46,13 +49,6 @@ pub trait CoreRepo {
     ) -> Result<BudgetId, Error>;
     fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget>;
     fn budgets(&self, from: Option<Cursor>, limit: usize) -> Page<StorageBudget>;
-    fn build_budget_id(b: &Budget) -> BudgetId {
-        format!(
-            "{}-{}.json",
-            b.income_date().format("%Y-%m-%d"),
-            b.income.source.name
-        )
-    }
 }
 
 pub type Cursor = String;
@@ -103,6 +99,13 @@ impl<R: CoreRepo> CoreApi<R> {
         })
     }
 
+    #[instrument(skip(self, plan))]
+    pub fn save_plan(&self, plan_id: PlanId, plan: Plan) -> Result<PlanId, Error> {
+        self.repo
+            .save_plan(plan_id, plan)
+            .map_err(|_| Error::CantSavePlan)
+    }
+
     #[instrument(skip(budget, self))]
     pub fn save_budget(
         &self,
@@ -127,12 +130,8 @@ impl<R: CoreRepo> CoreApi<R> {
         self.repo.budget_by_id(id)
     }
 
-    pub fn build_budget_id(b: &Budget) -> BudgetId {
-        format!(
-            "{}-{}.json",
-            b.income_date().format("%Y-%m-%d"),
-            b.income.source.name
-        )
+    pub fn build_budget_id() -> BudgetId {
+        uuid::Uuid::now_v7().to_string()
     }
 
     pub fn location(&self) -> &str {

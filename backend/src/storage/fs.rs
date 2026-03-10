@@ -268,6 +268,22 @@ impl CoreRepo for FileSystem {
             .and_then(|path| plan_from_yaml(&path).ok())
     }
 
+    #[instrument(skip(self, plan))]
+    fn save_plan(
+        &self,
+        plan_id: api::PlanId,
+        plan: Plan,
+    ) -> Result<api::PlanId, api::Error> {
+        let path = self.plans_path().join(format!("{plan_id}.yaml"));
+        let yaml =
+            serde_yaml::to_string(&plan).map_err(|_| api::Error::CantSavePlan)?;
+        let mut file = File::create(&path).map_err(|_| api::Error::CantSavePlan)?;
+        file.write_all(yaml.as_bytes())
+            .map_err(|_| api::Error::CantSavePlan)?;
+        info!("План сохранён: {path:?}");
+        Ok(plan_id)
+    }
+
     #[instrument(skip(self, budget))]
     fn save_budget(
         &self,
@@ -328,7 +344,7 @@ impl CoreRepo for FileSystem {
 
 #[cfg(test)]
 mod tests {
-    use crate::storage::{distribute_from_json, plan_from_yaml};
+    use crate::storage::fs::{distribute_from_json, plan_from_yaml};
     use ai_core::{
         distribute::{Income, distribute},
         finance::Money,
