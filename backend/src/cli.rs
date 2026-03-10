@@ -2,8 +2,11 @@ use crate::interfaces::{
     presentation::{budget_to_tree, plan_to_tree},
     tree::to_text,
 };
+use ai_app::{
+    api::CoreApi,
+    storage::{BudgetId, CoreRepo},
+};
 use ai_core::{
-    api::{BudgetId, CoreApi, CoreRepo},
     distribute::Income,
     finance::Money,
     planning::{DistributionWeights, IncomeSource},
@@ -12,7 +15,6 @@ use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
 use std::{io, io::Write, path::PathBuf};
 use thiserror::Error;
-use tracing::{self, info};
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -116,7 +118,6 @@ pub fn run<R>(api: CoreApi<R>, cmd: BudgetCommand) -> Result<(), Error>
 where
     R: CoreRepo + Clone + Send + Sync + 'static,
 {
-    info!(location = api.location());
     let plan = api.get_plan().ok_or(Error::NoPlan)?;
     let weights = plan.try_into().map_err(|_| Error::InvalidPlan)?;
     let start = std::time::Instant::now();

@@ -1,5 +1,8 @@
+use ai_app::{
+    api::CoreApi,
+    storage::{BudgetId, CoreRepo, Cursor, Page, StorageBudget},
+};
 use ai_core::{
-    api::{self, BudgetId, CoreApi, CoreRepo, Cursor, Page, StorageBudget},
     distribute::{Budget, Income},
     finance::Money,
     plan::Plan,
@@ -134,7 +137,7 @@ async fn budget<R: CoreRepo>(
 
 pub async fn run<R>(api: CoreApi<R>, addr: &str) -> Result<(), std::io::Error>
 where
-    R: api::CoreRepo + Clone + Send + Sync + 'static,
+    R: CoreRepo + Clone + Send + Sync + 'static,
 {
     let app = Router::new()
         .route("/health", get(health_handler))

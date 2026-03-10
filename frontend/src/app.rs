@@ -1,13 +1,10 @@
 use crate::{
-    api::ApiClient,
+    api::{ApiClient, BudgetEntry, Cursor, Page},
     components::{AppLayout, Error, HistoryView, Loading, PlanView},
     config::API_V1_BASE_URL,
     presentation::{history::HistoryEntry, plan::Plan},
 };
-use ai_core::{
-    api::{Cursor, Page, StorageBudget},
-    plan::Plan as CorePlan,
-};
+use ai_core::plan::Plan as CorePlan;
 use std::rc::Rc;
 use yew::{Component, Context, Html, html};
 
@@ -84,7 +81,7 @@ impl HistoryState {
         }
     }
 
-    fn merge_page(&mut self, page: Page<StorageBudget>) {
+    fn merge_page(&mut self, page: Page<BudgetEntry>) {
         let new_entries: Vec<HistoryEntry> =
             page.items.iter().map(HistoryEntry::from).collect();
 
@@ -127,7 +124,7 @@ pub enum AppMsg {
     LoadPlan,
     PlanLoaded(Result<CorePlan, String>),
     LoadHistory,
-    HistoryLoaded(Result<Page<StorageBudget>, String>),
+    HistoryLoaded(Result<Page<BudgetEntry>, String>),
 }
 
 impl Component for App {

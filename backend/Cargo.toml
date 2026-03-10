@@ -9,6 +9,7 @@ authors.workspace = true
 metadata.release.wokspace = true
 
 [dependencies]
+ai_app = { path = "../ai-app" }
 ai_core = { path = "../ai-core" }
 axum = { version = "0.8.7", features = ["tracing"] }
 chrono = { version = "0.4", features = ["serde"] }

@@ -1,4 +1,4 @@
-use ai_core::api::{CoreApi, CoreRepo};
+use ai_app::api::CoreApi;
 use clap::Parser;
 use std::sync::Arc;
 mod cli;
@@ -15,42 +15,7 @@ fn logging_init(dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>>
     infra::logging::init(dir, "anna_ivanovna.log")
 }
 
-fn migrate<S: CoreRepo, T: CoreRepo>(source: &S, target: &T) -> Result<(), String> {
-    if let Some(plan) = source.get_plan() {
-        let plan_id = uuid::Uuid::now_v7().to_string();
-        target
-            .save_plan(plan_id.clone(), plan)
-            .map_err(|e| e.to_string())?;
-        println!("Мигрирован план: {plan_id}");
-    }
-
-    let mut all_budgets = Vec::new();
-    let mut cursor = None;
-    loop {
-        let page = source.budgets(cursor, 50);
-        if page.items.is_empty() {
-            break;
-        }
-        all_budgets.extend(page.items);
-        cursor = page.next_cursor.clone();
-        if cursor.is_none() {
-            break;
-        }
-    }
-
-    all_budgets.sort_by(|a, b| a.budget.income_date().cmp(b.budget.income_date()));
-
-    for sb in &all_budgets {
-        let id = uuid::Uuid::now_v7().to_string();
-        target
-            .save_budget(id, sb.budget.clone())
-            .map_err(|e| e.to_string())?;
-    }
-    println!("Мигрировано бюджетов: {}", all_budgets.len());
-    Ok(())
-}
-
-fn migrate_excel<T: CoreRepo>(
+fn migrate_excel<T: ai_app::storage::CoreRepo>(
     target: &T,
     file: std::path::PathBuf,
 ) -> Result<(), String> {
@@ -74,7 +39,7 @@ async fn init_sqlite(
     storage::sqlite::SqliteRepo::init(&db_path).await
 }
 
-async fn run_web<R: CoreRepo + Clone + Send + Sync + 'static>(
+async fn run_web<R: ai_app::storage::CoreRepo + Clone + Send + Sync + 'static>(
     api: CoreApi<R>,
     host: String,
     port: u16,
@@ -109,6 +74,7 @@ async fn main() {
             std::process::exit(1);
         }
     };
+    tracing::info!("location {}", repo.db_path());
 
     match cli.command {
         cli::Commands::Migrate { ref source } => {
@@ -117,12 +83,12 @@ async fn main() {
                     let fs_path = buh_home.join("storage");
                     (
                         format!("FS ({}) → SQLite", fs_path.display()),
-                        repo.location().to_owned(),
+                        repo.db_path().to_owned(),
                     )
                 }
                 cli::MigrateSource::Excel { file } => (
                     format!("Excel ({}) → SQLite", file.display()),
-                    repo.location().to_owned(),
+                    repo.db_path().to_owned(),
                 ),
             };
             println!("Миграция: {description}");
@@ -141,7 +107,7 @@ async fn main() {
                     let fs = storage::fs::FileSystem::init(buh_home.join("storage"))
                         .map_err(|e| format!("Ошибка FS: {e}"));
                     match fs {
-                        Ok(fs) => migrate(&fs, &repo),
+                        Ok(fs) => ai_app::migration::migrate(&fs, &repo),
                         Err(e) => Err(e),
                     }
                 }

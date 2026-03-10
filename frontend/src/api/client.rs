@@ -1,9 +1,8 @@
-use crate::api::error::ApiError;
-use ai_core::{
-    api::{Cursor, Page, StorageBudget},
-    distribute::Budget,
-    plan::Plan,
+use crate::api::{
+    error::ApiError,
+    types::{BudgetEntry, Cursor, Page},
 };
+use ai_core::{distribute::Budget, plan::Plan};
 use chrono::NaiveDate;
 use gloo_net::http::Request;
 use rust_decimal::Decimal;
@@ -88,7 +87,7 @@ impl ApiClient {
     pub async fn get_history(
         &self,
         from: Option<Cursor>,
-    ) -> Result<Page<StorageBudget>, ApiError> {
+    ) -> Result<Page<BudgetEntry>, ApiError> {
         let mut url = self.build_url("history")?;
 
         url.query_pairs_mut().append_pair("limit", "20");

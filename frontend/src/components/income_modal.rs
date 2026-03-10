@@ -1,8 +1,8 @@
 use crate::{
-    api::{AddIncomeRequest, ApiClient, ApiError},
+    api::{AddIncomeRequest, ApiClient, ApiError, BudgetEntry},
     presentation::history::HistoryEntry,
 };
-use ai_core::{api::StorageBudget, distribute::Budget};
+use ai_core::distribute::Budget;
 use chrono::{Duration, Local, NaiveDate};
 use rust_decimal::Decimal;
 use std::rc::Rc;
@@ -266,11 +266,11 @@ impl IncomeModal {
     }
 
     fn render_result(&self, _ctx: &Context<Self>, budget: &Budget) -> Html {
-        let storage_budget = StorageBudget {
+        let budget_entry = BudgetEntry {
             id: String::new(),
             budget: budget.clone(),
         };
-        let entry = HistoryEntry::from(&storage_budget);
+        let entry = HistoryEntry::from(&budget_entry);
 
         html! {
             <div class="space-y-4">

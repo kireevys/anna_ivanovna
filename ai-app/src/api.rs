@@ -1,76 +1,24 @@
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::{
+use ai_core::{
     distribute::{Budget, Income, distribute as core_dist},
     plan::Plan,
     planning::DistributionWeights,
 };
 
+use crate::storage::{BudgetId, CoreRepo, Cursor, Page, PlanId, StorageBudget};
+
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("distribution error")]
+    #[error("distribution error: {message}")]
     CantDistribute { message: String },
     #[error("cant save budget")]
     CantSaveBudget,
     #[error("cant save plan")]
     CantSavePlan,
-}
-
-pub type PlanId = String;
-pub type BudgetId = String;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageBudget {
-    pub id: BudgetId,
-    pub budget: Budget,
-}
-
-impl From<(BudgetId, Budget)> for StorageBudget {
-    fn from(value: (BudgetId, Budget)) -> Self {
-        Self {
-            id: value.0,
-            budget: value.1,
-        }
-    }
-}
-
-pub trait CoreRepo {
-    fn location(&self) -> &str;
-    fn get_plan(&self) -> Option<Plan>;
-    fn save_plan(&self, plan_id: PlanId, plan: Plan) -> Result<PlanId, Error>;
-    fn save_budget(
-        &self,
-        budget_id: BudgetId,
-        budget: Budget,
-    ) -> Result<BudgetId, Error>;
-    fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget>;
-    fn budgets(&self, from: Option<Cursor>, limit: usize) -> Page<StorageBudget>;
-}
-
-pub type Cursor = String;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Page<T> {
-    pub items: Vec<T>,
-    pub next_cursor: Option<Cursor>,
-}
-
-impl<T> Deref for Page<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        &self.items
-    }
-}
-
-impl<T> Page<T> {
-    pub fn new(items: Vec<T>, next_cursor: Option<Cursor>) -> Self {
-        Self { items, next_cursor }
-    }
 }
 
 #[derive(Clone)]
@@ -130,11 +78,8 @@ impl<R: CoreRepo> CoreApi<R> {
         self.repo.budget_by_id(id)
     }
 
+    #[must_use]
     pub fn build_budget_id() -> BudgetId {
         uuid::Uuid::now_v7().to_string()
-    }
-
-    pub fn location(&self) -> &str {
-        self.repo.location()
     }
 }

@@ -1,5 +1,5 @@
+use ai_app::storage::{BudgetId, CoreRepo, Page, StorageBudget, StorageError};
 use ai_core::{
-    api::{self, BudgetId, CoreRepo, Page},
     distribute::Budget,
     finance::Money,
     plan::Plan,
@@ -133,6 +133,7 @@ pub struct FileSystem {
 }
 
 impl FileSystem {
+    #[allow(dead_code)]
     fn root(&self) -> &PathBuf {
         &self.root_dir
     }
@@ -258,11 +259,6 @@ impl FileSystem {
 
 impl CoreRepo for FileSystem {
     #[instrument(skip(self))]
-    fn location(&self) -> &str {
-        self.root().to_str().unwrap_or_default()
-    }
-
-    #[instrument(skip(self))]
     fn get_plan(&self) -> Option<Plan> {
         self.get_latest_plan_path()
             .and_then(|path| plan_from_yaml(&path).ok())
@@ -271,15 +267,14 @@ impl CoreRepo for FileSystem {
     #[instrument(skip(self, plan))]
     fn save_plan(
         &self,
-        plan_id: api::PlanId,
+        plan_id: ai_app::storage::PlanId,
         plan: Plan,
-    ) -> Result<api::PlanId, api::Error> {
+    ) -> Result<ai_app::storage::PlanId, StorageError> {
         let path = self.plans_path().join(format!("{plan_id}.yaml"));
-        let yaml =
-            serde_yaml::to_string(&plan).map_err(|_| api::Error::CantSavePlan)?;
-        let mut file = File::create(&path).map_err(|_| api::Error::CantSavePlan)?;
+        let yaml = serde_yaml::to_string(&plan).map_err(|_| StorageError::SavePlan)?;
+        let mut file = File::create(&path).map_err(|_| StorageError::SavePlan)?;
         file.write_all(yaml.as_bytes())
-            .map_err(|_| api::Error::CantSavePlan)?;
+            .map_err(|_| StorageError::SavePlan)?;
         info!("План сохранён: {path:?}");
         Ok(plan_id)
     }
@@ -289,15 +284,15 @@ impl CoreRepo for FileSystem {
         &self,
         budget_id: BudgetId,
         budget: Budget,
-    ) -> Result<BudgetId, api::Error> {
+    ) -> Result<BudgetId, StorageError> {
         let result_path = &self.incomes_path().join(&budget_id);
         let mut file =
-            File::create(result_path).map_err(|_| api::Error::CantSaveBudget)?;
+            File::create(result_path).map_err(|_| StorageError::SaveBudget)?;
 
         let json_result = serde_json::to_string_pretty(&budget)
-            .map_err(|_| api::Error::CantSaveBudget)?;
+            .map_err(|_| StorageError::SaveBudget)?;
         file.write_all(json_result.as_bytes())
-            .map_err(|_| api::Error::CantSaveBudget)?;
+            .map_err(|_| StorageError::SaveBudget)?;
 
         info!("Записано в {result_path:?}");
         Ok(budget_id)
@@ -306,14 +301,14 @@ impl CoreRepo for FileSystem {
     #[instrument(skip(self))]
     fn budgets(
         &self,
-        from: Option<api::Cursor>,
+        from: Option<ai_app::storage::Cursor>,
         limit: usize,
-    ) -> api::Page<api::StorageBudget> {
+    ) -> Page<StorageBudget> {
         let files = self
             .full_storage()
             .skip_while(|id| from.as_ref().is_some_and(|cursor| cursor <= id));
 
-        let items: Vec<api::StorageBudget> = files
+        let items: Vec<StorageBudget> = files
             .take(limit)
             .filter_map(|id| self.budget_by_id(&id))
             .collect();
@@ -322,12 +317,12 @@ impl CoreRepo for FileSystem {
     }
 
     #[instrument(skip(self))]
-    fn budget_by_id(&self, id: &BudgetId) -> Option<api::StorageBudget> {
+    fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget> {
         let path = self.incomes_path().join(id);
         match distribute_from_json(&path) {
             Ok(budget) => {
                 info!(id = id);
-                Some(api::StorageBudget {
+                Some(StorageBudget {
                     id: id.clone(),
                     budget,
                 })

@@ -1,5 +1,4 @@
-use crate::presentation::formatting::FormattedMoney;
-use ai_core::api::StorageBudget;
+use crate::{api::BudgetEntry, presentation::formatting::FormattedMoney};
 use std::collections::HashMap;
 
 const NO_CATEGORY: &str = "Без категории";
@@ -26,8 +25,8 @@ pub struct ExpenseEntry {
     pub amount: FormattedMoney,
 }
 
-impl From<&StorageBudget> for HistoryEntry {
-    fn from(storage_budget: &StorageBudget) -> Self {
+impl From<&BudgetEntry> for HistoryEntry {
+    fn from(storage_budget: &BudgetEntry) -> Self {
         let budget = &storage_budget.budget;
 
         // Дата и источник дохода

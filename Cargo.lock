@@ -23,6 +23,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai_app"
+version = "1.0.1"
+dependencies = [
+ "ai_core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "ai_core"
 version = "1.0.1"
 dependencies = [
@@ -36,7 +48,6 @@ dependencies = [
  "thiserror 2.0.12",
  "tracing",
  "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]
@@ -58,6 +69,7 @@ dependencies = [
 name = "anna_ivanovna"
 version = "1.0.1"
 dependencies = [
+ "ai_app",
  "ai_core",
  "axum",
  "chrono",

@@ -1,8 +1,13 @@
-use ai_core::{
-    api::{self, BudgetId, CoreRepo, Cursor, Page, StorageBudget},
-    distribute::Budget,
-    plan::Plan,
+use ai_app::storage::{
+    BudgetId,
+    CoreRepo,
+    Cursor,
+    Page,
+    PlanId,
+    StorageBudget,
+    StorageError,
 };
+use ai_core::{distribute::Budget, plan::Plan};
 use sqlx::{Row, SqlitePool, sqlite::SqlitePoolOptions};
 use std::path::Path;
 use tokio::runtime::Handle;
@@ -36,33 +41,28 @@ impl SqliteRepo {
         })
     }
 
+    pub fn db_path(&self) -> &str {
+        &self.db_path
+    }
+
     fn block_on<F: std::future::Future>(&self, future: F) -> F::Output {
         tokio::task::block_in_place(|| Handle::current().block_on(future))
     }
 }
 
 impl CoreRepo for SqliteRepo {
-    #[instrument(skip(self))]
-    fn location(&self) -> &str {
-        &self.db_path
-    }
-
     #[instrument(skip(self, plan))]
-    fn save_plan(
-        &self,
-        plan_id: api::PlanId,
-        plan: Plan,
-    ) -> Result<api::PlanId, api::Error> {
+    fn save_plan(&self, plan_id: PlanId, plan: Plan) -> Result<PlanId, StorageError> {
         self.block_on(async {
             let content =
-                serde_json::to_string(&plan).map_err(|_| api::Error::CantSavePlan)?;
+                serde_json::to_string(&plan).map_err(|_| StorageError::SavePlan)?;
 
             sqlx::query("INSERT OR REPLACE INTO plans (id, content) VALUES (?, ?)")
                 .bind(&plan_id)
                 .bind(&content)
                 .execute(&self.pool)
                 .await
-                .map_err(|_| api::Error::CantSavePlan)?;
+                .map_err(|_| StorageError::SavePlan)?;
 
             info!("План сохранён в SQLite: {plan_id}");
             Ok(plan_id)
@@ -90,12 +90,12 @@ impl CoreRepo for SqliteRepo {
         &self,
         budget_id: BudgetId,
         budget: Budget,
-    ) -> Result<BudgetId, api::Error> {
+    ) -> Result<BudgetId, StorageError> {
         self.block_on(async {
             let source = &budget.income.source.name;
             let income_date = budget.income_date().format("%Y-%m-%d").to_string();
             let content = serde_json::to_string(&budget)
-                .map_err(|_| api::Error::CantSaveBudget)?;
+                .map_err(|_| StorageError::SaveBudget)?;
 
             sqlx::query(
                 "INSERT OR REPLACE INTO budgets (id, source, income_date, content) VALUES (?, ?, ?, ?)",
@@ -106,7 +106,7 @@ impl CoreRepo for SqliteRepo {
             .bind(&content)
             .execute(&self.pool)
             .await
-            .map_err(|_| api::Error::CantSaveBudget)?;
+                .map_err(|_| StorageError::SaveBudget)?;
 
             info!("Бюджет сохранён в SQLite: {budget_id}");
             Ok(budget_id)
