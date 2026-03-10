@@ -1,13 +1,17 @@
 use chrono::NaiveDate;
 use csv::{Reader, StringRecord};
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{self, BufReader};
-use std::path::Path;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{self, BufReader},
+    path::Path,
+};
 
-use ai_core::distribute::{Budget, BudgetEntry, Income};
-use ai_core::finance::Money;
-use ai_core::planning::{Expense, ExpenseValue, IncomeSource};
+use ai_core::{
+    distribute::{Budget, BudgetEntry, Income},
+    finance::Money,
+    planning::{Expense, ExpenseValue, IncomeSource},
+};
 
 const STATICS_KEYS: [&str; 5] = [
     "Дата входа",
@@ -17,7 +21,9 @@ const STATICS_KEYS: [&str; 5] = [
     "Итого распределено",
 ];
 
-fn read<P: AsRef<Path>>(csv_path: &P) -> io::Result<(Vec<String>, Reader<BufReader<File>>)> {
+fn read<P: AsRef<Path>>(
+    csv_path: &P,
+) -> io::Result<(Vec<String>, Reader<BufReader<File>>)> {
     let file = File::open(csv_path)
         .map_err(|e| io::Error::other(format!("Не удалось открыть файл: {e}")))?;
     let mut rdr = csv::ReaderBuilder::new()
@@ -31,7 +37,9 @@ fn read<P: AsRef<Path>>(csv_path: &P) -> io::Result<(Vec<String>, Reader<BufRead
     let headers: Vec<String> = headers.iter().map(|h| h.trim().to_string()).collect();
     Ok((headers, rdr))
 }
-pub fn parse_excel_csv<P: AsRef<Path>>(csv_path: P) -> io::Result<impl Iterator<Item = Budget>> {
+pub fn parse_excel_csv<P: AsRef<Path>>(
+    csv_path: P,
+) -> io::Result<impl Iterator<Item = Budget>> {
     let (headers, mut rdr) = read(&csv_path)?;
 
     let res: Vec<Budget> = rdr
@@ -76,8 +84,8 @@ fn parse_income(statics: &HashMap<String, String>) -> io::Result<Income> {
     let date_str = statics
         .get("Дата входа")
         .ok_or_else(|| io::Error::other("Нет поля 'Дата входа'"))?;
-    let date =
-        parse_date(date_str).ok_or_else(|| io::Error::other("Не удалось распарсить дату"))?;
+    let date = parse_date(date_str)
+        .ok_or_else(|| io::Error::other("Не удалось распарсить дату"))?;
     let source = statics
         .get("Источник")
         .map(|s| s.replace(" ", "-"))

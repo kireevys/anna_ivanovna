@@ -1,5 +1,7 @@
-use std::fs::{OpenOptions, create_dir_all};
-use std::path::Path;
+use std::{
+    fs::{OpenOptions, create_dir_all},
+    path::Path,
+};
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 
 pub fn init(dir: &Path, filename: &str) -> Result<(), Box<dyn std::error::Error>> {

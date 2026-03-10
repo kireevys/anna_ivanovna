@@ -1,6 +1,8 @@
-use crate::api::ApiClient;
-use crate::components::IncomeModal;
-use crate::presentation::plan::IncomeSource;
+use crate::{
+    api::ApiClient,
+    components::IncomeModal,
+    presentation::plan::IncomeSource,
+};
 use std::rc::Rc;
 use yew::prelude::*;
 
@@ -26,7 +28,9 @@ impl Component for IncomeSources {
     type Properties = IncomeSourcesProps;
 
     fn create(_ctx: &Context<Self>) -> Self {
-        Self { modal_source_id: None }
+        Self {
+            modal_source_id: None,
+        }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {

@@ -1,6 +1,8 @@
-use crate::api::ApiClient;
-use crate::components::plan::{ExpenseCategories, IncomeSources, Totals};
-use crate::presentation::plan::Plan;
+use crate::{
+    api::ApiClient,
+    components::plan::{ExpenseCategories, IncomeSources, Totals},
+    presentation::plan::Plan,
+};
 use std::rc::Rc;
 use yew::prelude::*;
 

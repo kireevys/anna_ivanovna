@@ -1,9 +1,10 @@
-use crate::finance::{Money, Percentage};
-use crate::planning::{DistributionWeights, Error, Expense, ExpenseValue, IncomeSource};
+use crate::{
+    finance::{Money, Percentage},
+    planning::{DistributionWeights, Error, Expense, ExpenseValue, IncomeSource},
+};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 impl TryFrom<Plan> for DistributionWeights {
     type Error = Error;
@@ -30,7 +31,9 @@ impl TryFrom<Plan> for DistributionWeights {
         let mut total = Percentage::ZERO;
         for e in draft.expenses {
             let current = match &e.value {
-                ExpenseValue::MONEY { value } => Percentage::of(value.value, plan_total.value),
+                ExpenseValue::MONEY { value } => {
+                    Percentage::of(value.value, plan_total.value)
+                }
                 ExpenseValue::RATE { value } => value.clone(),
             };
             total += current.clone();
@@ -95,7 +98,9 @@ impl Plan {
             .iter()
             .map(|expense| match &expense.value {
                 ExpenseValue::MONEY { value } => *value,
-                ExpenseValue::RATE { value } => Money::new_rub(value.apply_to(total_income.value)),
+                ExpenseValue::RATE { value } => {
+                    Money::new_rub(value.apply_to(total_income.value))
+                }
             })
             .fold(Money::new_rub(Decimal::ZERO), |acc, expense| acc + expense)
     }
@@ -113,8 +118,7 @@ impl Plan {
 mod test_planning {
     use std::collections::HashMap;
 
-    use rust_decimal::Decimal;
-    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::{Decimal, prelude::FromPrimitive};
     use rust_decimal_macros::dec;
 
     use crate::finance::{Currency, Money, Percentage};
@@ -131,8 +135,10 @@ mod test_planning {
     #[test]
     fn add_source() {
         let mut draft = Plan::new();
-        let source =
-            IncomeSource::new("Gold goose".to_string(), Money::new(dec!(1), Currency::RUB));
+        let source = IncomeSource::new(
+            "Gold goose".to_string(),
+            Money::new(dec!(1), Currency::RUB),
+        );
         draft.add_source(source.clone());
         assert_eq!(draft.sources, vec![source]);
         assert_eq!(draft.expenses, vec![]);

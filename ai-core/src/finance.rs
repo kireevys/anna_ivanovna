@@ -1,10 +1,12 @@
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Div, Sub, SubAssign};
-use std::str::FromStr;
+use std::{
+    fmt::{Display, Formatter},
+    iter::Sum,
+    ops::{Add, AddAssign, Div, Sub, SubAssign},
+    str::FromStr,
+};
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, PartialOrd, Serialize, Deserialize)]
 pub struct Percentage(Decimal);

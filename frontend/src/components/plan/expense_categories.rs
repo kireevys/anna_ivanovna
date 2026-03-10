@@ -1,5 +1,7 @@
-use crate::components::plan::expense_card::ExpenseCard;
-use crate::presentation::plan::{CategoryKey, Expense};
+use crate::{
+    components::plan::expense_card::ExpenseCard,
+    presentation::plan::{CategoryKey, Expense},
+};
 use std::collections::BTreeMap;
 use yew::prelude::*;
 

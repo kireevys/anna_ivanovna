@@ -1,10 +1,13 @@
-use crate::api::ApiClient;
-use crate::components::{AppLayout, Error, HistoryView, Loading, PlanView};
-use crate::config::API_V1_BASE_URL;
-use crate::presentation::history::HistoryEntry;
-use crate::presentation::plan::Plan;
-use ai_core::api::{Cursor, Page, StorageBudget};
-use ai_core::plan::Plan as CorePlan;
+use crate::{
+    api::ApiClient,
+    components::{AppLayout, Error, HistoryView, Loading, PlanView},
+    config::API_V1_BASE_URL,
+    presentation::{history::HistoryEntry, plan::Plan},
+};
+use ai_core::{
+    api::{Cursor, Page, StorageBudget},
+    plan::Plan as CorePlan,
+};
 use std::rc::Rc;
 use yew::{Component, Context, Html, html};
 
@@ -71,7 +74,9 @@ impl HistoryState {
                 });
                 next_cursor
             }
-            PaginatableDataState::LoadingMore { next_cursor, .. } => next_cursor.clone(),
+            PaginatableDataState::LoadingMore { next_cursor, .. } => {
+                next_cursor.clone()
+            }
             _ => {
                 self.set_data(PaginatableDataState::Loading);
                 None
@@ -83,7 +88,8 @@ impl HistoryState {
         let new_entries: Vec<HistoryEntry> =
             page.items.iter().map(HistoryEntry::from).collect();
 
-        let was_loading_more = matches!(self.data, PaginatableDataState::LoadingMore { .. });
+        let was_loading_more =
+            matches!(self.data, PaginatableDataState::LoadingMore { .. });
 
         match &mut self.data {
             PaginatableDataState::Loading => {
@@ -204,7 +210,11 @@ impl App {
         });
     }
 
-    fn load_history_async(&self, cursor: Option<Cursor>, link: &yew::html::Scope<Self>) {
+    fn load_history_async(
+        &self,
+        cursor: Option<Cursor>,
+        link: &yew::html::Scope<Self>,
+    ) {
         let api = self.api.clone();
         let link = link.clone();
         wasm_bindgen_futures::spawn_local(async move {
@@ -217,13 +227,13 @@ impl App {
         match self.view {
             View::Plan => match &self.plan.data {
                 DataState::Loading => html! { <Loading /> },
-                    DataState::Loaded(view_model) => html! {
-                        <PlanView
-                            view_model={view_model.clone()}
-                            on_plan_updated={ctx.link().callback(|_| AppMsg::LoadPlan)}
-                            api={self.api.clone()}
-                        />
-                    },
+                DataState::Loaded(view_model) => html! {
+                    <PlanView
+                        view_model={view_model.clone()}
+                        on_plan_updated={ctx.link().callback(|_| AppMsg::LoadPlan)}
+                        api={self.api.clone()}
+                    />
+                },
                 DataState::Error(error) => html! {
                     <Error
                         message={format!("Ошибка: {}", error)}

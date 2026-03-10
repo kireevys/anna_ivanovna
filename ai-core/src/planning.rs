@@ -1,9 +1,11 @@
 use crate::finance::{Money, Percentage};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
-use std::str::FromStr;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::{Debug, Formatter},
+    ops::Deref,
+    str::FromStr,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IncomeSource {
@@ -54,13 +56,14 @@ impl FromStr for ExpenseValue {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains('%') {
-            let percentage =
-                Percentage::from_str(s).map_err(|e| format!("Failed to parse percentage: {e}"))?;
+            let percentage = Percentage::from_str(s)
+                .map_err(|e| format!("Failed to parse percentage: {e}"))?;
             return Ok(ExpenseValue::RATE { value: percentage });
         }
 
         if s.contains("₽") {
-            let money = Money::from_str(s).map_err(|e| format!("Failed to parse money: {e}"))?;
+            let money = Money::from_str(s)
+                .map_err(|e| format!("Failed to parse money: {e}"))?;
             return Ok(ExpenseValue::MONEY { value: money });
         }
 
@@ -146,7 +149,8 @@ impl DistributionWeights {
             .fold(
                 BTreeMap::new(),
                 |mut map: std::collections::BTreeMap<_, Vec<&Expense>>, e| {
-                    let entry = e.category.as_deref().unwrap_or("Без категории").to_string();
+                    let entry =
+                        e.category.as_deref().unwrap_or("Без категории").to_string();
                     map.entry(entry).or_default().push(*e);
                     map
                 },

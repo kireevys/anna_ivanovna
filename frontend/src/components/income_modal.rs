@@ -1,10 +1,11 @@
-use crate::api::{ApiClient, ApiError, AddIncomeRequest};
-use std::rc::Rc;
-use crate::presentation::history::HistoryEntry;
-use ai_core::api::StorageBudget;
-use ai_core::distribute::Budget;
+use crate::{
+    api::{AddIncomeRequest, ApiClient, ApiError},
+    presentation::history::HistoryEntry,
+};
+use ai_core::{api::StorageBudget, distribute::Budget};
 use chrono::{Duration, Local, NaiveDate};
 use rust_decimal::Decimal;
+use std::rc::Rc;
 use wasm_bindgen::{JsCast, closure::Closure};
 use yew::prelude::*;
 
@@ -77,7 +78,10 @@ impl Component for IncomeModal {
                     };
                     let link = ctx.link().clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        let result = api.add_income(request).await.map_err(|e: ApiError| e.to_string());
+                        let result = api
+                            .add_income(request)
+                            .await
+                            .map_err(|e: ApiError| e.to_string());
                         link.send_message(IncomeModalMsg::Calculated(result));
                     });
                     true
@@ -103,7 +107,10 @@ impl Component for IncomeModal {
                 let api = ctx.props().api.clone();
                 let link = ctx.link().clone();
                 wasm_bindgen_futures::spawn_local(async move {
-                    let result = api.save_budget(&budget).await.map_err(|e: ApiError| e.to_string());
+                    let result = api
+                        .save_budget(&budget)
+                        .await
+                        .map_err(|e: ApiError| e.to_string());
                     link.send_message(IncomeModalMsg::Saved(result));
                 });
                 true

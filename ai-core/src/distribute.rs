@@ -1,9 +1,13 @@
-use crate::finance::{Money, Percentage};
-use crate::planning::{DistributionWeights, Expense, IncomeSource};
+use crate::{
+    finance::{Money, Percentage},
+    planning::{DistributionWeights, Expense, IncomeSource},
+};
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Formatter},
+};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
@@ -76,8 +80,8 @@ impl Budget {
 
 impl Debug for Budget {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let expenses_count =
-            self.no_category.len() + self.categories.values().map(|v| v.len()).sum::<usize>();
+        let expenses_count = self.no_category.len()
+            + self.categories.values().map(|v| v.len()).sum::<usize>();
         f.debug_struct("Budget")
             .field("date", &self.income.date)
             .field("amount", &self.income.amount)
@@ -125,7 +129,10 @@ impl Budget {
 ///
 /// returns: Result<Distribute, `DistributeError`>
 ///
-pub fn distribute(plan: &DistributionWeights, income: &Income) -> Result<Budget, Error> {
+pub fn distribute(
+    plan: &DistributionWeights,
+    income: &Income,
+) -> Result<Budget, Error> {
     if !plan.has_source(&income.source) {
         return Err(Error::UnknownSource);
     }
@@ -145,13 +152,14 @@ pub fn distribute(plan: &DistributionWeights, income: &Income) -> Result<Budget,
 #[cfg(test)]
 mod test_distribute {
     use chrono::Utc;
-    use rust_decimal::Decimal;
-    use rust_decimal::prelude::FromPrimitive;
+    use rust_decimal::{Decimal, prelude::FromPrimitive};
 
-    use crate::distribute::{Budget, Error, Income, distribute};
-    use crate::finance::{Money, Percentage};
-    use crate::plan::Plan;
-    use crate::planning::{DistributionWeights, Expense, ExpenseValue, IncomeSource};
+    use crate::{
+        distribute::{Budget, Error, Income, distribute},
+        finance::{Money, Percentage},
+        plan::Plan,
+        planning::{DistributionWeights, Expense, ExpenseValue, IncomeSource},
+    };
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())

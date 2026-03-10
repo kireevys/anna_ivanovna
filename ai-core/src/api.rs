@@ -39,7 +39,11 @@ impl From<(BudgetId, Budget)> for StorageBudget {
 pub trait CoreRepo {
     fn location(&self) -> &str;
     fn get_plan(&self) -> Option<Plan>;
-    fn save_budget(&self, budget_id: BudgetId, budget: Budget) -> Result<BudgetId, Error>;
+    fn save_budget(
+        &self,
+        budget_id: BudgetId,
+        budget: Budget,
+    ) -> Result<BudgetId, Error>;
     fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget>;
     fn budgets(&self, from: Option<Cursor>, limit: usize) -> Page<StorageBudget>;
     fn build_budget_id(b: &Budget) -> BudgetId {
@@ -89,20 +93,32 @@ impl<R: CoreRepo> CoreApi<R> {
     }
 
     #[instrument(skip(plan, income, self))]
-    pub fn distribute(&self, plan: &DistributionWeights, income: &Income) -> Result<Budget, Error> {
+    pub fn distribute(
+        &self,
+        plan: &DistributionWeights,
+        income: &Income,
+    ) -> Result<Budget, Error> {
         core_dist(plan, income).map_err(|e| Error::CantDistribute {
             message: e.to_string(),
         })
     }
 
     #[instrument(skip(budget, self))]
-    pub fn save_budget(&self, budget_id: BudgetId, budget: Budget) -> Result<BudgetId, Error> {
+    pub fn save_budget(
+        &self,
+        budget_id: BudgetId,
+        budget: Budget,
+    ) -> Result<BudgetId, Error> {
         self.repo
             .save_budget(budget_id, budget)
             .map_err(|_| Error::CantSaveBudget)
     }
 
-    pub fn budget_list(&self, from: Option<Cursor>, limit: usize) -> Page<StorageBudget> {
+    pub fn budget_list(
+        &self,
+        from: Option<Cursor>,
+        limit: usize,
+    ) -> Page<StorageBudget> {
         self.repo.budgets(from, limit)
     }
 

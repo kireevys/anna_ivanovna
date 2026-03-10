@@ -1,5 +1,4 @@
-use crate::app::View;
-use crate::components::ThemeSwitcher;
+use crate::{app::View, components::ThemeSwitcher};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]

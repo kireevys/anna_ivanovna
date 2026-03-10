@@ -1,5 +1,4 @@
-use ratatui::text::Span;
-use ratatui::widgets::ListItem;
+use ratatui::{text::Span, widgets::ListItem};
 
 #[derive(Debug, Clone)]
 pub(crate) enum PlanNode {

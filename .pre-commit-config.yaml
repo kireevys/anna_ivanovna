@@ -1,12 +1,28 @@
+minimum_pre_commit_version: 3.2.0
+default_stages: [pre-commit]
+fail_fast: true
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v3.2.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-json
       - id: check-added-large-files
-
+  - repo: local
+    hooks:
+      - id: fmt
+        name: fmt
+        entry: cargo +nightly fmt
+        pass_filenames: false
+        language: system
+        always_run: true
+  - repo: https://github.com/DevinR528/cargo-sort
+    rev: v2.0.2
+    hooks:
+      - id: cargo-sort
+        args: ["--workspace", "--grouped"]
   - repo: local
     hooks:
       - id: check-tag-version
@@ -16,6 +32,6 @@ repos:
         pass_filenames: false
       - id: clippy
         name: Clippy
-        entry: cargo clippy --all-targets --all-features -- -W clippy::style -W clippy::perf -D warnings
+        entry: cargo clippy --all-targets --all-features -- -D warnings -D clippy::style -D clippy::perf -D clippy::dbg_macro
         language: system
         pass_filenames: false

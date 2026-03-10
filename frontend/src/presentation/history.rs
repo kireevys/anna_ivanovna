@@ -1,5 +1,5 @@
-use ai_core::api::StorageBudget;
 use crate::presentation::formatting::FormattedMoney;
+use ai_core::api::StorageBudget;
 use std::collections::HashMap;
 
 const NO_CATEGORY: &str = "Без категории";
@@ -41,10 +41,12 @@ impl From<&StorageBudget> for HistoryEntry {
 
         // Расходы без категории
         if !budget.no_category.is_empty() {
-            let entries: Vec<ExpenseEntry> = budget.no_category.iter()
+            let entries: Vec<ExpenseEntry> = budget
+                .no_category
+                .iter()
                 .map(|entry| ExpenseEntry {
                     name: entry.expense.name.clone(),
-                        amount: FormattedMoney::from_money(entry.amount),
+                    amount: FormattedMoney::from_money(entry.amount),
                 })
                 .collect();
             categories_map.insert(NO_CATEGORY.to_string(), entries);
@@ -52,17 +54,19 @@ impl From<&StorageBudget> for HistoryEntry {
 
         // Расходы по категориям
         for (category_name, entries) in &budget.categories {
-            let expense_entries: Vec<ExpenseEntry> = entries.iter()
+            let expense_entries: Vec<ExpenseEntry> = entries
+                .iter()
                 .map(|entry| ExpenseEntry {
                     name: entry.expense.name.clone(),
-                        amount: FormattedMoney::from_money(entry.amount),
+                    amount: FormattedMoney::from_money(entry.amount),
                 })
                 .collect();
             categories_map.insert(category_name.clone(), expense_entries);
         }
 
         // Преобразуем в Vec<Category> и сортируем
-        let mut categories: Vec<Category> = categories_map.iter()
+        let mut categories: Vec<Category> = categories_map
+            .iter()
             .map(|(name, entries)| Category {
                 name: name.clone(),
                 entries: {

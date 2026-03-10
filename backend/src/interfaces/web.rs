@@ -1,11 +1,12 @@
 use ai_core::{
     api::{self, BudgetId, CoreApi, CoreRepo, Cursor, Page, StorageBudget},
     distribute::{Budget, Income},
-    plan::Plan,
     finance::Money,
+    plan::Plan,
 };
 use axum::{
-    Json, Router,
+    Json,
+    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
@@ -29,7 +30,9 @@ impl IntoResponse for ApiError {
         let (status, message) = match self {
             ApiError::NotFound => (StatusCode::NOT_FOUND, "not found".into()),
             ApiError::Storage(e) => (StatusCode::BAD_REQUEST, e),
-            ApiError::Internal => (StatusCode::INTERNAL_SERVER_ERROR, "internal error".into()),
+            ApiError::Internal => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal error".into())
+            }
         };
         let body = Json(serde_json::json!({ "error": message }));
         (status, body).into_response()
@@ -155,9 +158,11 @@ where
                         uri = %request.uri(),
                     )
                 })
-                .on_request(|_request: &axum::http::Request<_>, _span: &tracing::Span| {
-                    tracing::info!("request started");
-                })
+                .on_request(
+                    |_request: &axum::http::Request<_>, _span: &tracing::Span| {
+                        tracing::info!("request started");
+                    },
+                )
                 .on_response(
                     |_response: &axum::http::Response<_>,
                      latency: std::time::Duration,

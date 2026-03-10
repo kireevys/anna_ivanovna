@@ -1,12 +1,14 @@
 use crate::interfaces::tree::{PlanNode, TreeNode};
-use ai_core::distribute::Budget;
-use ai_core::finance::Money;
-use ai_core::finance::Percentage;
-use ai_core::planning::DistributionWeights;
+use ai_core::{
+    distribute::Budget,
+    finance::{Money, Percentage},
+    planning::DistributionWeights,
+};
 pub(crate) fn plan_to_tree(plan: &DistributionWeights) -> TreeNode<PlanNode> {
     let mut root = TreeNode::new(PlanNode::Title("План бюджета".to_string()));
     // Источники дохода
-    let mut sources_node = TreeNode::new(PlanNode::Other("💸 Источники дохода:".to_string()));
+    let mut sources_node =
+        TreeNode::new(PlanNode::Other("💸 Источники дохода:".to_string()));
     for source in &plan.sources {
         sources_node.add_child(TreeNode::new(PlanNode::Other(format!(
             "{} [{}]",
@@ -22,20 +24,23 @@ pub(crate) fn plan_to_tree(plan: &DistributionWeights) -> TreeNode<PlanNode> {
         plan.rest
     ))));
     // Категории и расходы
-    let mut expenses_root = TreeNode::new(PlanNode::Other("Запланированные расходы:".to_string()));
+    let mut expenses_root =
+        TreeNode::new(PlanNode::Other("Запланированные расходы:".to_string()));
     for (category, expenses) in plan.categories() {
         let cat_emoji = if category == "Без категории" {
             "📦"
         } else {
             "📂"
         };
-        let mut cat_node = TreeNode::new(PlanNode::Category(format!("{cat_emoji} {category}")));
+        let mut cat_node =
+            TreeNode::new(PlanNode::Category(format!("{cat_emoji} {category}")));
         let mut cat_total_amount = Money::new_rub(rust_decimal::Decimal::ZERO);
         let mut cat_total_percent = Percentage::ZERO;
         // Итог категории
         for expense in &expenses {
             if let Some(percentage) = plan.get(expense) {
-                let estimated_amount = Money::new_rub(percentage.apply_to(total_income.value));
+                let estimated_amount =
+                    Money::new_rub(percentage.apply_to(total_income.value));
                 cat_total_amount += estimated_amount;
                 cat_total_percent += percentage.clone();
             }
@@ -47,7 +52,8 @@ pub(crate) fn plan_to_tree(plan: &DistributionWeights) -> TreeNode<PlanNode> {
         // Элементы расходов
         for expense in &expenses {
             if let Some(percentage) = plan.get(expense) {
-                let estimated_amount = Money::new_rub(percentage.apply_to(total_income.value));
+                let estimated_amount =
+                    Money::new_rub(percentage.apply_to(total_income.value));
                 cat_node.add_child(TreeNode::new(PlanNode::Expense {
                     name: expense.name.clone(),
                     amount: format!("{estimated_amount}"),
@@ -75,7 +81,8 @@ pub(crate) fn budget_to_tree(budget: &Budget) -> TreeNode<PlanNode> {
     ))));
     // Без категории
     if !budget.no_category.is_empty() {
-        let mut no_cat_node = TreeNode::new(PlanNode::Category("📦 Без категории".to_string()));
+        let mut no_cat_node =
+            TreeNode::new(PlanNode::Category("📦 Без категории".to_string()));
         let mut total = Money::new_rub(rust_decimal::Decimal::ZERO);
         for entry in &budget.no_category {
             total += entry.amount;

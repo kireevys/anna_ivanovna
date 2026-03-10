@@ -1,16 +1,22 @@
-use ai_core::api::{self, BudgetId, CoreRepo, Page};
-use ai_core::distribute::Budget;
-use ai_core::finance::Money;
-use ai_core::plan::Plan;
-use ai_core::planning::{
-    Error as PlanningError, Expense as DomainExpense, ExpenseValue, IncomeSource,
+use ai_core::{
+    api::{self, BudgetId, CoreRepo, Page},
+    distribute::Budget,
+    finance::Money,
+    plan::Plan,
+    planning::{
+        Error as PlanningError,
+        Expense as DomainExpense,
+        ExpenseValue,
+        IncomeSource,
+    },
 };
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
-use std::io::Write;
-use std::path::Path;
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 use tracing::{error, info, instrument};
 #[derive(Debug)]
 pub enum Error {
@@ -49,7 +55,9 @@ fn yaml_to_domain(yaml: PlanDetails) -> Result<Plan, PlanningError> {
     let sources = yaml
         .incomes
         .into_iter()
-        .map(|i| Money::from_str(i.value.as_str()).map(|v| IncomeSource::new(i.source, v)))
+        .map(|i| {
+            Money::from_str(i.value.as_str()).map(|v| IncomeSource::new(i.source, v))
+        })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_e| PlanningError::InvalidPlan)?;
 
@@ -147,14 +155,16 @@ impl FileSystem {
                 buh_dir.display()
             ));
         }
-        std::fs::create_dir_all(buh_dir).map_err(|e| format!("Ошибка создания директории: {e}"))?;
+        std::fs::create_dir_all(buh_dir)
+            .map_err(|e| format!("Ошибка создания директории: {e}"))?;
         info!("Создана директория: {}", buh_dir.display());
         let incomes_path = self.incomes_path();
         std::fs::create_dir_all(incomes_path)
             .map_err(|e| format!("Ошибка создания incomes: {e}"))?;
         info!("Создана директория: {}", incomes_path.display());
         let plans_path = self.plans_path();
-        std::fs::create_dir_all(plans_path).map_err(|e| format!("Ошибка создания plans: {e}"))?;
+        std::fs::create_dir_all(plans_path)
+            .map_err(|e| format!("Ошибка создания plans: {e}"))?;
         info!("Создана директория: {}", plans_path.display());
         info!("Хранилище инициализировано: {}", buh_dir.display());
         Ok(())
@@ -195,7 +205,8 @@ impl FileSystem {
             let old_plan_path = fs.root_dir.join("plan.yaml");
             if old_plan_path.exists() && fs.get_latest_plan_path().is_none() {
                 let migration_date = chrono::Utc::now().format("%Y-%m-%d");
-                let new_plan_path = fs.plans_path().join(format!("{}.yaml", migration_date));
+                let new_plan_path =
+                    fs.plans_path().join(format!("{}.yaml", migration_date));
                 std::fs::copy(&old_plan_path, &new_plan_path)
                     .map_err(|e| format!("Ошибка миграции plan.yaml: {e}"))?;
                 info!("Мигрирован plan.yaml → {}", new_plan_path.display());
@@ -258,12 +269,17 @@ impl CoreRepo for FileSystem {
     }
 
     #[instrument(skip(self, budget))]
-    fn save_budget(&self, budget_id: BudgetId, budget: Budget) -> Result<BudgetId, api::Error> {
+    fn save_budget(
+        &self,
+        budget_id: BudgetId,
+        budget: Budget,
+    ) -> Result<BudgetId, api::Error> {
         let result_path = &self.incomes_path().join(&budget_id);
-        let mut file = File::create(result_path).map_err(|_| api::Error::CantSaveBudget)?;
+        let mut file =
+            File::create(result_path).map_err(|_| api::Error::CantSaveBudget)?;
 
-        let json_result =
-            serde_json::to_string_pretty(&budget).map_err(|_| api::Error::CantSaveBudget)?;
+        let json_result = serde_json::to_string_pretty(&budget)
+            .map_err(|_| api::Error::CantSaveBudget)?;
         file.write_all(json_result.as_bytes())
             .map_err(|_| api::Error::CantSaveBudget)?;
 
@@ -272,7 +288,11 @@ impl CoreRepo for FileSystem {
     }
 
     #[instrument(skip(self))]
-    fn budgets(&self, from: Option<api::Cursor>, limit: usize) -> api::Page<api::StorageBudget> {
+    fn budgets(
+        &self,
+        from: Option<api::Cursor>,
+        limit: usize,
+    ) -> api::Page<api::StorageBudget> {
         let files = self
             .full_storage()
             .skip_while(|id| from.as_ref().is_some_and(|cursor| cursor <= id));
@@ -297,7 +317,9 @@ impl CoreRepo for FileSystem {
                 })
             }
             Err(e) => {
-                error!("[anna_ivanovna] WARNING: Не удалось загрузить бюджет из {id}: {e:?}");
+                error!(
+                    "[anna_ivanovna] WARNING: Не удалось загрузить бюджет из {id}: {e:?}"
+                );
                 None
             }
         }
@@ -307,9 +329,11 @@ impl CoreRepo for FileSystem {
 #[cfg(test)]
 mod tests {
     use crate::storage::{distribute_from_json, plan_from_yaml};
-    use ai_core::distribute::{Income, distribute};
-    use ai_core::finance::Money;
-    use ai_core::planning::DistributionWeights;
+    use ai_core::{
+        distribute::{Income, distribute},
+        finance::Money,
+        planning::DistributionWeights,
+    };
     use chrono::NaiveDate;
     use std::path::Path;
 
@@ -320,13 +344,16 @@ mod tests {
 
         let income = Income::new(
             source.clone(),
-            Money::new_rub((source.expected.value / rust_decimal::Decimal::from(2)).round_dp(2)),
+            Money::new_rub(
+                (source.expected.value / rust_decimal::Decimal::from(2)).round_dp(2),
+            ),
             NaiveDate::from_ymd_opt(2025, 6, 21).unwrap(),
         );
         let weights: DistributionWeights = plan.try_into().unwrap();
         let result = distribute(&weights, &income).unwrap();
 
-        let expected = distribute_from_json(Path::new("src/test_storage/result.json")).unwrap();
+        let expected =
+            distribute_from_json(Path::new("src/test_storage/result.json")).unwrap();
         assert_eq!(result, expected);
     }
 }

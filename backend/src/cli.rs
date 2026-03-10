@@ -1,16 +1,20 @@
-use crate::interfaces;
-use crate::interfaces::presentation::{budget_to_tree, plan_to_tree};
-use crate::interfaces::tree::to_text;
-use crate::storage::FileSystem;
-use ai_core::api::{BudgetId, CoreApi, CoreRepo};
-use ai_core::distribute::Income;
-use ai_core::finance::Money;
-use ai_core::planning::{DistributionWeights, IncomeSource};
+use crate::{
+    interfaces,
+    interfaces::{
+        presentation::{budget_to_tree, plan_to_tree},
+        tree::to_text,
+    },
+    storage::FileSystem,
+};
+use ai_core::{
+    api::{BudgetId, CoreApi, CoreRepo},
+    distribute::Income,
+    finance::Money,
+    planning::{DistributionWeights, IncomeSource},
+};
 use clap::{Parser, Subcommand};
 use rust_decimal::Decimal;
-use std::io;
-use std::io::Write;
-use std::path::PathBuf;
+use std::{io, io::Write, path::PathBuf};
 use thiserror::Error;
 use tokio::runtime::Runtime;
 use tracing::{self, info};
@@ -182,7 +186,8 @@ where
         Commands::Web { host, port } => {
             let runtime = Runtime::new().expect("failed to create tokio runtime");
             runtime.block_on(async {
-                if let Err(err) = interfaces::web::run(api.clone(), &format!("{host}:{port}")).await
+                if let Err(err) =
+                    interfaces::web::run(api.clone(), &format!("{host}:{port}")).await
                 {
                     eprintln!("Ошибка web-сервера: {err}");
                 }
