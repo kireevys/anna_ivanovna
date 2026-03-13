@@ -24,7 +24,7 @@ fn migrate_excel<T: ai_app::storage::CoreRepo>(
 
     let mut count = 0u32;
     for b in budgets {
-        let id = CoreApi::<T>::build_budget_id();
+        let id = ai_app::storage::build_id();
         target.save_budget(id, b).map_err(|e| e.to_string())?;
         count += 1;
     }

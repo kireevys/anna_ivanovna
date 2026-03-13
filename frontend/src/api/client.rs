@@ -19,6 +19,11 @@ struct ErrorResponse {
     error: String,
 }
 
+#[derive(Deserialize)]
+struct StoragePlanResponse {
+    plan: Plan,
+}
+
 #[derive(Serialize)]
 pub struct AddIncomeRequest {
     pub source_id: String,
@@ -81,7 +86,8 @@ impl ApiClient {
             .send()
             .await
             .map_err(|e| ApiError::Network(format!("Request failed: {e}")))?;
-        self.parse_response(response).await
+        let sp: StoragePlanResponse = self.parse_response(response).await?;
+        Ok(sp.plan)
     }
 
     pub async fn get_history(

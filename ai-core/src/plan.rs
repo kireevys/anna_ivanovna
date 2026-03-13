@@ -9,18 +9,6 @@ use std::{collections::HashMap, fmt::Debug};
 impl TryFrom<Plan> for DistributionWeights {
     type Error = Error;
 
-    /// Создает План из Черновика
-    ///
-    /// # Arguments
-    ///
-    /// * `draft`: Черновик
-    ///
-    /// # Errors
-    /// `EmptyPlan`: Нельзя создать План из пустого Черновика
-    /// `TooBigExpenses`: Нужно запланировать свои Расходы так, чтобы они не превышали Доходы
-    ///
-    /// returns: Result<Plan, Error>
-    ///
     fn try_from(draft: Plan) -> Result<Self, Self::Error> {
         if draft.is_empty() {
             return Err(Error::EmptyPlan);

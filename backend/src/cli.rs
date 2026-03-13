@@ -118,8 +118,9 @@ pub fn run<R>(api: CoreApi<R>, cmd: BudgetCommand) -> Result<(), Error>
 where
     R: CoreRepo + Clone + Send + Sync + 'static,
 {
-    let plan = api.get_plan().ok_or(Error::NoPlan)?;
-    let weights = plan.try_into().map_err(|_| Error::InvalidPlan)?;
+    let user_id: ai_app::storage::UserId = "default".to_string();
+    let sp = api.get_plan(&user_id).ok_or(Error::NoPlan)?;
+    let weights = sp.plan.try_into().map_err(|_| Error::InvalidPlan)?;
     let start = std::time::Instant::now();
     match cmd {
         BudgetCommand::AddIncome { amount, dry_run } => {
@@ -131,7 +132,7 @@ where
 
             let tree = budget_to_tree(&budget);
             println!("{}", to_text(&tree));
-            let id: BudgetId = CoreApi::<R>::build_budget_id();
+            let id: BudgetId = ai_app::storage::build_id();
             if dry_run {
                 println!("🔍 DRY-RUN: Результат НЕ сохранён");
             } else {

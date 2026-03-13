@@ -1,0 +1,12 @@
+---
+source: ai-app/src/api.rs
+expression: "TestResult::Err { draft, error: err.to_string() }"
+---
+{
+  "status": "Err",
+  "draft": {
+    "sources": [],
+    "expenses": []
+  },
+  "error": "invalid plan: EmptyPlan"
+}

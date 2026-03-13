@@ -2,7 +2,7 @@ use crate::finance::{Money, Percentage};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
-    fmt::{Debug, Formatter},
+    fmt::{Debug, Display, Formatter},
     ops::Deref,
     str::FromStr,
 };
@@ -35,6 +35,16 @@ pub enum Error {
     EmptyPlan,
     TooBigExpenses,
     InvalidPlan,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::EmptyPlan => write!(f, "empty plan"),
+            Error::TooBigExpenses => write!(f, "expenses exceed income"),
+            Error::InvalidPlan => write!(f, "invalid plan"),
+        }
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Eq, Hash, Serialize, Deserialize)]

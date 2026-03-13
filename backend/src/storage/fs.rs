@@ -1,4 +1,16 @@
-use ai_app::storage::{BudgetId, CoreRepo, Page, StorageBudget, StorageError};
+use ai_app::storage::{
+    BudgetId,
+    CoreRepo,
+    Cursor,
+    Page,
+    PlanEvent,
+    PlanId,
+    PlanStatus,
+    StorageBudget,
+    StorageError,
+    StoragePlan,
+    UserId,
+};
 use ai_core::{
     distribute::Budget,
     finance::Money,
@@ -259,24 +271,52 @@ impl FileSystem {
 
 impl CoreRepo for FileSystem {
     #[instrument(skip(self))]
-    fn get_plan(&self) -> Option<Plan> {
+    fn get_plan(&self, user_id: &UserId) -> Option<StoragePlan> {
         self.get_latest_plan_path()
             .and_then(|path| plan_from_yaml(&path).ok())
+            .map(|plan| StoragePlan {
+                user_id: user_id.clone(),
+                id: String::new(),
+                plan,
+                version: 0,
+                status: PlanStatus::Active,
+            })
     }
 
-    #[instrument(skip(self, plan))]
-    fn save_plan(
+    fn create_plan(
         &self,
-        plan_id: ai_app::storage::PlanId,
-        plan: Plan,
-    ) -> Result<ai_app::storage::PlanId, StorageError> {
-        let path = self.plans_path().join(format!("{plan_id}.yaml"));
-        let yaml = serde_yaml::to_string(&plan).map_err(|_| StorageError::SavePlan)?;
-        let mut file = File::create(&path).map_err(|_| StorageError::SavePlan)?;
-        file.write_all(yaml.as_bytes())
-            .map_err(|_| StorageError::SavePlan)?;
-        info!("План сохранён: {path:?}");
-        Ok(plan_id)
+        _user_id: &UserId,
+        _plan_id: PlanId,
+        _plan: Plan,
+    ) -> Result<PlanId, StorageError> {
+        unimplemented!("FileSystem — read-only source для миграции")
+    }
+
+    fn update_plan(
+        &self,
+        _user_id: &UserId,
+        _plan_id: &PlanId,
+        _plan: Plan,
+    ) -> Result<(), StorageError> {
+        unimplemented!("FileSystem — read-only source для миграции")
+    }
+
+    fn delete_plan(
+        &self,
+        _user_id: &UserId,
+        _plan_id: &PlanId,
+    ) -> Result<(), StorageError> {
+        unimplemented!("FileSystem — read-only source для миграции")
+    }
+
+    fn plan_events(
+        &self,
+        _user_id: &UserId,
+        _plan_id: &PlanId,
+        _from: Option<Cursor>,
+        _limit: usize,
+    ) -> Page<PlanEvent> {
+        unimplemented!("FileSystem — read-only source для миграции")
     }
 
     #[instrument(skip(self, budget))]

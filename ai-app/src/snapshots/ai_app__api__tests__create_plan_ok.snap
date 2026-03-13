@@ -1,0 +1,75 @@
+---
+source: ai-app/src/api.rs
+expression: "TestResult::Ok { draft, stored: api.get_plan().unwrap() }"
+---
+{
+  "status": "Ok",
+  "draft": {
+    "sources": [
+      {
+        "name": "Зарплата",
+        "expected": {
+          "value": "100000",
+          "currency": "RUB"
+        }
+      }
+    ],
+    "expenses": [
+      {
+        "name": "Аренда",
+        "value": {
+          "MONEY": {
+            "value": {
+              "value": "30000",
+              "currency": "RUB"
+            }
+          }
+        },
+        "category": "Жильё"
+      },
+      {
+        "name": "Накопления",
+        "value": {
+          "RATE": {
+            "value": "20"
+          }
+        },
+        "category": null
+      }
+    ]
+  },
+  "stored": {
+    "sources": [
+      {
+        "name": "Зарплата",
+        "expected": {
+          "value": "100000",
+          "currency": "RUB"
+        }
+      }
+    ],
+    "expenses": [
+      {
+        "name": "Аренда",
+        "value": {
+          "MONEY": {
+            "value": {
+              "value": "30000",
+              "currency": "RUB"
+            }
+          }
+        },
+        "category": "Жильё"
+      },
+      {
+        "name": "Накопления",
+        "value": {
+          "RATE": {
+            "value": "20"
+          }
+        },
+        "category": null
+      }
+    ]
+  }
+}

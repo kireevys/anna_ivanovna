@@ -9,7 +9,17 @@ use ai_core::{
     planning::DistributionWeights,
 };
 
-use crate::storage::{BudgetId, CoreRepo, Cursor, Page, PlanId, StorageBudget};
+use crate::storage::{
+    BudgetId,
+    CoreRepo,
+    Cursor,
+    Page,
+    PlanDraft,
+    PlanId,
+    StorageBudget,
+    StoragePlan,
+    UserId,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -17,8 +27,18 @@ pub enum Error {
     CantDistribute { message: String },
     #[error("cant save budget")]
     CantSaveBudget,
-    #[error("cant save plan")]
-    CantSavePlan,
+    #[error("cant create plan")]
+    CantCreatePlan,
+    #[error("plan already exists")]
+    PlanAlreadyExists,
+    #[error("invalid plan: {message}")]
+    InvalidPlan { message: String },
+    #[error("cant delete plan")]
+    CantDeletePlan,
+    #[error("cant update plan")]
+    CantUpdatePlan,
+    #[error("plan not found")]
+    PlanNotFound,
 }
 
 #[derive(Clone)]
@@ -32,8 +52,55 @@ impl<R: CoreRepo> CoreApi<R> {
     }
 
     #[instrument(skip(self))]
-    pub fn get_plan(&self) -> Option<Plan> {
-        self.repo.get_plan()
+    pub fn get_plan(&self, user_id: &UserId) -> Option<StoragePlan> {
+        self.repo.get_plan(user_id)
+    }
+
+    #[instrument(skip(self, draft))]
+    pub fn create_plan(
+        &self,
+        user_id: &UserId,
+        plan_id: PlanId,
+        draft: PlanDraft,
+    ) -> Result<PlanId, Error> {
+        let plan = Self::validate(draft)?;
+        self.repo
+            .create_plan(user_id, plan_id, plan)
+            .map_err(|e| match e {
+                crate::storage::StorageError::PlanAlreadyExists => {
+                    Error::PlanAlreadyExists
+                }
+                _ => Error::CantCreatePlan,
+            })
+    }
+
+    #[instrument(skip(self, draft))]
+    pub fn update_plan(
+        &self,
+        user_id: &UserId,
+        plan_id: PlanId,
+        draft: PlanDraft,
+    ) -> Result<(), Error> {
+        let plan = Self::validate(draft)?;
+        self.repo
+            .update_plan(user_id, &plan_id, plan)
+            .map_err(|_| Error::CantUpdatePlan)
+    }
+
+    fn validate(draft: PlanDraft) -> Result<Plan, Error> {
+        DistributionWeights::try_from(draft.clone()).map_err(|e| {
+            Error::InvalidPlan {
+                message: e.to_string(),
+            }
+        })?;
+        Ok(draft)
+    }
+
+    #[instrument(skip(self))]
+    pub fn delete_plan(&self, user_id: &UserId, plan_id: PlanId) -> Result<(), Error> {
+        self.repo
+            .delete_plan(user_id, &plan_id)
+            .map_err(|_| Error::CantDeletePlan)
     }
 
     #[instrument(skip(plan, income, self))]
@@ -45,13 +112,6 @@ impl<R: CoreRepo> CoreApi<R> {
         core_dist(plan, income).map_err(|e| Error::CantDistribute {
             message: e.to_string(),
         })
-    }
-
-    #[instrument(skip(self, plan))]
-    pub fn save_plan(&self, plan_id: PlanId, plan: Plan) -> Result<PlanId, Error> {
-        self.repo
-            .save_plan(plan_id, plan)
-            .map_err(|_| Error::CantSavePlan)
     }
 
     #[instrument(skip(budget, self))]
@@ -77,9 +137,345 @@ impl<R: CoreRepo> CoreApi<R> {
     pub fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget> {
         self.repo.budget_by_id(id)
     }
+}
 
-    #[must_use]
-    pub fn build_budget_id() -> BudgetId {
-        uuid::Uuid::now_v7().to_string()
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use ai_core::{
+        distribute::Budget,
+        finance::{Money, Percentage},
+        plan::Plan,
+        planning::{Expense, ExpenseValue, IncomeSource},
+    };
+    use rust_decimal_macros::dec;
+    use serde::Serialize;
+
+    use super::*;
+    use crate::storage::*;
+
+    struct InMemoryCoreRepo {
+        plan: Mutex<Option<StoragePlan>>,
+        events: Mutex<Vec<PlanEvent>>,
     }
+
+    impl InMemoryCoreRepo {
+        fn new() -> Self {
+            Self {
+                plan: Mutex::new(None),
+                events: Mutex::new(vec![]),
+            }
+        }
+    }
+
+    impl CoreRepo for InMemoryCoreRepo {
+        fn get_plan(&self, _user_id: &UserId) -> Option<StoragePlan> {
+            self.plan.lock().unwrap().clone()
+        }
+
+        fn create_plan(
+            &self,
+            user_id: &UserId,
+            plan_id: PlanId,
+            plan: Plan,
+        ) -> Result<PlanId, StorageError> {
+            if self.plan.lock().unwrap().is_some() {
+                return Err(StorageError::PlanAlreadyExists);
+            }
+            let sp = StoragePlan {
+                user_id: user_id.clone(),
+                id: plan_id.clone(),
+                plan,
+                version: 1,
+                status: PlanStatus::Active,
+            };
+            self.events.lock().unwrap().push(PlanEvent {
+                id: 1,
+                plan_id: plan_id.clone(),
+                version: 1,
+                action: PlanAction::Created,
+                content: Some(sp.plan.clone()),
+                created_at: "2026-03-10T00:00:00".into(),
+            });
+            *self.plan.lock().unwrap() = Some(sp);
+            Ok(plan_id)
+        }
+
+        fn update_plan(
+            &self,
+            _user_id: &UserId,
+            plan_id: &PlanId,
+            plan: Plan,
+        ) -> Result<(), StorageError> {
+            let mut current = self.plan.lock().unwrap();
+            let sp = current
+                .as_mut()
+                .filter(|sp| &sp.id == plan_id)
+                .ok_or(StorageError::UpdatePlan)?;
+            sp.version += 1;
+            sp.plan = plan.clone();
+            let mut events = self.events.lock().unwrap();
+            let next_id = events.len() as i64 + 1;
+            events.push(PlanEvent {
+                id: next_id,
+                plan_id: plan_id.clone(),
+                version: sp.version,
+                action: PlanAction::Updated,
+                content: Some(plan),
+                created_at: "2026-03-10T00:00:00".into(),
+            });
+            Ok(())
+        }
+
+        fn delete_plan(
+            &self,
+            _user_id: &UserId,
+            plan_id: &PlanId,
+        ) -> Result<(), StorageError> {
+            let mut current = self.plan.lock().unwrap();
+            let sp = current
+                .as_mut()
+                .filter(|sp| &sp.id == plan_id)
+                .ok_or(StorageError::DeletePlan)?;
+            sp.version += 1;
+            sp.status = PlanStatus::Deleted;
+            let version = sp.version;
+            let mut events = self.events.lock().unwrap();
+            let next_id = events.len() as i64 + 1;
+            events.push(PlanEvent {
+                id: next_id,
+                plan_id: plan_id.clone(),
+                version,
+                action: PlanAction::Deleted,
+                content: None,
+                created_at: "2026-03-10T00:00:00".into(),
+            });
+            *current = None;
+            Ok(())
+        }
+
+        fn plan_events(
+            &self,
+            _user_id: &UserId,
+            plan_id: &PlanId,
+            _from: Option<Cursor>,
+            _limit: usize,
+        ) -> Page<PlanEvent> {
+            let items: Vec<_> = self
+                .events
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|e| e.plan_id == *plan_id)
+                .cloned()
+                .collect();
+            Page::new(items, None)
+        }
+
+        fn save_budget(
+            &self,
+            budget_id: BudgetId,
+            _budget: Budget,
+        ) -> Result<BudgetId, StorageError> {
+            Ok(budget_id)
+        }
+
+        fn budget_by_id(&self, _id: &BudgetId) -> Option<StorageBudget> {
+            None
+        }
+
+        fn budgets(&self, _from: Option<Cursor>, _limit: usize) -> Page<StorageBudget> {
+            Page::new(vec![], None)
+        }
+    }
+
+    fn valid_plan() -> Plan {
+        Plan::build(
+            &[IncomeSource::new(
+                "Зарплата".into(),
+                Money::new_rub(dec!(100000)),
+            )],
+            &[
+                Expense::new(
+                    "Аренда".into(),
+                    ExpenseValue::MONEY {
+                        value: Money::new_rub(dec!(30000)),
+                    },
+                    Some("Жильё".into()),
+                ),
+                Expense::new(
+                    "Накопления".into(),
+                    ExpenseValue::RATE {
+                        value: Percentage::from_int(20),
+                    },
+                    None,
+                ),
+            ],
+        )
+    }
+
+    #[derive(Serialize)]
+    #[serde(tag = "status")]
+    enum TestResult {
+        Ok { draft: Plan, stored: Plan },
+        Err { draft: Plan, error: String },
+    }
+
+    const TEST_PLAN_ID: &str = "test-plan-id";
+    const TEST_USER_ID: &str = "default";
+
+    fn make_api() -> CoreApi<InMemoryCoreRepo> {
+        CoreApi::new(Arc::new(InMemoryCoreRepo::new()))
+    }
+
+    #[test]
+    fn create_plan_ok() {
+        let api = make_api();
+        let draft = valid_plan();
+        api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .unwrap();
+        insta::assert_json_snapshot!(TestResult::Ok {
+            draft,
+            stored: api.get_plan(&TEST_USER_ID.into()).unwrap().plan
+        });
+    }
+
+    #[test]
+    fn create_plan_already_exists() {
+        let api = make_api();
+        api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .unwrap();
+        let err = api
+            .create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .unwrap_err();
+        insta::assert_debug_snapshot!(err);
+    }
+
+    #[test]
+    fn create_plan_invalid_empty() {
+        let api = make_api();
+        let draft = Plan::default();
+        let err = api
+            .create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .unwrap_err();
+        insta::assert_json_snapshot!(TestResult::Err {
+            draft,
+            error: err.to_string()
+        });
+    }
+
+    #[test]
+    fn create_plan_invalid_too_big_expenses() {
+        let api = make_api();
+        let draft = Plan::build(
+            &[IncomeSource::new(
+                "Зарплата".into(),
+                Money::new_rub(dec!(100000)),
+            )],
+            &[Expense::new(
+                "Всё".into(),
+                ExpenseValue::RATE {
+                    value: Percentage::from_int(101),
+                },
+                None,
+            )],
+        );
+        let err = api
+            .create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .unwrap_err();
+        insta::assert_json_snapshot!(TestResult::Err {
+            draft,
+            error: err.to_string()
+        });
+    }
+
+    #[test]
+    fn update_plan_ok() {
+        let api = make_api();
+        api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .unwrap();
+        let updated = Plan::build(
+            &[IncomeSource::new(
+                "Фриланс".into(),
+                Money::new_rub(dec!(200000)),
+            )],
+            &[Expense::new(
+                "Ипотека".into(),
+                ExpenseValue::MONEY {
+                    value: Money::new_rub(dec!(80000)),
+                },
+                Some("Жильё".into()),
+            )],
+        );
+        api.update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), updated.clone())
+            .unwrap();
+        insta::assert_json_snapshot!(TestResult::Ok {
+            draft: updated,
+            stored: api.get_plan(&TEST_USER_ID.into()).unwrap().plan
+        });
+    }
+
+    #[test]
+    fn update_plan_no_existing() {
+        let api = make_api();
+        let err = api
+            .update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .unwrap_err();
+        insta::assert_debug_snapshot!(err);
+    }
+
+    #[test]
+    fn update_plan_invalid() {
+        let api = make_api();
+        api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .unwrap();
+        let draft = Plan::default();
+        let err = api
+            .update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .unwrap_err();
+        insta::assert_json_snapshot!(TestResult::Err {
+            draft,
+            error: err.to_string()
+        });
+    }
+
+    #[test]
+    fn update_plan_increments_version() {
+        let api = make_api();
+        api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .unwrap();
+        assert_eq!(api.get_plan(&TEST_USER_ID.into()).unwrap().version, 1);
+
+        let updated = Plan::build(
+            &[IncomeSource::new(
+                "Фриланс".into(),
+                Money::new_rub(dec!(200000)),
+            )],
+            &[Expense::new(
+                "Ипотека".into(),
+                ExpenseValue::MONEY {
+                    value: Money::new_rub(dec!(80000)),
+                },
+                Some("Жильё".into()),
+            )],
+        );
+        api.update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), updated)
+            .unwrap();
+        assert_eq!(api.get_plan(&TEST_USER_ID.into()).unwrap().version, 2);
+    }
+
+    #[test]
+    fn delete_plan_ok() {
+        let api = make_api();
+        api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .unwrap();
+        assert!(api.get_plan(&TEST_USER_ID.into()).is_some());
+        let result = api.delete_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into());
+        assert!(result.is_ok());
+        assert!(api.get_plan(&TEST_USER_ID.into()).is_none());
+    }
+
+    // events are still stored in the repository for history,
+    // but CoreApi does not expose them directly for now
 }
