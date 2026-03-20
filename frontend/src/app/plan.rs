@@ -80,7 +80,10 @@ impl App {
                 &storage_plan.plan,
             );
             self.plan.set_expenses(expenses);
+            self.plan
+                .set_data(DataState::Loaded(Plan::from(&storage_plan.plan)));
         }
+        self.plan.edited_core_plan = None;
         self.plan.set_mode(PlanMode::View);
         self.plan.reset_validation();
         true
@@ -136,6 +139,7 @@ impl App {
 
         self.plan
             .set_data(DataState::Loaded(Plan::from(&updated_plan)));
+        self.plan.edited_core_plan = Some(updated_plan.clone());
 
         let incomes_total = updated_plan.total_incomes();
         let expenses_total = updated_plan.total_expenses();
@@ -175,9 +179,15 @@ impl App {
             return true;
         }
 
-        if let Some(storage_plan) = &self.plan.meta {
+        if let (Some(storage_plan), Some(core_plan)) =
+            (&self.plan.meta, &self.plan.edited_core_plan)
+        {
             self.plan.save_state = SaveState::Saving;
-            self.save_plan_async(storage_plan.clone(), ctx.link());
+            self.save_plan_async(
+                storage_plan.id.clone(),
+                core_plan.clone(),
+                ctx.link(),
+            );
         }
         true
     }
@@ -222,20 +232,14 @@ impl App {
 
     pub(super) fn save_plan_async(
         &self,
-        storage_plan: StoragePlanFrontend,
+        id: String,
+        core_plan: ai_core::plan::Plan,
         link: &yew::html::Scope<Self>,
     ) {
         let api = self.api.clone();
         let link = link.clone();
-        let incomes = self.plan.incomes.clone();
-        let expenses = self.plan.expenses.clone();
         wasm_bindgen_futures::spawn_local(async move {
-            let updated_plan = crate::presentation::editable_plan::build_updated_plan(
-                &storage_plan.plan,
-                &incomes,
-                &expenses,
-            );
-            let result = api.update_plan(&storage_plan.id, &updated_plan).await;
+            let result = api.update_plan(&id, &core_plan).await;
             link.send_message(AppMsg::PlanSaveFinished(result));
         });
     }

@@ -1,25 +1,36 @@
 use ai_core::{
     finance::{Money, Percentage},
     plan::Plan as CorePlan,
-    planning::{Expense as CoreExpense, ExpenseValue as CoreExpenseValue},
+    planning::{
+        Expense as CoreExpense,
+        ExpenseValue as CoreExpenseValue,
+        IncomeSource as CoreIncomeSource,
+    },
 };
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
 #[derive(Clone, PartialEq)]
 pub struct EditableIncomeSource {
-    pub index: usize,
     pub name: String,
     pub amount: String,
     pub is_valid: bool,
 }
 
+impl EditableIncomeSource {
+    pub fn empty() -> Self {
+        Self {
+            name: String::new(),
+            amount: String::new(),
+            is_valid: true,
+        }
+    }
+}
+
 pub fn incomes_from_core_plan(plan: &CorePlan) -> Vec<EditableIncomeSource> {
     plan.sources
         .iter()
-        .enumerate()
-        .map(|(index, source)| EditableIncomeSource {
-            index,
+        .map(|source| EditableIncomeSource {
             name: source.name.clone(),
             amount: source.expected.value.to_string(),
             is_valid: true,
@@ -33,15 +44,16 @@ pub fn apply_incomes_to_core_plan(
 ) -> CorePlan {
     let mut updated = plan.clone();
 
-    for editable in incomes {
-        if editable.index >= updated.sources.len() {
-            continue;
-        }
-
-        if let Ok(amount) = Decimal::from_str(&editable.amount) {
-            updated.sources[editable.index].expected = Money::new_rub(amount);
-        }
-    }
+    updated.sources = incomes
+        .iter()
+        .filter_map(|editable| {
+            let amount = Decimal::from_str(&editable.amount).ok()?;
+            Some(CoreIncomeSource::new(
+                editable.name.clone(),
+                Money::new_rub(amount),
+            ))
+        })
+        .collect();
 
     updated
 }
@@ -54,18 +66,28 @@ pub enum EditableExpenseKind {
 
 #[derive(Clone, PartialEq)]
 pub struct EditableExpense {
-    pub index: usize,
     pub name: String,
     pub category: Option<String>,
     pub kind: EditableExpenseKind,
     pub amount: String,
     pub is_valid: bool,
 }
+
+impl EditableExpense {
+    pub fn empty() -> Self {
+        Self {
+            name: String::new(),
+            category: None,
+            kind: EditableExpenseKind::Rate,
+            amount: String::new(),
+            is_valid: true,
+        }
+    }
+}
 pub fn expenses_from_core_plan(plan: &CorePlan) -> Vec<EditableExpense> {
     plan.expenses
         .iter()
-        .enumerate()
-        .map(|(index, expense)| {
+        .map(|expense| {
             let (kind, amount) = match &expense.value {
                 CoreExpenseValue::MONEY { value } => {
                     (EditableExpenseKind::Money, value.value.to_string())
@@ -77,7 +99,6 @@ pub fn expenses_from_core_plan(plan: &CorePlan) -> Vec<EditableExpense> {
                 }
             };
             EditableExpense {
-                index,
                 name: expense.name.clone(),
                 category: expense.category.clone(),
                 kind,
@@ -102,15 +123,11 @@ pub fn apply_expenses_to_core_plan(
 ) -> CorePlan {
     let mut updated = plan.clone();
 
-    for editable in expenses {
-        if editable.index >= updated.expenses.len() {
-            continue;
-        }
-
-        if let Ok(amount) = Decimal::from_str(&editable.amount) {
-            let core_expense: &mut CoreExpense = &mut updated.expenses[editable.index];
-
-            core_expense.value = match editable.kind {
+    updated.expenses = expenses
+        .iter()
+        .filter_map(|editable| {
+            let amount = Decimal::from_str(&editable.amount).ok()?;
+            let value = match editable.kind {
                 EditableExpenseKind::Money => CoreExpenseValue::MONEY {
                     value: Money::new_rub(amount),
                 },
@@ -118,8 +135,13 @@ pub fn apply_expenses_to_core_plan(
                     value: Percentage::from(amount),
                 },
             };
-        }
-    }
+            Some(CoreExpense::new(
+                editable.name.clone(),
+                value,
+                editable.category.clone(),
+            ))
+        })
+        .collect();
 
     updated
 }

@@ -1,5 +1,4 @@
 use crate::presentation::editable_plan::{EditableExpense, EditableExpenseKind};
-use std::collections::BTreeMap;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -11,111 +10,276 @@ pub struct ExpensesEditorProps {
 
 pub enum ExpensesEditorMsg {
     AmountChanged {
-        index: usize,
+        pos: usize,
         value: String,
     },
     KindChanged {
-        index: usize,
+        pos: usize,
         kind: EditableExpenseKind,
+    },
+    NameChanged {
+        pos: usize,
+        value: String,
+    },
+    CategoryChanged {
+        pos: usize,
+        value: String,
+    },
+    StartAdding,
+    ConfirmNew,
+    CancelNew,
+    DeleteExpense {
+        pos: usize,
     },
 }
 
-pub struct ExpensesEditor;
+pub struct ExpensesEditor {
+    adding: bool,
+}
 
 impl Component for ExpensesEditor {
     type Message = ExpensesEditorMsg;
     type Properties = ExpensesEditorProps;
 
     fn create(_ctx: &Context<Self>) -> Self {
-        Self
+        Self { adding: false }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        let mut updated = ctx.props().expenses.clone();
         match msg {
-            ExpensesEditorMsg::AmountChanged { index, value } => {
-                let mut updated = ctx.props().expenses.clone();
-                if let Some(expense) = updated.iter_mut().find(|e| e.index == index) {
+            ExpensesEditorMsg::AmountChanged { pos, value } => {
+                if let Some(expense) = updated.get_mut(pos) {
                     expense.amount = value;
                 }
                 ctx.props().on_change.emit(updated);
-                true
             }
-            ExpensesEditorMsg::KindChanged { index, kind } => {
-                let mut updated = ctx.props().expenses.clone();
-                if let Some(expense) = updated.iter_mut().find(|e| e.index == index) {
+            ExpensesEditorMsg::KindChanged { pos, kind } => {
+                if let Some(expense) = updated.get_mut(pos) {
                     expense.kind = kind;
                 }
                 ctx.props().on_change.emit(updated);
-                true
+            }
+            ExpensesEditorMsg::NameChanged { pos, value } => {
+                if let Some(expense) = updated.get_mut(pos) {
+                    expense.name = value;
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            ExpensesEditorMsg::CategoryChanged { pos, value } => {
+                if let Some(expense) = updated.get_mut(pos) {
+                    expense.category =
+                        if value.is_empty() { None } else { Some(value) };
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            ExpensesEditorMsg::StartAdding => {
+                self.adding = true;
+                updated.insert(0, EditableExpense::empty());
+                ctx.props().on_change.emit(updated);
+            }
+            ExpensesEditorMsg::ConfirmNew => {
+                self.adding = false;
+            }
+            ExpensesEditorMsg::CancelNew => {
+                self.adding = false;
+                updated.remove(0);
+                ctx.props().on_change.emit(updated);
+            }
+            ExpensesEditorMsg::DeleteExpense { pos } => {
+                if pos < updated.len() {
+                    if self.adding && pos == 0 {
+                        self.adding = false;
+                    }
+                    updated.remove(pos);
+                }
+                ctx.props().on_change.emit(updated);
             }
         }
+        true
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let mut by_category: BTreeMap<String, Vec<EditableExpense>> = BTreeMap::new();
-        for e in &ctx.props().expenses {
-            let key = e
-                .category
-                .clone()
-                .unwrap_or_else(|| "Без категории".to_string());
-            by_category.entry(key).or_default().push(e.clone());
-        }
+        let expenses = &ctx.props().expenses;
+
+        let existing_categories: Vec<String> = {
+            let mut cats: Vec<String> =
+                expenses.iter().filter_map(|e| e.category.clone()).collect();
+            cats.sort();
+            cats.dedup();
+            cats
+        };
 
         html! {
             <div class="space-y-4">
-                {for by_category.into_iter().map(|(category, expenses)| {
-                    html! {
-                        <div class="card bg-base-100 shadow">
-                            <div class="card-body space-y-3">
-                                <h3 class="card-title text-lg">{ category }</h3>
-                                <div class="space-y-2">
-                                    {for expenses.into_iter().map(|expense| {
-                                        let index = expense.index;
-                                        let input_class =
-                                            if expense.is_valid || expense.amount.is_empty() {
-                                                "input input-bordered w-full"
-                                            } else {
-                                                "input input-bordered input-error w-full"
-                                            };
-                                        html! {
-                                            <div class="flex flex-col gap-1">
-                                                <span class="font-medium">{ &expense.name }</span>
-                                                <div class="flex items-center gap-2">
-                                                    <div class="join">
-                                                        { Self::render_kind_button(ctx, index, EditableExpenseKind::Money, "₽", expense.kind == EditableExpenseKind::Money) }
-                                                        { Self::render_kind_button(ctx, index, EditableExpenseKind::Rate, "%", expense.kind == EditableExpenseKind::Rate) }
-                                                    </div>
-                                                    <input
-                                                        class={input_class}
-                                                        value={expense.amount.clone()}
-                                                        oninput={ctx.link().callback(move |e: InputEvent| {
-                                                            let value = e
-                                                                .target_unchecked_into::<HtmlInputElement>()
-                                                                .value();
-                                                            ExpensesEditorMsg::AmountChanged {
-                                                                index,
-                                                                value,
-                                                            }
-                                                        })}
-                                                    />
-                                                </div>
-                                            </div>
-                                        }
-                                    })}
-                                </div>
-                            </div>
-                        </div>
+                <datalist id="expense-categories">
+                    {for existing_categories.iter().map(|cat| html! {
+                        <option value={cat.clone()} />
+                    })}
+                </datalist>
+
+                {if self.adding {
+                    if let Some(first) = expenses.first() {
+                        self.render_new_expense_card(ctx, first)
+                    } else {
+                        html! {}
                     }
-                })}
+                } else {
+                    html! {
+                        <button
+                            class="btn btn-outline btn-primary w-full"
+                            onclick={ctx.link().callback(|_| ExpensesEditorMsg::StartAdding)}
+                        >
+                            {"+ Добавить расход"}
+                        </button>
+                    }
+                }}
+
+                {for expenses.iter().enumerate()
+                    .skip(if self.adding { 1 } else { 0 })
+                    .map(|(pos, expense)| {
+                        self.render_expense_card(ctx, pos, expense)
+                    })
+                }
             </div>
         }
     }
 }
 
 impl ExpensesEditor {
+    fn render_new_expense_card(
+        &self,
+        ctx: &Context<Self>,
+        expense: &EditableExpense,
+    ) -> Html {
+        let amount_class = if expense.is_valid || expense.amount.is_empty() {
+            "input input-bordered w-full"
+        } else {
+            "input input-bordered input-error w-full"
+        };
+        html! {
+            <div class="card bg-base-200 shadow border-2 border-primary">
+                <div class="card-body p-3 space-y-2">
+                    <h4 class="font-medium text-sm text-primary">{"Новый расход"}</h4>
+                    <div class="flex items-center gap-2">
+                        <input
+                            class="input input-bordered input-sm flex-1"
+                            placeholder="Название"
+                            value={expense.name.clone()}
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                ExpensesEditorMsg::NameChanged { pos: 0, value }
+                            })}
+                        />
+                        <input
+                            class="input input-bordered input-sm w-40"
+                            placeholder="Категория"
+                            list="expense-categories"
+                            value={expense.category.clone().unwrap_or_default()}
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                ExpensesEditorMsg::CategoryChanged { pos: 0, value }
+                            })}
+                        />
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="join">
+                            { Self::render_kind_button(ctx, 0, EditableExpenseKind::Money, "₽", expense.kind == EditableExpenseKind::Money) }
+                            { Self::render_kind_button(ctx, 0, EditableExpenseKind::Rate, "%", expense.kind == EditableExpenseKind::Rate) }
+                        </div>
+                        <input
+                            class={amount_class}
+                            placeholder="Сумма"
+                            value={expense.amount.clone()}
+                            oninput={ctx.link().callback(|e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                ExpensesEditorMsg::AmountChanged { pos: 0, value }
+                            })}
+                        />
+                    </div>
+                    <div class="flex gap-2 justify-end">
+                        <button
+                            class="btn btn-sm btn-ghost"
+                            onclick={ctx.link().callback(|_| ExpensesEditorMsg::CancelNew)}
+                        >
+                            {"Отмена"}
+                        </button>
+                        <button
+                            class="btn btn-sm btn-primary"
+                            onclick={ctx.link().callback(|_| ExpensesEditorMsg::ConfirmNew)}
+                        >
+                            {"Добавить"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    fn render_expense_card(
+        &self,
+        ctx: &Context<Self>,
+        pos: usize,
+        expense: &EditableExpense,
+    ) -> Html {
+        let amount_class = if expense.is_valid || expense.amount.is_empty() {
+            "input input-bordered w-full"
+        } else {
+            "input input-bordered input-error w-full"
+        };
+        html! {
+            <div class="card bg-base-100 shadow">
+                <div class="card-body p-3 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <input
+                            class="input input-bordered input-sm flex-1"
+                            placeholder="Название расхода"
+                            value={expense.name.clone()}
+                            oninput={ctx.link().callback(move |e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                ExpensesEditorMsg::NameChanged { pos, value }
+                            })}
+                        />
+                        <input
+                            class="input input-bordered input-sm w-40"
+                            placeholder="Категория"
+                            list="expense-categories"
+                            value={expense.category.clone().unwrap_or_default()}
+                            oninput={ctx.link().callback(move |e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                ExpensesEditorMsg::CategoryChanged { pos, value }
+                            })}
+                        />
+                        <button
+                            class="btn btn-sm btn-ghost btn-square text-error"
+                            onclick={ctx.link().callback(move |_| ExpensesEditorMsg::DeleteExpense { pos })}
+                        >
+                            {"✕"}
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="join">
+                            { Self::render_kind_button(ctx, pos, EditableExpenseKind::Money, "₽", expense.kind == EditableExpenseKind::Money) }
+                            { Self::render_kind_button(ctx, pos, EditableExpenseKind::Rate, "%", expense.kind == EditableExpenseKind::Rate) }
+                        </div>
+                        <input
+                            class={amount_class}
+                            placeholder="Сумма"
+                            value={expense.amount.clone()}
+                            oninput={ctx.link().callback(move |e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                ExpensesEditorMsg::AmountChanged { pos, value }
+                            })}
+                        />
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
     fn render_kind_button(
         ctx: &Context<Self>,
-        index: usize,
+        pos: usize,
         kind: EditableExpenseKind,
         label: &str,
         active: bool,
@@ -127,7 +291,7 @@ impl ExpensesEditor {
         };
         let onclick = ctx
             .link()
-            .callback(move |_| ExpensesEditorMsg::KindChanged { index, kind });
+            .callback(move |_| ExpensesEditorMsg::KindChanged { pos, kind });
         html! {
             <button class={class} {onclick}>
                 { label }
