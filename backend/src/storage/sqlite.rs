@@ -227,8 +227,8 @@ impl CoreRepo for SqliteRepo {
             }
 
             sqlx::query(
-                "INSERT INTO plan_events (plan_id, version, action) \
-                 SELECT id, version, 'deleted' FROM plans \
+                "INSERT INTO plan_events (plan_id, version, action, content) \
+                 SELECT id, version, 'deleted', content FROM plans \
                  WHERE user_id = ? AND id = ?",
             )
             .bind(user_id)
@@ -468,7 +468,7 @@ mod tests {
         )
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn delete_plan_writes_deleted_event() {
         let db_path = temp_db_path();
         let repo = SqliteRepo::init(&db_path).await.unwrap();
@@ -503,7 +503,7 @@ mod tests {
             });
 
         assert_eq!(action, "deleted");
-        assert!(content_is_null);
+        assert!(!content_is_null);
         assert_eq!(status, "deleted");
 
         let _ = std::fs::remove_file(db_path);
