@@ -11,5 +11,5 @@ pub use error::Error;
 pub use history::HistoryView;
 pub use income_modal::IncomeModal;
 pub use loading::Loading;
-pub use plan::PlanView;
+pub use plan::{EditLayout, PlanView, Totals};
 pub use theme_switcher::{DEFAULT_THEME, ThemeSwitcher, set_theme, user_prefer_theme};

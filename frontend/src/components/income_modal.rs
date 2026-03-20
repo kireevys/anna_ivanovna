@@ -233,10 +233,9 @@ impl IncomeModal {
     fn show_toast(budget_id: &str) {
         if let Some(window) = web_sys::window()
             && let Some(document) = window.document()
+            && let Ok(toast) = document.create_element("div")
         {
-            // Создаем toast элемент
-            let toast = document.create_element("div").unwrap();
-            toast.set_class_name("toast toast-top toast-end");
+            toast.set_class_name("toast toast-top toast-end z-50");
             toast.set_inner_html(&format!(
                 r#"
                 <div class="alert alert-success shadow-lg">

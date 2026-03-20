@@ -26,5 +26,5 @@ expression: "TestResult::Err { draft, error: err.to_string() }"
       }
     ]
   },
-  "error": "invalid plan: TooBigExpenses"
+  "error": "invalid plan: expenses exceed income"
 }

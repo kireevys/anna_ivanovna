@@ -1,12 +1,16 @@
 use crate::{
-    api::{ApiClient, BudgetEntry, Cursor, Page},
-    components::{AppLayout, Error, HistoryView, Loading, PlanView},
+    api::{ApiClient, ApiError, BudgetEntry, Cursor, Page, StoragePlanFrontend},
+    components::AppLayout,
     config::API_V1_BASE_URL,
     presentation::{history::HistoryEntry, plan::Plan},
 };
-use ai_core::plan::Plan as CorePlan;
-use std::rc::Rc;
+use rust_decimal::Decimal;
+use std::{rc::Rc, str::FromStr};
 use yew::{Component, Context, Html, html};
+
+mod history;
+mod plan;
+mod view;
 
 #[derive(Clone, PartialEq)]
 pub enum View {
@@ -41,13 +45,143 @@ impl<T> PaginatableDataState<T> {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum PlanMode {
+    View,
+    Edit,
+}
+
+#[derive(Clone, PartialEq)]
+enum PlanValidation {
+    Valid,
+    FormatInvalid { messages: Vec<String> },
+    BusinessInvalid { messages: Vec<String> },
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum SaveState {
+    Idle,
+    CanSave,
+    Disabled,
+    Saving,
+}
+
 struct PlanState {
     data: DataState<Plan>,
+    meta: Option<StoragePlanFrontend>,
+    mode: PlanMode,
+    incomes: Vec<crate::presentation::editable_plan::EditableIncomeSource>,
+    expenses: Vec<crate::presentation::editable_plan::EditableExpense>,
+    validation: PlanValidation,
+    save_state: SaveState,
 }
 
 impl PlanState {
     fn set_data(&mut self, data: DataState<Plan>) {
         self.data = data;
+    }
+
+    fn set_meta(&mut self, meta: Option<StoragePlanFrontend>) {
+        self.meta = meta;
+    }
+
+    fn set_mode(&mut self, mode: PlanMode) {
+        self.mode = mode;
+    }
+
+    fn set_incomes(
+        &mut self,
+        incomes: Vec<crate::presentation::editable_plan::EditableIncomeSource>,
+    ) {
+        self.incomes = incomes;
+    }
+
+    fn set_expenses(
+        &mut self,
+        expenses: Vec<crate::presentation::editable_plan::EditableExpense>,
+    ) {
+        self.expenses = expenses;
+    }
+
+    fn reset_validation(&mut self) {
+        self.validation = PlanValidation::Valid;
+        self.save_state = SaveState::Idle;
+    }
+
+    /// Пересчитать валидацию после локального изменения плана (до запроса на бэк)
+    /// `business_invalid` должен быть true, если по бизнес-инвариантам
+    /// (например, расходы > доходы) план некорректен.
+    fn recompute_validation_after_edit(&mut self, business_invalid: bool) {
+        let mut format_messages = Vec::new();
+
+        // Ошибки формата (непарсящие значения)
+        for income in &self.incomes {
+            if !income.is_valid && !income.amount.is_empty() {
+                format_messages
+                    .push(format!("Доход \"{}\": некорректное число", income.name));
+            }
+        }
+
+        for expense in &self.expenses {
+            if !expense.is_valid && !expense.amount.is_empty() {
+                format_messages
+                    .push(format!("Расход \"{}\": некорректное число", expense.name));
+            }
+        }
+
+        if !format_messages.is_empty() {
+            self.validation = PlanValidation::FormatInvalid {
+                messages: format_messages,
+            };
+            self.save_state = SaveState::Disabled;
+        } else if business_invalid {
+            // Формат ок, но нарушены бизнес-правила.
+            // Строим более подробные сообщения по полям, если можем.
+            let mut business_messages = Vec::new();
+
+            for income in &self.incomes {
+                if income.is_valid
+                    && !income.amount.is_empty()
+                    && let Ok(v) = Decimal::from_str(&income.amount)
+                    && v <= Decimal::ZERO
+                {
+                    business_messages.push(format!(
+                        "Доход \"{}\" должен быть больше 0",
+                        income.name
+                    ));
+                }
+            }
+
+            for expense in &self.expenses {
+                if expense.is_valid
+                    && !expense.amount.is_empty()
+                    && let Ok(v) = Decimal::from_str(&expense.amount)
+                    && v <= Decimal::ZERO
+                {
+                    business_messages.push(format!(
+                        "Расход \"{}\" должен быть больше 0",
+                        expense.name
+                    ));
+                }
+            }
+
+            if business_messages.is_empty() {
+                business_messages
+                    .push("План некорректен: расходы превышают доходы".into());
+            }
+
+            self.validation = PlanValidation::BusinessInvalid {
+                messages: business_messages,
+            };
+            self.save_state = SaveState::Disabled;
+        } else {
+            self.validation = PlanValidation::Valid;
+            self.save_state = match self.save_state {
+                SaveState::Idle | SaveState::Disabled => SaveState::CanSave,
+                SaveState::Saving => SaveState::Saving,
+                SaveState::CanSave => SaveState::CanSave,
+            };
+        }
     }
 }
 
@@ -122,7 +256,13 @@ pub struct App {
 pub enum AppMsg {
     SwitchView(View),
     LoadPlan,
-    PlanLoaded(Result<CorePlan, String>),
+    PlanLoaded(Result<StoragePlanFrontend, String>),
+    EnterEditMode,
+    CancelEditMode,
+    IncomeSourcesChanged(Vec<crate::presentation::editable_plan::EditableIncomeSource>),
+    ExpensesChanged(Vec<crate::presentation::editable_plan::EditableExpense>),
+    SavePlan,
+    PlanSaveFinished(Result<(), ApiError>),
     LoadHistory,
     HistoryLoaded(Result<Page<BudgetEntry>, String>),
 }
@@ -137,6 +277,12 @@ impl Component for App {
             view: View::Plan,
             plan: PlanState {
                 data: DataState::Loading,
+                meta: None,
+                mode: PlanMode::View,
+                incomes: vec![],
+                expenses: vec![],
+                validation: PlanValidation::Valid,
+                save_state: SaveState::Idle,
             },
             history: HistoryState {
                 data: PaginatableDataState::Loading,
@@ -147,41 +293,21 @@ impl Component for App {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            AppMsg::SwitchView(view) => {
-                self.view = view;
-                if self.view == View::History {
-                    // Всегда загружаем историю заново при переключении на вкладку
-                    self.history.set_data(PaginatableDataState::Loading);
-                    ctx.link().send_message(AppMsg::LoadHistory);
-                }
-                true
+            AppMsg::SwitchView(view) => self.handle_switch_view(ctx, view),
+            AppMsg::LoadPlan => self.handle_load_plan(ctx),
+            AppMsg::PlanLoaded(result) => self.handle_plan_loaded(result),
+            AppMsg::EnterEditMode => self.handle_enter_edit_mode(),
+            AppMsg::CancelEditMode => self.handle_cancel_edit_mode(),
+            AppMsg::IncomeSourcesChanged(incomes) => {
+                self.handle_income_sources_changed(incomes)
             }
-            AppMsg::LoadPlan => {
-                self.plan.set_data(DataState::Loading);
-                self.load_plan_async(ctx.link());
-                true
+            AppMsg::ExpensesChanged(expenses) => self.handle_expenses_changed(expenses),
+            AppMsg::SavePlan => self.handle_save_plan(ctx),
+            AppMsg::PlanSaveFinished(result) => {
+                self.handle_plan_save_finished(ctx, result)
             }
-            AppMsg::PlanLoaded(Ok(plan)) => {
-                self.plan.set_data(DataState::Loaded(Plan::from(&plan)));
-                true
-            }
-            AppMsg::PlanLoaded(Err(e)) => {
-                self.plan.set_data(DataState::Error(e));
-                true
-            }
-            AppMsg::LoadHistory => {
-                let cursor = self.history.prepare_load();
-                self.load_history_async(cursor, ctx.link());
-                true
-            }
-            AppMsg::HistoryLoaded(Ok(page)) => {
-                self.history.merge_page(page);
-                true
-            }
-            AppMsg::HistoryLoaded(Err(e)) => {
-                self.history.set_data(PaginatableDataState::Error(e));
-                true
-            }
+            AppMsg::LoadHistory => self.handle_load_history(ctx),
+            AppMsg::HistoryLoaded(result) => self.handle_history_loaded(result),
         }
     }
 
@@ -190,6 +316,7 @@ impl Component for App {
             <AppLayout
                 current_view={self.view.clone()}
                 on_switch_view={ctx.link().callback(AppMsg::SwitchView)}
+                sticky_header={self.render_sticky_header()}
             >
                 {self.render_content(ctx)}
             </AppLayout>
@@ -197,80 +324,4 @@ impl Component for App {
     }
 }
 
-impl App {
-    fn load_plan_async(&self, link: &yew::html::Scope<Self>) {
-        let api = self.api.clone();
-        let link = link.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let result = api.get_plan().await.map_err(|e| e.to_string());
-            link.send_message(AppMsg::PlanLoaded(result));
-        });
-    }
-
-    fn load_history_async(
-        &self,
-        cursor: Option<Cursor>,
-        link: &yew::html::Scope<Self>,
-    ) {
-        let api = self.api.clone();
-        let link = link.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let result = api.get_history(cursor).await.map_err(|e| e.to_string());
-            link.send_message(AppMsg::HistoryLoaded(result));
-        });
-    }
-
-    fn render_content(&self, ctx: &Context<Self>) -> Html {
-        match self.view {
-            View::Plan => match &self.plan.data {
-                DataState::Loading => html! { <Loading /> },
-                DataState::Loaded(view_model) => html! {
-                    <PlanView
-                        view_model={view_model.clone()}
-                        on_plan_updated={ctx.link().callback(|_| AppMsg::LoadPlan)}
-                        api={self.api.clone()}
-                    />
-                },
-                DataState::Error(error) => html! {
-                    <Error
-                        message={format!("Ошибка: {}", error)}
-                        on_retry={ctx.link().callback(|_| AppMsg::LoadPlan)}
-                    />
-                },
-            },
-            View::History => match &self.history.data {
-                PaginatableDataState::Loading => html! { <Loading /> },
-                PaginatableDataState::Error(error) => html! {
-                    <Error
-                        message={format!("Ошибка: {}", error)}
-                        on_retry={ctx.link().callback(|_| AppMsg::LoadHistory)}
-                    />
-                },
-                PaginatableDataState::Loaded { items, next_cursor }
-                | PaginatableDataState::LoadingMore { items, next_cursor } => {
-                    html! {
-                        <>
-                            <HistoryView entries={items.clone()} />
-                            {if self.history.data.is_paginating() {
-                                html! { <div class="text-center mt-4"><span class="loading loading-spinner loading-md"></span></div> }
-                            } else if next_cursor.is_some() {
-                                html! {
-                                    <div class="text-center mt-4">
-                                        <button
-                                            class="btn btn-primary"
-                                            onclick={ctx.link().callback(|_| AppMsg::LoadHistory)}
-                                        >
-                                            { "Загрузить еще" }
-                                        </button>
-                                    </div>
-                                }
-                            } else {
-                                html! {}
-                            }}
-                        </>
-                    }
-                }
-            },
-        }
-    }
-}
+impl App {}

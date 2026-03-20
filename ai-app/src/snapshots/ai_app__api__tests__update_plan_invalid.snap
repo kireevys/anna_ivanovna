@@ -8,5 +8,5 @@ expression: "TestResult::Err { draft, error: err.to_string() }"
     "sources": [],
     "expenses": []
   },
-  "error": "invalid plan: EmptyPlan"
+  "error": "invalid plan: empty plan"
 }
