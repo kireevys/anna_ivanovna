@@ -77,20 +77,9 @@ async fn main() {
     tracing::info!("location {}", repo.db_path());
 
     match cli.command {
-        cli::Commands::Migrate { ref source } => {
-            let (description, db_path) = match source {
-                cli::MigrateSource::Fs => {
-                    let fs_path = buh_home.join("storage");
-                    (
-                        format!("FS ({}) → SQLite", fs_path.display()),
-                        repo.db_path().to_owned(),
-                    )
-                }
-                cli::MigrateSource::Excel { file } => (
-                    format!("Excel ({}) → SQLite", file.display()),
-                    repo.db_path().to_owned(),
-                ),
-            };
+        cli::Commands::MigrateExcel { ref file } => {
+            let description = format!("Excel ({}) → SQLite", file.display());
+            let db_path = repo.db_path().to_owned();
             println!("Миграция: {description}");
             println!("БД: {db_path}");
             print!("Продолжить? [y/N] ");
@@ -102,20 +91,7 @@ async fn main() {
                 return;
             }
 
-            let result = match source {
-                cli::MigrateSource::Fs => {
-                    let fs = storage::fs::FileSystem::init(buh_home.join("storage"))
-                        .map_err(|e| format!("Ошибка FS: {e}"));
-                    match fs {
-                        Ok(fs) => ai_app::migration::migrate(&fs, &repo),
-                        Err(e) => Err(e),
-                    }
-                }
-                cli::MigrateSource::Excel { file } => {
-                    migrate_excel(&repo, file.clone())
-                }
-            };
-            if let Err(e) = result {
+            if let Err(e) = migrate_excel(&repo, file.clone()) {
                 eprintln!("Ошибка миграции: {e}");
                 std::process::exit(1);
             }

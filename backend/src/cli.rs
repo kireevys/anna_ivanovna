@@ -37,10 +37,10 @@ pub enum Commands {
     /// Запустить web-интерфейс
     Web { host: String, port: u16 },
 
-    /// Миграция данных в SQLite
-    Migrate {
-        #[clap(subcommand)]
-        source: MigrateSource,
+    /// Миграция данных из Excel CSV в SQLite
+    MigrateExcel {
+        #[clap(long)]
+        file: PathBuf,
     },
 }
 
@@ -60,17 +60,6 @@ pub enum BudgetCommand {
     /// Показать бюджет по id
     #[clap(alias = "show")]
     ShowBudget { id: String },
-}
-
-#[derive(Subcommand, Debug)]
-pub enum MigrateSource {
-    /// Из файловой системы
-    Fs,
-    /// Из Excel CSV
-    Excel {
-        #[clap(long)]
-        file: PathBuf,
-    },
 }
 
 #[derive(Debug, Error)]
