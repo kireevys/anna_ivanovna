@@ -74,6 +74,7 @@ struct PlanState {
     expenses: Vec<crate::presentation::editable_plan::EditableExpense>,
     validation: PlanValidation,
     save_state: SaveState,
+    edited_core_plan: Option<ai_core::plan::Plan>,
 }
 
 impl PlanState {
@@ -114,20 +115,21 @@ impl PlanState {
     fn recompute_validation_after_edit(&mut self, business_invalid: bool) {
         let mut format_messages = Vec::new();
 
-        // Ошибки формата (непарсящие значения)
-        for income in &self.incomes {
-            if !income.is_valid && !income.amount.is_empty() {
-                format_messages
-                    .push(format!("Доход \"{}\": некорректное число", income.name));
-            }
-        }
+        Self::validate_named_items(
+            self.incomes
+                .iter()
+                .map(|i| (i.name.as_str(), i.amount.as_str(), i.is_valid)),
+            "дохода",
+            &mut format_messages,
+        );
 
-        for expense in &self.expenses {
-            if !expense.is_valid && !expense.amount.is_empty() {
-                format_messages
-                    .push(format!("Расход \"{}\": некорректное число", expense.name));
-            }
-        }
+        Self::validate_named_items(
+            self.expenses
+                .iter()
+                .map(|e| (e.name.as_str(), e.amount.as_str(), e.is_valid)),
+            "расхода",
+            &mut format_messages,
+        );
 
         if !format_messages.is_empty() {
             self.validation = PlanValidation::FormatInvalid {
@@ -181,6 +183,51 @@ impl PlanState {
                 SaveState::Saving => SaveState::Saving,
                 SaveState::CanSave => SaveState::CanSave,
             };
+        }
+    }
+
+    fn validate_named_items<'a>(
+        items: impl Iterator<Item = (&'a str, &'a str, bool)>,
+        label: &str,
+        messages: &mut Vec<String>,
+    ) {
+        let items: Vec<_> = items.collect();
+
+        for &(name, amount, is_valid) in &items {
+            if !is_valid && !amount.is_empty() {
+                messages.push(format!(
+                    "{}: некорректное число",
+                    Self::item_display_name(name, label),
+                ));
+            }
+        }
+
+        if items.iter().any(|&(name, _, _)| name.trim().is_empty()) {
+            messages.push(format!("Не указано название {label}"));
+        }
+
+        if items.iter().any(|&(_, amount, _)| amount.is_empty()) {
+            messages.push(format!("Не указана сумма {label}"));
+        }
+
+        let mut seen = std::collections::HashSet::new();
+        for &(name, _, _) in &items {
+            let trimmed = name.trim().to_lowercase();
+            if !trimmed.is_empty() && !seen.insert(trimmed) {
+                messages.push(format!(
+                    "Дублирующееся название {label}: \"{}\"",
+                    name.trim()
+                ));
+            }
+        }
+    }
+
+    fn item_display_name(name: &str, label: &str) -> String {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            format!("(без названия {label})")
+        } else {
+            format!("{label} \"{trimmed}\"")
         }
     }
 }
@@ -283,6 +330,7 @@ impl Component for App {
                 expenses: vec![],
                 validation: PlanValidation::Valid,
                 save_state: SaveState::Idle,
+                edited_core_plan: None,
             },
             history: HistoryState {
                 data: PaginatableDataState::Loading,
