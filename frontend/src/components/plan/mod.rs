@@ -1,10 +1,20 @@
 mod expense_card;
 mod expense_categories;
+mod expenses_editor;
 mod income_sources;
+mod income_sources_editor;
+mod plan_edit_actions_bar;
+mod plan_edit_layout;
+mod plan_section_card;
 mod totals;
 mod view;
 
 pub use expense_categories::ExpenseCategories;
+use expenses_editor::ExpensesEditor;
 pub use income_sources::IncomeSources;
+use income_sources_editor::IncomeSourcesEditor;
+use plan_edit_actions_bar::EditActionsBar;
+pub use plan_edit_layout::EditLayout;
+use plan_section_card::SectionCard;
 pub use totals::Totals;
 pub use view::PlanView;

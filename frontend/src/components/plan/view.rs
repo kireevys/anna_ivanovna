@@ -1,6 +1,6 @@
 use crate::{
     api::ApiClient,
-    components::plan::{ExpenseCategories, IncomeSources, Totals},
+    components::plan::{ExpenseCategories, IncomeSources},
     presentation::plan::Plan,
 };
 use std::rc::Rc;
@@ -35,12 +35,6 @@ impl Component for PlanView {
                             sources={ctx.props().view_model.sources.clone()}
                             on_saved={ctx.props().on_plan_updated.clone()}
                             api={ctx.props().api.clone()}
-                        />
-                        <div class="divider"></div>
-                        <Totals
-                            total_income={ctx.props().view_model.total_income.clone()}
-                            total_expenses={ctx.props().view_model.total_expenses.clone()}
-                            balance={ctx.props().view_model.balance.clone()}
                         />
                     </div>
                 </div>

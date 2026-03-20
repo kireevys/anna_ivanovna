@@ -1,6 +1,6 @@
 use crate::api::{
     error::ApiError,
-    types::{BudgetEntry, Cursor, Page},
+    types::{BudgetEntry, Cursor, Page, StoragePlanFrontend},
 };
 use ai_core::{distribute::Budget, plan::Plan};
 use chrono::NaiveDate;
@@ -17,11 +17,6 @@ struct ResponseWrapper<T> {
 #[derive(Deserialize)]
 struct ErrorResponse {
     error: String,
-}
-
-#[derive(Deserialize)]
-struct StoragePlanResponse {
-    plan: Plan,
 }
 
 #[derive(Serialize)]
@@ -47,24 +42,19 @@ impl ApiClient {
             .map_err(|e| ApiError::InvalidUrl(format!("Failed to build URL: {e}")))
     }
 
-    /// Централизованный метод обработки ответов
-    async fn parse_response<T>(
+    /// Проверяет HTTP-ответ на ошибки, возвращая тело как текст при успехе
+    async fn read_response(
         &self,
         response: gloo_net::http::Response,
-    ) -> Result<T, ApiError>
-    where
-        T: DeserializeOwned,
-    {
+    ) -> Result<String, ApiError> {
         let status = response.status();
         let status_text = response.status_text();
 
-        // Читаем тело ответа как текст
         let body_text = response.text().await.map_err(|e| {
             ApiError::Parse(format!("Failed to read response body: {e}"))
         })?;
 
         if !response.ok() {
-            // Пытаемся извлечь error из тела ответа
             if let Ok(error_response) =
                 serde_json::from_str::<ErrorResponse>(&body_text)
             {
@@ -73,21 +63,54 @@ impl ApiClient {
             return Err(ApiError::Http(status, format!("{status} {status_text}")));
         }
 
-        // Десериализуем успешный ответ
+        Ok(body_text)
+    }
+
+    /// Обработка ответов с JSON-телом в обёртке `{ "response": T }`
+    async fn parse_response<T>(
+        &self,
+        response: gloo_net::http::Response,
+    ) -> Result<T, ApiError>
+    where
+        T: DeserializeOwned,
+    {
+        let body_text = self.read_response(response).await?;
+
         let wrapper: ResponseWrapper<T> = serde_json::from_str(&body_text)
             .map_err(|e| ApiError::Parse(format!("Failed to parse JSON: {e}")))?;
 
         Ok(wrapper.response)
     }
 
-    pub async fn get_plan(&self) -> Result<Plan, ApiError> {
+    /// Проверка ответа без разбора тела (для 204 No Content и аналогичных)
+    async fn check_response(
+        &self,
+        response: gloo_net::http::Response,
+    ) -> Result<(), ApiError> {
+        self.read_response(response).await.map(|_| ())
+    }
+
+    pub async fn get_plan(&self) -> Result<StoragePlanFrontend, ApiError> {
         let url = self.build_url("plan")?;
         let response = Request::get(url.as_str())
             .send()
             .await
             .map_err(|e| ApiError::Network(format!("Request failed: {e}")))?;
-        let sp: StoragePlanResponse = self.parse_response(response).await?;
-        Ok(sp.plan)
+        self.parse_response(response).await
+    }
+
+    pub async fn update_plan(&self, id: &str, plan: &Plan) -> Result<(), ApiError> {
+        let url = self.build_url(&format!("plan/{id}"))?;
+        let response = Request::put(url.as_str())
+            .json(plan)
+            .map_err(|e| {
+                ApiError::Serialization(format!("Failed to serialize request: {e}"))
+            })?
+            .send()
+            .await
+            .map_err(|e| ApiError::Network(format!("Request failed: {e}")))?;
+
+        self.check_response(response).await
     }
 
     pub async fn get_history(
