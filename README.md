@@ -64,7 +64,7 @@ anna_ivanovna plan                  # Показать текущий план
 anna_ivanovna income <сумма>        # Распределить доход
 anna_ivanovna show-budget <id>      # Показать распределение
 anna_ivanovna web <host> <port>     # Запустить веб-сервер
-anna_ivanovna migrate <source>      # Миграция данных (fs/excel -> SQLite)
+anna_ivanovna migrate <source>      # Миграция данных (excel -> SQLite)
 ```
 
 ## Хранение данных

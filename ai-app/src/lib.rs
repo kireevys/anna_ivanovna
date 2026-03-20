@@ -4,5 +4,4 @@
 //! Отделён от конкретных бинарей, чтобы переиспользоваться между ними.
 
 pub mod api;
-pub mod migration;
 pub mod storage;
