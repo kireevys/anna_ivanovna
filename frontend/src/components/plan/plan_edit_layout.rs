@@ -1,3 +1,5 @@
+use rust_decimal::Decimal;
+
 use crate::{
     components::plan::{
         EditActionsBar,
@@ -13,6 +15,7 @@ use yew::prelude::*;
 pub struct EditLayoutProps {
     pub incomes: Vec<EditableIncomeSource>,
     pub expenses: Vec<EditableExpense>,
+    pub total_income: Option<Decimal>,
     pub disable_save: bool,
     pub on_cancel: Callback<()>,
     pub on_save: Callback<()>,
@@ -61,6 +64,7 @@ impl Component for EditLayout {
                 >
                     <ExpensesEditor
                         expenses={expenses}
+                        total_income={ctx.props().total_income}
                         on_change={expenses_on_change}
                     />
                 </SectionCard>

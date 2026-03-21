@@ -1,10 +1,20 @@
-use crate::presentation::editable_plan::{EditableExpense, EditableExpenseKind};
+use std::str::FromStr;
+
+use rust_decimal::Decimal;
+
+use ai_core::finance::{Money, Percentage};
+
+use crate::presentation::{
+    editable_plan::{EditableExpense, EditableExpenseKind},
+    formatting::FormattedMoney,
+};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct ExpensesEditorProps {
     pub expenses: Vec<EditableExpense>,
+    pub total_income: Option<Decimal>,
     pub on_change: Callback<Vec<EditableExpense>>,
 }
 
@@ -197,6 +207,11 @@ impl ExpensesEditor {
                             })}
                         />
                     </div>
+                    {if expense.kind == EditableExpenseKind::Rate {
+                        Self::render_rate_hint(ctx.props().total_income, &expense.amount)
+                    } else {
+                        html! {}
+                    }}
                     <div class="flex gap-2 justify-end">
                         <button
                             class="btn btn-sm btn-ghost"
@@ -272,8 +287,29 @@ impl ExpensesEditor {
                             })}
                         />
                     </div>
+                    {if expense.kind == EditableExpenseKind::Rate {
+                        Self::render_rate_hint(ctx.props().total_income, &expense.amount)
+                    } else {
+                        html! {}
+                    }}
                 </div>
             </div>
+        }
+    }
+
+    fn render_rate_hint(total_income: Option<Decimal>, amount_str: &str) -> Html {
+        let preview = total_income.and_then(|total| {
+            let rate = Decimal::from_str(amount_str).ok()?;
+            let value = Percentage::from(rate).apply_to(total);
+            Some(FormattedMoney::from_money(Money::new_rub(value)))
+        });
+        match preview {
+            Some(money) => html! {
+                <span class="text-xs text-base-content/60">
+                    { format!("= {money}") }
+                </span>
+            },
+            None => html! {},
         }
     }
 

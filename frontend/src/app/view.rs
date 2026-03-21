@@ -177,10 +177,16 @@ impl App {
 
     fn render_plan_edit_mode(&self, ctx: &Context<Self>) -> Html {
         let disable_save = !matches!(self.plan.save_state, SaveState::CanSave);
+        let total_income = self
+            .plan
+            .edited_core_plan
+            .as_ref()
+            .map(|p| p.total_incomes().value);
         html! {
             <EditLayout
                 incomes={self.plan.incomes.clone()}
                 expenses={self.plan.expenses.clone()}
+                total_income={total_income}
                 disable_save={disable_save}
                 on_cancel={ctx.link().callback(|_| AppMsg::CancelEditMode)}
                 on_save={ctx.link().callback(|_| AppMsg::SavePlan)}
