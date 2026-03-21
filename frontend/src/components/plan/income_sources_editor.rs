@@ -1,14 +1,9 @@
-use std::str::FromStr;
-
-use rust_decimal::Decimal;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use ai_core::finance::{Money, Percentage};
-
 use crate::presentation::{
     editable_plan::{EditableIncomeKind, EditableIncomeSource},
-    formatting::FormattedMoney,
+    income::{OTHER_LABEL, SALARY_LABEL, tax_from_gross},
 };
 
 #[derive(Properties, PartialEq)]
@@ -291,25 +286,17 @@ impl IncomeSourcesEditor {
                     IncomeSourcesEditorMsg::KindChanged { pos, kind }
                 })}
             >
-                <option value="salary" selected={salary_selected}>{"Зарплата"}</option>
-                <option value="other" selected={other_selected}>{"Другое"}</option>
+                <option value="salary" selected={salary_selected}>{ SALARY_LABEL }</option>
+                <option value="other" selected={other_selected}>{ OTHER_LABEL }</option>
             </select>
         }
     }
 
     fn render_net_hint(amount: &str, tax_rate: &str) -> Html {
-        let result = (|| {
-            let gross = Decimal::from_str(amount).ok()?;
-            let rate = Decimal::from_str(tax_rate).ok()?;
-            let tax = Percentage::from(rate).apply_to(gross);
-            let net = FormattedMoney::from_money(Money::new_rub(gross - tax));
-            let tax_fmt = FormattedMoney::from_money(Money::new_rub(tax));
-            Some((net, tax_fmt))
-        })();
-        match result {
-            Some((net, tax)) => html! {
+        match tax_from_gross(amount, tax_rate) {
+            Some(result) => html! {
                 <p class="text-sm text-base-content/60">
-                    { format!("На руки: {net} (налог: {tax})") }
+                    { format!("На руки: {} (налог: {})", result.net, result.tax) }
                 </p>
             },
             None => html! {},

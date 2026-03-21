@@ -4,8 +4,8 @@ use yew::prelude::*;
 
 use crate::{
     api::ApiClient,
-    components::{IncomeModal, IncomeModalKind},
-    presentation::plan::IncomeSource,
+    components::IncomeModal,
+    presentation::{income::SourceKind, plan::IncomeSource},
 };
 
 #[derive(Properties, PartialEq)]
@@ -23,7 +23,7 @@ pub enum IncomeSourcesMsg {
 
 pub struct ModalContext {
     source_id: String,
-    kind: IncomeModalKind,
+    source_kind: SourceKind,
 }
 
 pub struct IncomeSources {
@@ -62,10 +62,7 @@ impl Component for IncomeSources {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {for ctx.props().sources.iter().map(|source| {
                         let source_id = source.id.clone();
-                        let kind = match &source.tax_rate {
-                            Some(rate) => IncomeModalKind::Salary { tax_rate: rate.clone() },
-                            None => IncomeModalKind::Other,
-                        };
+                        let source_kind = source.source_kind.clone();
                         html! {
                             <div class="card bg-base-200 shadow">
                                 <div class="card-body p-4">
@@ -73,16 +70,16 @@ impl Component for IncomeSources {
                                         <div>
                                             <div class="flex items-center gap-2 mb-1">
                                                 <h3 class="font-semibold text-lg">{ &source.name }</h3>
-                                                <span class="badge badge-sm badge-ghost">{ &source.kind_label }</span>
+                                                <span class="badge badge-sm badge-ghost">{ source.source_kind.kind_label() }</span>
                                             </div>
-                                            {if let (Some(gross), Some(rate), Some(tax)) = (&source.gross, &source.tax_rate, &source.tax_amount) {
+                                            {if let SourceKind::Salary { gross, tax_rate, tax_amount } = &source.source_kind {
                                                 html! {
                                                     <>
                                                         <p class="text-sm text-base-content/60">
                                                             { format!("Gross: {gross}") }
                                                         </p>
                                                         <p class="text-sm text-base-content/60">
-                                                            { format!("Налог: {rate}% ({tax})") }
+                                                            { format!("Налог: {tax_rate}% ({tax_amount})") }
                                                         </p>
                                                         <div class="divider my-1"></div>
                                                         <p class="text-2xl font-bold text-primary">
@@ -102,7 +99,7 @@ impl Component for IncomeSources {
                                             class="btn btn-primary btn-sm"
                                             onclick={ctx.link().callback(move |_| IncomeSourcesMsg::OpenModal(ModalContext {
                                                 source_id: source_id.clone(),
-                                                kind: kind.clone(),
+                                                source_kind: source_kind.clone(),
                                             }))}
                                         >
                                             { "Поступление" }
@@ -117,7 +114,7 @@ impl Component for IncomeSources {
                     html! {
                         <IncomeModal
                             source_id={modal.source_id.clone()}
-                            kind={modal.kind.clone()}
+                            source_kind={modal.source_kind.clone()}
                             on_close={ctx.link().callback(|_| IncomeSourcesMsg::CloseModal)}
                             on_saved={ctx.link().callback(|_| IncomeSourcesMsg::Saved)}
                             api={ctx.props().api.clone()}
