@@ -1,6 +1,15 @@
-use crate::presentation::editable_plan::EditableIncomeSource;
+use std::str::FromStr;
+
+use rust_decimal::Decimal;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
+
+use ai_core::finance::{Money, Percentage};
+
+use crate::presentation::{
+    editable_plan::{EditableIncomeKind, EditableIncomeSource},
+    formatting::FormattedMoney,
+};
 
 #[derive(Properties, PartialEq)]
 pub struct IncomeSourcesEditorProps {
@@ -9,12 +18,28 @@ pub struct IncomeSourcesEditorProps {
 }
 
 pub enum IncomeSourcesEditorMsg {
-    AmountChanged { pos: usize, value: String },
-    NameChanged { pos: usize, value: String },
+    AmountChanged {
+        pos: usize,
+        value: String,
+    },
+    NameChanged {
+        pos: usize,
+        value: String,
+    },
+    KindChanged {
+        pos: usize,
+        kind: EditableIncomeKind,
+    },
+    TaxRateChanged {
+        pos: usize,
+        value: String,
+    },
     StartAdding,
     ConfirmNew,
     CancelNew,
-    DeleteSource { pos: usize },
+    DeleteSource {
+        pos: usize,
+    },
 }
 
 pub struct IncomeSourcesEditor {
@@ -41,6 +66,18 @@ impl Component for IncomeSourcesEditor {
             IncomeSourcesEditorMsg::NameChanged { pos, value } => {
                 if let Some(source) = updated.get_mut(pos) {
                     source.name = value;
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::KindChanged { pos, kind } => {
+                if let Some(source) = updated.get_mut(pos) {
+                    source.kind = kind;
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::TaxRateChanged { pos, value } => {
+                if let Some(source) = updated.get_mut(pos) {
+                    source.tax_rate = value;
                 }
                 ctx.props().on_change.emit(updated);
             }
@@ -116,6 +153,11 @@ impl IncomeSourcesEditor {
         } else {
             "input input-bordered input-error w-full"
         };
+        let amount_label = match source.kind {
+            EditableIncomeKind::Salary => "Gross",
+            EditableIncomeKind::Other => "Сумма",
+        };
+        let is_salary = source.kind == EditableIncomeKind::Salary;
         html! {
             <div class="card bg-base-200 shadow border-2 border-primary">
                 <div class="card-body p-4 space-y-2">
@@ -129,15 +171,26 @@ impl IncomeSourcesEditor {
                             IncomeSourcesEditorMsg::NameChanged { pos: 0, value }
                         })}
                     />
+                    { Self::render_kind_select(ctx, 0, source.kind) }
                     <input
                         class={amount_class}
-                        placeholder="Сумма"
+                        placeholder={amount_label}
                         value={source.amount.clone()}
                         oninput={ctx.link().callback(|e: InputEvent| {
                             let value = e.target_unchecked_into::<HtmlInputElement>().value();
                             IncomeSourcesEditorMsg::AmountChanged { pos: 0, value }
                         })}
                     />
+                    {if is_salary {
+                        html! {
+                            <>
+                                { Self::render_tax_rate_input(ctx, 0, &source.tax_rate) }
+                                { Self::render_net_hint(&source.amount, &source.tax_rate) }
+                            </>
+                        }
+                    } else {
+                        html! {}
+                    }}
                     <div class="flex gap-2 justify-end">
                         <button
                             class="btn btn-sm btn-ghost"
@@ -168,6 +221,11 @@ impl IncomeSourcesEditor {
         } else {
             "input input-bordered input-error w-full"
         };
+        let amount_label = match source.kind {
+            EditableIncomeKind::Salary => "Gross",
+            EditableIncomeKind::Other => "Сумма",
+        };
+        let is_salary = source.kind == EditableIncomeKind::Salary;
         html! {
             <div class="card bg-base-200 shadow">
                 <div class="card-body p-4 space-y-2">
@@ -188,16 +246,89 @@ impl IncomeSourcesEditor {
                             {"✕"}
                         </button>
                     </div>
+                    { Self::render_kind_select(ctx, pos, source.kind) }
                     <input
                         class={amount_class}
-                        placeholder="Сумма"
+                        placeholder={amount_label}
                         value={source.amount.clone()}
                         oninput={ctx.link().callback(move |e: InputEvent| {
                             let value = e.target_unchecked_into::<HtmlInputElement>().value();
                             IncomeSourcesEditorMsg::AmountChanged { pos, value }
                         })}
                     />
+                    {if is_salary {
+                        html! {
+                            <>
+                                { Self::render_tax_rate_input(ctx, pos, &source.tax_rate) }
+                                { Self::render_net_hint(&source.amount, &source.tax_rate) }
+                            </>
+                        }
+                    } else {
+                        html! {}
+                    }}
                 </div>
+            </div>
+        }
+    }
+
+    fn render_kind_select(
+        ctx: &Context<Self>,
+        pos: usize,
+        current: EditableIncomeKind,
+    ) -> Html {
+        let salary_selected = current == EditableIncomeKind::Salary;
+        let other_selected = current == EditableIncomeKind::Other;
+        html! {
+            <select
+                class="select select-bordered select-sm w-full"
+                onchange={ctx.link().callback(move |e: Event| {
+                    let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                    let kind = if value == "salary" {
+                        EditableIncomeKind::Salary
+                    } else {
+                        EditableIncomeKind::Other
+                    };
+                    IncomeSourcesEditorMsg::KindChanged { pos, kind }
+                })}
+            >
+                <option value="salary" selected={salary_selected}>{"Зарплата"}</option>
+                <option value="other" selected={other_selected}>{"Другое"}</option>
+            </select>
+        }
+    }
+
+    fn render_net_hint(amount: &str, tax_rate: &str) -> Html {
+        let result = (|| {
+            let gross = Decimal::from_str(amount).ok()?;
+            let rate = Decimal::from_str(tax_rate).ok()?;
+            let tax = Percentage::from(rate).apply_to(gross);
+            let net = FormattedMoney::from_money(Money::new_rub(gross - tax));
+            let tax_fmt = FormattedMoney::from_money(Money::new_rub(tax));
+            Some((net, tax_fmt))
+        })();
+        match result {
+            Some((net, tax)) => html! {
+                <p class="text-sm text-base-content/60">
+                    { format!("На руки: {net} (налог: {tax})") }
+                </p>
+            },
+            None => html! {},
+        }
+    }
+
+    fn render_tax_rate_input(ctx: &Context<Self>, pos: usize, tax_rate: &str) -> Html {
+        html! {
+            <div class="flex items-center gap-2">
+                <input
+                    class="input input-bordered input-sm w-full"
+                    placeholder="Ставка налога, %"
+                    value={tax_rate.to_string()}
+                    oninput={ctx.link().callback(move |e: InputEvent| {
+                        let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                        IncomeSourcesEditorMsg::TaxRateChanged { pos, value }
+                    })}
+                />
+                <span class="text-sm text-base-content/60">{"%"}</span>
             </div>
         }
     }

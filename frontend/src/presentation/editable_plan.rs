@@ -1,3 +1,7 @@
+use std::str::FromStr;
+
+use rust_decimal::Decimal;
+
 use ai_core::{
     finance::{Money, Percentage},
     plan::Plan as CorePlan,
@@ -8,13 +12,21 @@ use ai_core::{
         IncomeSource as CoreIncomeSource,
     },
 };
-use rust_decimal::Decimal;
-use std::str::FromStr;
+
+use crate::presentation::formatting::FormattedPercentage;
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum EditableIncomeKind {
+    Salary,
+    Other,
+}
 
 #[derive(Clone, PartialEq)]
 pub struct EditableIncomeSource {
     pub name: String,
+    pub kind: EditableIncomeKind,
     pub amount: String,
+    pub tax_rate: String,
     pub is_valid: bool,
 }
 
@@ -22,7 +34,9 @@ impl EditableIncomeSource {
     pub fn empty() -> Self {
         Self {
             name: String::new(),
+            kind: EditableIncomeKind::Other,
             amount: String::new(),
+            tax_rate: "13".into(),
             is_valid: true,
         }
     }
@@ -31,10 +45,21 @@ impl EditableIncomeSource {
 pub fn incomes_from_core_plan(plan: &CorePlan) -> Vec<EditableIncomeSource> {
     plan.sources
         .iter()
-        .map(|source| EditableIncomeSource {
-            name: source.name.clone(),
-            amount: source.net().value.to_string(),
-            is_valid: true,
+        .map(|source| match &source.kind {
+            CoreIncomeKind::Salary { gross, tax_rate } => EditableIncomeSource {
+                name: source.name.clone(),
+                kind: EditableIncomeKind::Salary,
+                amount: gross.value.to_string(),
+                tax_rate: FormattedPercentage::from(tax_rate.clone()).raw_value(),
+                is_valid: true,
+            },
+            CoreIncomeKind::Other { expected } => EditableIncomeSource {
+                name: source.name.clone(),
+                kind: EditableIncomeKind::Other,
+                amount: expected.value.to_string(),
+                tax_rate: "13".into(),
+                is_valid: true,
+            },
         })
         .collect()
 }
@@ -49,12 +74,19 @@ pub fn apply_incomes_to_core_plan(
         .iter()
         .filter_map(|editable| {
             let amount = Decimal::from_str(&editable.amount).ok()?;
-            Some(CoreIncomeSource::new(
-                editable.name.clone(),
-                CoreIncomeKind::Other {
+            let kind = match editable.kind {
+                EditableIncomeKind::Salary => {
+                    let rate = Decimal::from_str(&editable.tax_rate).ok()?;
+                    CoreIncomeKind::Salary {
+                        gross: Money::new_rub(amount),
+                        tax_rate: Percentage::from(rate),
+                    }
+                }
+                EditableIncomeKind::Other => CoreIncomeKind::Other {
                     expected: Money::new_rub(amount),
                 },
-            ))
+            };
+            Some(CoreIncomeSource::new(editable.name.clone(), kind))
         })
         .collect();
 

@@ -1,10 +1,12 @@
+use std::rc::Rc;
+
+use yew::prelude::*;
+
 use crate::{
     api::ApiClient,
     components::plan::{ExpenseCategories, IncomeSources},
     presentation::plan::Plan,
 };
-use std::rc::Rc;
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct PlanProps {

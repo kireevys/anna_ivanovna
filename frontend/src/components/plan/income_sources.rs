@@ -1,10 +1,12 @@
+use std::rc::Rc;
+
+use yew::prelude::*;
+
 use crate::{
     api::ApiClient,
-    components::IncomeModal,
+    components::{IncomeModal, IncomeModalKind},
     presentation::plan::IncomeSource,
 };
-use std::rc::Rc;
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct IncomeSourcesProps {
@@ -14,13 +16,18 @@ pub struct IncomeSourcesProps {
 }
 
 pub enum IncomeSourcesMsg {
-    OpenModal(String),
+    OpenModal(ModalContext),
     CloseModal,
     Saved,
 }
 
+pub struct ModalContext {
+    source_id: String,
+    kind: IncomeModalKind,
+}
+
 pub struct IncomeSources {
-    modal_source_id: Option<String>,
+    modal: Option<ModalContext>,
 }
 
 impl Component for IncomeSources {
@@ -28,23 +35,21 @@ impl Component for IncomeSources {
     type Properties = IncomeSourcesProps;
 
     fn create(_ctx: &Context<Self>) -> Self {
-        Self {
-            modal_source_id: None,
-        }
+        Self { modal: None }
     }
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            IncomeSourcesMsg::OpenModal(source_id) => {
-                self.modal_source_id = Some(source_id);
+            IncomeSourcesMsg::OpenModal(modal) => {
+                self.modal = Some(modal);
                 true
             }
             IncomeSourcesMsg::CloseModal => {
-                self.modal_source_id = None;
+                self.modal = None;
                 true
             }
             IncomeSourcesMsg::Saved => {
-                self.modal_source_id = None;
+                self.modal = None;
                 ctx.props().on_saved.emit(());
                 true
             }
@@ -57,19 +62,48 @@ impl Component for IncomeSources {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {for ctx.props().sources.iter().map(|source| {
                         let source_id = source.id.clone();
+                        let kind = match &source.tax_rate {
+                            Some(rate) => IncomeModalKind::Salary { tax_rate: rate.clone() },
+                            None => IncomeModalKind::Other,
+                        };
                         html! {
                             <div class="card bg-base-200 shadow">
                                 <div class="card-body p-4">
-                                    <div class="flex justify-between items-center">
+                                    <div class="flex justify-between items-start">
                                         <div>
-                                            <h3 class="font-semibold text-lg">{ &source.name }</h3>
-                                            <p class="text-2xl font-bold text-primary">
-                                                { source.amount.to_string() }
-                                            </p>
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <h3 class="font-semibold text-lg">{ &source.name }</h3>
+                                                <span class="badge badge-sm badge-ghost">{ &source.kind_label }</span>
+                                            </div>
+                                            {if let (Some(gross), Some(rate), Some(tax)) = (&source.gross, &source.tax_rate, &source.tax_amount) {
+                                                html! {
+                                                    <>
+                                                        <p class="text-sm text-base-content/60">
+                                                            { format!("Gross: {gross}") }
+                                                        </p>
+                                                        <p class="text-sm text-base-content/60">
+                                                            { format!("Налог: {rate}% ({tax})") }
+                                                        </p>
+                                                        <div class="divider my-1"></div>
+                                                        <p class="text-2xl font-bold text-primary">
+                                                            { format!("На руки: {}", source.amount) }
+                                                        </p>
+                                                    </>
+                                                }
+                                            } else {
+                                                html! {
+                                                    <p class="text-2xl font-bold text-primary">
+                                                        { source.amount.to_string() }
+                                                    </p>
+                                                }
+                                            }}
                                         </div>
                                         <button
                                             class="btn btn-primary btn-sm"
-                                            onclick={ctx.link().callback(move |_| IncomeSourcesMsg::OpenModal(source_id.clone()))}
+                                            onclick={ctx.link().callback(move |_| IncomeSourcesMsg::OpenModal(ModalContext {
+                                                source_id: source_id.clone(),
+                                                kind: kind.clone(),
+                                            }))}
                                         >
                                             { "Поступление" }
                                         </button>
@@ -79,10 +113,11 @@ impl Component for IncomeSources {
                         }
                     })}
                 </div>
-                {if let Some(source_id) = &self.modal_source_id {
+                {if let Some(modal) = &self.modal {
                     html! {
                         <IncomeModal
-                            source_id={source_id.clone()}
+                            source_id={modal.source_id.clone()}
+                            kind={modal.kind.clone()}
                             on_close={ctx.link().callback(|_| IncomeSourcesMsg::CloseModal)}
                             on_saved={ctx.link().callback(|_| IncomeSourcesMsg::Saved)}
                             api={ctx.props().api.clone()}
