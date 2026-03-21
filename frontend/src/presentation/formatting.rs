@@ -45,6 +45,11 @@ impl FormattedPercentage {
     pub fn from_percentage(percentage: Percentage) -> Self {
         Self(percentage)
     }
+
+    /// Числовое значение без символа `%`, e.g. `"13.00"`
+    pub fn raw_value(&self) -> String {
+        self.0.to_string().trim_end_matches('%').trim().to_string()
+    }
 }
 
 impl fmt::Display for FormattedPercentage {

@@ -1,5 +1,6 @@
-use crate::presentation::history::HistoryEntry;
 use yew::prelude::*;
+
+use crate::presentation::history::{HistoryEntry, TaxInfo};
 
 #[derive(Properties, PartialEq)]
 pub struct HistoryProps {
@@ -28,7 +29,10 @@ impl Component for HistoryView {
                                     <div class="flex justify-between items-center w-full pr-8">
                                         <div>
                                             <h3 class="text-xl font-bold">{ &entry.date }</h3>
-                                            <p class="text-sm text-base-content/70">{ &entry.source_name }</p>
+                                            <p class="text-sm text-base-content/70">
+                                                { &entry.source_name }
+                                                <span class="badge badge-sm badge-ghost ml-1">{ &entry.kind_label }</span>
+                                            </p>
                                         </div>
                                         <div class="text-right">
                                             <p class="text-lg font-semibold text-success">{ "Доход: " }{ entry.income_amount.to_string() }</p>
@@ -37,6 +41,32 @@ impl Component for HistoryView {
                                     </div>
                                 </div>
                                 <div class="collapse-content">
+                                    {if let TaxInfo::Salary { gross, tax_rate, tax_amount } = &entry.tax_info {
+                                        html! {
+                                            <div class="card bg-warning/10 border border-warning/30 shadow mb-4 mt-4">
+                                                <div class="card-body p-4">
+                                                    <h4 class="font-semibold text-warning">{ "Налоги" }</h4>
+                                                    <div class="space-y-1 text-sm">
+                                                        <div class="flex justify-between">
+                                                            <span>{ "Gross" }</span>
+                                                            <span class="font-bold">{ gross.to_string() }</span>
+                                                        </div>
+                                                        <div class="flex justify-between">
+                                                            <span>{ format!("Налог ({tax_rate}%)") }</span>
+                                                            <span class="font-bold text-warning">{ tax_amount.to_string() }</span>
+                                                        </div>
+                                                        <div class="divider my-1"></div>
+                                                        <div class="flex justify-between">
+                                                            <span>{ "На руки" }</span>
+                                                            <span class="font-bold text-success">{ entry.income_amount.to_string() }</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    } else {
+                                        html! {}
+                                    }}
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
                                         {for entry.categories.iter().map(|category| {
                                             html! {

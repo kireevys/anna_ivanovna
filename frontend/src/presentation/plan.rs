@@ -1,13 +1,17 @@
-use crate::presentation::formatting::{FormattedMoney, FormattedPercentage};
+use std::{collections::BTreeMap, fmt};
+
 use ai_core::{
+    finance::Money,
     plan::Plan as CorePlan,
     planning::{
         Expense as ExpenseCore,
         ExpenseValue as ExpenseValueCore,
+        IncomeKind as IncomeKindCore,
         IncomeSource as IncomeSourceCore,
     },
 };
-use std::{collections::BTreeMap, fmt};
+
+use crate::presentation::formatting::{FormattedMoney, FormattedPercentage};
 
 const NO_CATEGORY: &str = "Без категории";
 
@@ -31,14 +35,35 @@ pub struct IncomeSource {
     pub id: String,
     pub name: String,
     pub amount: FormattedMoney,
+    pub kind_label: String,
+    pub gross: Option<FormattedMoney>,
+    pub tax_rate: Option<String>,
+    pub tax_amount: Option<FormattedMoney>,
 }
 
 impl From<&IncomeSourceCore> for IncomeSource {
     fn from(source: &IncomeSourceCore) -> Self {
+        let (kind_label, gross, tax_rate, tax_amount) = match &source.kind {
+            IncomeKindCore::Salary { gross, tax_rate } => {
+                let net = source.net();
+                let tax = gross.value - net.value;
+                (
+                    "Зарплата".to_string(),
+                    Some(FormattedMoney::from_money(*gross)),
+                    Some(FormattedPercentage::from(tax_rate.clone()).raw_value()),
+                    Some(FormattedMoney::from_money(Money::new(tax, gross.currency))),
+                )
+            }
+            IncomeKindCore::Other { .. } => ("Другое".to_string(), None, None, None),
+        };
         Self {
             id: source.name.clone(), // FIXME: source_id == name
             name: source.name.clone(),
             amount: FormattedMoney::from_money(source.net()),
+            kind_label,
+            gross,
+            tax_rate,
+            tax_amount,
         }
     }
 }

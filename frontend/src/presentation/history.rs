@@ -1,14 +1,32 @@
-use crate::{api::BudgetEntry, presentation::formatting::FormattedMoney};
 use std::collections::HashMap;
 
+use ai_core::{finance::Money, planning::IncomeKind};
+
+use crate::{
+    api::BudgetEntry,
+    presentation::formatting::{FormattedMoney, FormattedPercentage},
+};
+
 const NO_CATEGORY: &str = "Без категории";
+
+#[derive(Clone, PartialEq)]
+pub enum TaxInfo {
+    Salary {
+        gross: FormattedMoney,
+        tax_rate: String,
+        tax_amount: FormattedMoney,
+    },
+    NoTax,
+}
 
 #[derive(Clone, PartialEq)]
 pub struct HistoryEntry {
     pub id: String,
     pub date: String,
     pub source_name: String,
+    pub kind_label: String,
     pub income_amount: FormattedMoney,
+    pub tax_info: TaxInfo,
     pub rest: FormattedMoney,
     pub categories: Vec<Category>,
 }
@@ -34,6 +52,25 @@ impl From<&BudgetEntry> for HistoryEntry {
         let source_name = budget.income.source.name.clone();
         let income_amount = FormattedMoney::from_money(budget.income.amount);
         let rest = FormattedMoney::from_money(budget.rest);
+
+        let (kind_label, tax_info) = match &budget.income.source.kind {
+            IncomeKind::Salary { gross, tax_rate } => {
+                let tax = gross.value - budget.income.source.net().value;
+                (
+                    "Зарплата".to_string(),
+                    TaxInfo::Salary {
+                        gross: FormattedMoney::from_money(*gross),
+                        tax_rate: FormattedPercentage::from(tax_rate.clone())
+                            .raw_value(),
+                        tax_amount: FormattedMoney::from_money(Money::new(
+                            tax,
+                            gross.currency,
+                        )),
+                    },
+                )
+            }
+            IncomeKind::Other { .. } => ("Другое".to_string(), TaxInfo::NoTax),
+        };
 
         // Группируем расходы по категориям
         let mut categories_map: HashMap<String, Vec<ExpenseEntry>> = HashMap::new();
@@ -87,7 +124,9 @@ impl From<&BudgetEntry> for HistoryEntry {
             id: storage_budget.id.clone(),
             date,
             source_name,
+            kind_label,
             income_amount,
+            tax_info,
             rest,
             categories,
         }
