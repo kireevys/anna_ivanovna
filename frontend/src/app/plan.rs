@@ -146,7 +146,7 @@ impl App {
         let non_positive_incomes = updated_plan
             .sources
             .iter()
-            .any(|s| s.expected.value <= Decimal::ZERO);
+            .any(|s| s.net().value <= Decimal::ZERO);
         let non_positive_expenses_money = updated_plan
             .expenses
             .iter()

@@ -1,6 +1,6 @@
 ---
 source: ai-app/src/api.rs
-expression: "TestResult::Ok { draft, stored: api.get_plan().unwrap() }"
+expression: "TestResult::Ok\n{ draft, stored: api.get_plan(&TEST_USER_ID.into()).unwrap().plan }"
 ---
 {
   "status": "Ok",
@@ -8,9 +8,12 @@ expression: "TestResult::Ok { draft, stored: api.get_plan().unwrap() }"
     "sources": [
       {
         "name": "Зарплата",
-        "expected": {
-          "value": "100000",
-          "currency": "RUB"
+        "kind": {
+          "type": "other",
+          "expected": {
+            "value": "100000",
+            "currency": "RUB"
+          }
         }
       }
     ],
@@ -42,9 +45,12 @@ expression: "TestResult::Ok { draft, stored: api.get_plan().unwrap() }"
     "sources": [
       {
         "name": "Зарплата",
-        "expected": {
-          "value": "100000",
-          "currency": "RUB"
+        "kind": {
+          "type": "other",
+          "expected": {
+            "value": "100000",
+            "currency": "RUB"
+          }
         }
       }
     ],

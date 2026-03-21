@@ -12,12 +12,13 @@ pub(crate) fn plan_to_tree(plan: &DistributionWeights) -> TreeNode<PlanNode> {
     for source in &plan.sources {
         sources_node.add_child(TreeNode::new(PlanNode::Other(format!(
             "{} [{}]",
-            source.name, source.expected
+            source.name,
+            source.net()
         ))));
     }
     root.add_child(sources_node);
     // Остаток
-    let total_income = plan.sources.iter().map(|s| s.expected).sum::<Money>();
+    let total_income = plan.sources.iter().map(|s| s.net()).sum::<Money>();
     let rest_amount = Money::new_rub(plan.rest.apply_to(total_income.value));
     root.add_child(TreeNode::new(PlanNode::Other(format!(
         "🏦 Остаток: {rest_amount} [{}]",

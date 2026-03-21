@@ -158,17 +158,27 @@ mod test_distribute {
         distribute::{Budget, Error, Income, distribute},
         finance::{Money, Percentage},
         plan::Plan,
-        planning::{DistributionWeights, Expense, ExpenseValue, IncomeSource},
+        planning::{
+            DistributionWeights,
+            Expense,
+            ExpenseValue,
+            IncomeKind,
+            IncomeSource,
+        },
     };
 
     fn rub(v: f64) -> Money {
         Money::new_rub(Decimal::from_f64(v).unwrap())
     }
 
+    fn other_source(name: &str, expected: Money) -> IncomeSource {
+        IncomeSource::new(name.to_string(), IncomeKind::Other { expected })
+    }
+
     #[test]
     fn income_from_unknown_source() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
-        let source_1 = IncomeSource::new("Unknown".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
+        let source_1 = other_source("Unknown", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.5) },
@@ -182,7 +192,7 @@ mod test_distribute {
 
     #[test]
     fn expense_is_money_and_less_than_incomes() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.5) },
@@ -202,7 +212,7 @@ mod test_distribute {
 
     #[test]
     fn expense_is_money_and_more_than_incomes() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(1.0) },
@@ -222,7 +232,7 @@ mod test_distribute {
 
     #[test]
     fn expense_is_full_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -244,7 +254,7 @@ mod test_distribute {
 
     #[test]
     fn expense_is_half_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -266,7 +276,7 @@ mod test_distribute {
 
     #[test]
     fn expense_is_zero_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -288,7 +298,7 @@ mod test_distribute {
 
     #[test]
     fn expense_is_one_percent_by_rate() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -310,7 +320,7 @@ mod test_distribute {
 
     #[test]
     fn expenses_with_and_without_categories() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
 
         let expense_no_category = Expense::new(
             "Еда".to_string(),
@@ -341,7 +351,7 @@ mod test_distribute {
 
     #[test]
     fn expense_with_category_only() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
 
         let expense = Expense::new(
             "Кино".to_string(),

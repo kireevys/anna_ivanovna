@@ -4,6 +4,7 @@ use ai_core::{
     planning::{
         Expense as CoreExpense,
         ExpenseValue as CoreExpenseValue,
+        IncomeKind as CoreIncomeKind,
         IncomeSource as CoreIncomeSource,
     },
 };
@@ -32,7 +33,7 @@ pub fn incomes_from_core_plan(plan: &CorePlan) -> Vec<EditableIncomeSource> {
         .iter()
         .map(|source| EditableIncomeSource {
             name: source.name.clone(),
-            amount: source.expected.value.to_string(),
+            amount: source.net().value.to_string(),
             is_valid: true,
         })
         .collect()
@@ -50,7 +51,9 @@ pub fn apply_incomes_to_core_plan(
             let amount = Decimal::from_str(&editable.amount).ok()?;
             Some(CoreIncomeSource::new(
                 editable.name.clone(),
-                Money::new_rub(amount),
+                CoreIncomeKind::Other {
+                    expected: Money::new_rub(amount),
+                },
             ))
         })
         .collect();

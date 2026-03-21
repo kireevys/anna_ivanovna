@@ -10,7 +10,7 @@ use std::{
 use ai_core::{
     distribute::{Budget, BudgetEntry, Income},
     finance::Money,
-    planning::{Expense, ExpenseValue, IncomeSource},
+    planning::{Expense, ExpenseValue, IncomeKind, IncomeSource},
 };
 
 const STATICS_KEYS: [&str; 5] = [
@@ -96,7 +96,8 @@ fn parse_income(statics: &HashMap<String, String>) -> io::Result<Income> {
             .ok_or_else(|| io::Error::other("Не найден Вход"))?,
     )
     .map_err(|_| io::Error::other("Не удалось распарсить деньги"))?;
-    let income_source = IncomeSource::new(source.clone(), amount);
+    let income_source =
+        IncomeSource::new(source.clone(), IncomeKind::Other { expected: amount });
     Ok(Income::new(income_source, amount, date))
 }
 
