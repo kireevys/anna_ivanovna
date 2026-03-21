@@ -198,11 +198,11 @@ async fn budget<R: CoreRepo>(
         .ok_or(ApiError::NotFound)
 }
 
-pub async fn run<R>(api: CoreApi<R>, addr: &str) -> Result<(), std::io::Error>
+pub fn create_router<R>(api: CoreApi<R>) -> Router
 where
     R: CoreRepo + Clone + Send + Sync + 'static,
 {
-    let app = Router::new()
+    Router::new()
         .route("/health", get(health_handler))
         .route(
             "/v1/plan",
@@ -257,8 +257,14 @@ where
                     },
                 ),
         )
-        .with_state(api);
+        .with_state(api)
+}
 
+pub async fn run<R>(api: CoreApi<R>, addr: &str) -> Result<(), std::io::Error>
+where
+    R: CoreRepo + Clone + Send + Sync + 'static,
+{
+    let app = create_router(api);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!("web interface is listening on {addr}");
     axum::serve(listener, app)

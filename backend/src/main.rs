@@ -1,10 +1,7 @@
 use ai_app::api::CoreApi;
+use anna_ivanovna_lib::{cli, infra, interfaces, storage};
 use clap::Parser;
 use std::sync::Arc;
-mod cli;
-mod infra;
-mod interfaces;
-mod storage;
 
 type Error = infra::config::Error;
 fn get_buh_home() -> Result<std::path::PathBuf, Error> {
