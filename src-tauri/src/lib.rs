@@ -6,7 +6,7 @@ use anna_ivanovna_lib::{
     interfaces::web::create_router,
     storage::sqlite::SqliteRepo,
 };
-use tauri::{async_runtime::spawn, RunEvent};
+use tauri::{RunEvent, async_runtime::spawn};
 use tokio::sync::watch;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
