@@ -147,13 +147,17 @@ mod tests {
         distribute::Budget,
         finance::{Money, Percentage},
         plan::Plan,
-        planning::{Expense, ExpenseValue, IncomeSource},
+        planning::{Expense, ExpenseValue, IncomeKind, IncomeSource},
     };
     use rust_decimal_macros::dec;
     use serde::Serialize;
 
     use super::*;
     use crate::storage::*;
+
+    fn other_source(name: &str, expected: Money) -> IncomeSource {
+        IncomeSource::new(name.to_string(), IncomeKind::Other { expected })
+    }
 
     struct InMemoryCoreRepo {
         plan: Mutex<Option<StoragePlan>>,
@@ -292,10 +296,7 @@ mod tests {
 
     fn valid_plan() -> Plan {
         Plan::build(
-            &[IncomeSource::new(
-                "Зарплата".into(),
-                Money::new_rub(dec!(100000)),
-            )],
+            &[other_source("Зарплата", Money::new_rub(dec!(100000)))],
             &[
                 Expense::new(
                     "Аренда".into(),
@@ -369,10 +370,7 @@ mod tests {
     fn create_plan_invalid_too_big_expenses() {
         let api = make_api();
         let draft = Plan::build(
-            &[IncomeSource::new(
-                "Зарплата".into(),
-                Money::new_rub(dec!(100000)),
-            )],
+            &[other_source("Зарплата", Money::new_rub(dec!(100000)))],
             &[Expense::new(
                 "Всё".into(),
                 ExpenseValue::RATE {
@@ -396,10 +394,7 @@ mod tests {
         api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
             .unwrap();
         let updated = Plan::build(
-            &[IncomeSource::new(
-                "Фриланс".into(),
-                Money::new_rub(dec!(200000)),
-            )],
+            &[other_source("Фриланс", Money::new_rub(dec!(200000)))],
             &[Expense::new(
                 "Ипотека".into(),
                 ExpenseValue::MONEY {
@@ -448,10 +443,7 @@ mod tests {
         assert_eq!(api.get_plan(&TEST_USER_ID.into()).unwrap().version, 1);
 
         let updated = Plan::build(
-            &[IncomeSource::new(
-                "Фриланс".into(),
-                Money::new_rub(dec!(200000)),
-            )],
+            &[other_source("Фриланс", Money::new_rub(dec!(200000)))],
             &[Expense::new(
                 "Ипотека".into(),
                 ExpenseValue::MONEY {

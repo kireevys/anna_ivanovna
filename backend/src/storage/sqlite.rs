@@ -430,7 +430,7 @@ mod tests {
     use super::*;
     use ai_core::{
         finance::{Money, Percentage},
-        planning::{Expense, ExpenseValue, IncomeSource},
+        planning::{Expense, ExpenseValue, IncomeKind, IncomeSource},
     };
     use rust_decimal_macros::dec;
     use std::{path::PathBuf, time::SystemTime};
@@ -447,7 +447,9 @@ mod tests {
         Plan::build(
             &[IncomeSource::new(
                 "Зарплата".into(),
-                Money::new_rub(dec!(100000)),
+                IncomeKind::Other {
+                    expected: Money::new_rub(dec!(100000)),
+                },
             )],
             &[
                 Expense::new(

@@ -76,7 +76,7 @@ impl Plan {
     pub fn total_incomes(&self) -> Money {
         self.sources
             .iter()
-            .map(|s| s.expected)
+            .map(|s| s.net())
             .fold(Money::new_rub(Decimal::ZERO), |acc, income| acc + income)
     }
 
@@ -109,9 +109,16 @@ mod test_planning {
     use rust_decimal::{Decimal, prelude::FromPrimitive};
     use rust_decimal_macros::dec;
 
-    use crate::finance::{Currency, Money, Percentage};
+    use crate::{
+        finance::{Currency, Money, Percentage},
+        planning::IncomeKind,
+    };
 
     use super::*;
+
+    fn other_source(name: &str, expected: Money) -> IncomeSource {
+        IncomeSource::new(name.to_string(), IncomeKind::Other { expected })
+    }
 
     #[test]
     fn new_plan() {
@@ -123,10 +130,7 @@ mod test_planning {
     #[test]
     fn add_source() {
         let mut draft = Plan::new();
-        let source = IncomeSource::new(
-            "Gold goose".to_string(),
-            Money::new(dec!(1), Currency::RUB),
-        );
+        let source = other_source("Gold goose", Money::new(dec!(1), Currency::RUB));
         draft.add_source(source.clone());
         assert_eq!(draft.sources, vec![source]);
         assert_eq!(draft.expenses, vec![]);
@@ -174,16 +178,13 @@ mod test_planning {
 
     #[test]
     fn no_expenses() {
-        let draft = Plan::build(
-            &[IncomeSource::new("Gold goose".to_string(), rub(1.0))],
-            &[],
-        );
+        let draft = Plan::build(&[other_source("Gold goose", rub(1.0))], &[]);
         assert_eq!(DistributionWeights::try_from(draft), Err(Error::EmptyPlan));
     }
 
     #[test]
     fn build_rate_plan_from_rate_expense() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -210,7 +211,7 @@ mod test_planning {
 
     #[test]
     fn build_plan_with_overhead_percent() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -230,7 +231,7 @@ mod test_planning {
 
     #[test]
     fn build_rate_with_overhead_total_percent() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense_1 = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -257,7 +258,7 @@ mod test_planning {
 
     #[test]
     fn build_rate_when_has_rest() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
@@ -283,7 +284,7 @@ mod test_planning {
 
     #[test]
     fn build_full_plan() {
-        let source = IncomeSource::new("Gold goose".to_string(), rub(1.0));
+        let source = other_source("Gold goose", rub(1.0));
         let expense_1 = Expense::new(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.25) },
@@ -324,7 +325,7 @@ mod test_planning {
 
     #[test]
     fn test_plan_display() {
-        let source = IncomeSource::new("Зарплата".to_string(), rub(100000.0));
+        let source = other_source("Зарплата", rub(100000.0));
         let expense_1 = Expense::new(
             "Аренда".to_string(),
             ExpenseValue::MONEY {

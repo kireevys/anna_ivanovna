@@ -1,5 +1,5 @@
 use crate::finance::{Money, Percentage};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::{Debug, Display, Formatter},
@@ -7,26 +7,62 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum IncomeKind {
+    Salary { gross: Money, tax_rate: Percentage },
+    Other { expected: Money },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct IncomeSource {
     pub name: String,
-    pub expected: Money,
+    pub kind: IncomeKind,
 }
 
 impl IncomeSource {
-    pub fn expected(&self) -> &Money {
-        &self.expected
+    pub fn new(name: String, kind: IncomeKind) -> Self {
+        Self { name, kind }
     }
-}
-impl PartialEq for IncomeSource {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
+
+    pub fn net(&self) -> Money {
+        match &self.kind {
+            IncomeKind::Salary { gross, tax_rate } => {
+                Money::new(gross.value - tax_rate.apply_to(gross.value), gross.currency)
+            }
+            IncomeKind::Other { expected } => *expected,
+        }
     }
 }
 
-impl IncomeSource {
-    pub fn new(name: String, expected: Money) -> Self {
-        Self { name, expected }
+impl<'de> Deserialize<'de> for IncomeSource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw {
+            name: String,
+            kind: Option<IncomeKind>,
+            expected: Option<Money>,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+
+        let kind = match (raw.kind, raw.expected) {
+            (Some(kind), _) => kind,
+            (None, Some(expected)) => IncomeKind::Other { expected },
+            (None, None) => {
+                return Err(serde::de::Error::custom(
+                    "IncomeSource must have either 'kind' or 'expected' field",
+                ));
+            }
+        };
+
+        Ok(Self {
+            name: raw.name,
+            kind,
+        })
     }
 }
 
@@ -166,5 +202,97 @@ impl DistributionWeights {
                 },
             )
             .into_iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal_macros::dec;
+
+    use crate::finance::{Currency, Money, Percentage};
+
+    use super::*;
+
+    fn make_source(name: &str, kind: IncomeKind) -> IncomeSource {
+        IncomeSource::new(name.to_string(), kind)
+    }
+
+    #[test]
+    fn salary_net_applies_tax() {
+        let source = make_source(
+            "Зарплата",
+            IncomeKind::Salary {
+                gross: Money::new_rub(dec!(100000)),
+                tax_rate: Percentage::from_int(13),
+            },
+        );
+        assert_eq!(source.net(), Money::new_rub(dec!(87000)));
+    }
+
+    #[test]
+    fn other_net_returns_expected() {
+        let source = make_source(
+            "Фриланс",
+            IncomeKind::Other {
+                expected: Money::new_rub(dec!(50000)),
+            },
+        );
+        assert_eq!(source.net(), Money::new_rub(dec!(50000)));
+    }
+
+    #[test]
+    fn serde_salary_roundtrip() {
+        let source = make_source(
+            "Зарплата",
+            IncomeKind::Salary {
+                gross: Money::new_rub(dec!(200000)),
+                tax_rate: Percentage::from_int(15),
+            },
+        );
+        let json = serde_json::to_string(&source).unwrap();
+        let deserialized: IncomeSource = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, source.name);
+        assert_eq!(deserialized.kind, source.kind);
+    }
+
+    #[test]
+    fn serde_other_roundtrip() {
+        let source = make_source(
+            "Фриланс",
+            IncomeKind::Other {
+                expected: Money::new_rub(dec!(50000)),
+            },
+        );
+        let json = serde_json::to_string(&source).unwrap();
+        let deserialized: IncomeSource = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.name, source.name);
+        assert_eq!(deserialized.kind, source.kind);
+    }
+
+    #[test]
+    fn serde_backward_compat_old_format() {
+        let old_json =
+            r#"{"name":"Зарплата","expected":{"value":"100000","currency":"RUB"}}"#;
+        let source: IncomeSource = serde_json::from_str(old_json).unwrap();
+        assert_eq!(source.name, "Зарплата");
+        assert_eq!(
+            source.kind,
+            IncomeKind::Other {
+                expected: Money::new_rub(dec!(100000)),
+            }
+        );
+    }
+
+    #[test]
+    fn serde_salary_uses_tag() {
+        let source = make_source(
+            "Зарплата",
+            IncomeKind::Salary {
+                gross: Money::new(dec!(100000), Currency::RUB),
+                tax_rate: Percentage::from_int(13),
+            },
+        );
+        let json = serde_json::to_string(&source).unwrap();
+        assert!(json.contains(r#""type":"salary""#));
     }
 }

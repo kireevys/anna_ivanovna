@@ -8,9 +8,12 @@ expression: "TestResult::Err { draft, error: err.to_string() }"
     "sources": [
       {
         "name": "Зарплата",
-        "expected": {
-          "value": "100000",
-          "currency": "RUB"
+        "kind": {
+          "type": "other",
+          "expected": {
+            "value": "100000",
+            "currency": "RUB"
+          }
         }
       }
     ],

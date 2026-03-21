@@ -38,7 +38,7 @@ impl From<&IncomeSourceCore> for IncomeSource {
         Self {
             id: source.name.clone(), // FIXME: source_id == name
             name: source.name.clone(),
-            amount: FormattedMoney::from_money(source.expected),
+            amount: FormattedMoney::from_money(source.net()),
         }
     }
 }

@@ -95,7 +95,7 @@ fn choose_source(plan: &DistributionWeights) -> Result<&IncomeSource, Error> {
     }
     println!("В бюджете указано несколько источников дохода:");
     for (n, i) in plan.sources.iter().enumerate() {
-        println!("  {n}: {} [{}]", i.name, i.expected);
+        println!("  {n}: {} [{}]", i.name, i.net());
     }
     print!("Введите номер источника: ");
     let input = user_input()?;
