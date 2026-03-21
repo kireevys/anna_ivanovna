@@ -15,7 +15,7 @@ fn logging_init(dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>>
     infra::logging::init(dir, "anna_ivanovna.log")
 }
 
-fn migrate_excel<T: ai_app::storage::CoreRepo>(
+async fn migrate_excel<T: ai_app::storage::CoreRepo>(
     target: &T,
     file: std::path::PathBuf,
 ) -> Result<(), String> {
@@ -25,7 +25,7 @@ fn migrate_excel<T: ai_app::storage::CoreRepo>(
     let mut count = 0u32;
     for b in budgets {
         let id = ai_app::storage::build_id();
-        target.save_budget(id, b).map_err(|e| e.to_string())?;
+        target.save_budget(id, b).await.map_err(|e| e.to_string())?;
         count += 1;
     }
     println!("Мигрировано из Excel: {count} бюджетов");
@@ -91,7 +91,7 @@ async fn main() {
                 return;
             }
 
-            if let Err(e) = migrate_excel(&repo, file.clone()) {
+            if let Err(e) = migrate_excel(&repo, file.clone()).await {
                 eprintln!("Ошибка миграции: {e}");
                 std::process::exit(1);
             }
@@ -100,7 +100,7 @@ async fn main() {
             run_web(CoreApi::new(Arc::new(repo)), host, port).await;
         }
         cli::Commands::Budget(cmd) => {
-            if let Err(e) = cli::run(CoreApi::new(Arc::new(repo)), cmd) {
+            if let Err(e) = cli::run(CoreApi::new(Arc::new(repo)), cmd).await {
                 eprintln!("Ошибка CLI: {e}");
                 std::process::exit(1);
             }

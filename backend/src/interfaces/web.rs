@@ -64,6 +64,7 @@ async fn plan_handler<R: CoreRepo>(
     CurrentUser(user_id): CurrentUser,
 ) -> Result<Success<StoragePlan>, ApiError> {
     api.get_plan(&user_id)
+        .await
         .map(Success::new)
         .ok_or(ApiError::NotFound)
 }
@@ -74,6 +75,7 @@ async fn create_plan_handler<R: CoreRepo>(
     Json(draft): Json<PlanDraft>,
 ) -> Result<Success<PlanId>, ApiError> {
     api.create_plan(&user_id, build_id(), draft)
+        .await
         .map(Success::new)
         .map_err(|e| match e {
             AppError::PlanAlreadyExists => ApiError::Conflict(e.to_string()),
@@ -89,6 +91,7 @@ async fn update_plan_handler<R: CoreRepo>(
     Json(draft): Json<PlanDraft>,
 ) -> Result<StatusCode, ApiError> {
     api.update_plan(&user_id, plan_id, draft)
+        .await
         .map(|_| StatusCode::NO_CONTENT)
         .map_err(|e| match e {
             AppError::PlanNotFound => ApiError::NotFound,
@@ -103,6 +106,7 @@ async fn delete_plan_handler<R: CoreRepo>(
     Path(plan_id): Path<PlanId>,
 ) -> Result<StatusCode, ApiError> {
     api.delete_plan(&user_id, plan_id)
+        .await
         .map(|_| StatusCode::NO_CONTENT)
         .map_err(|_| ApiError::Internal)
 }
@@ -118,7 +122,7 @@ async fn history<R: CoreRepo>(
     Query(params): Query<PaginationQuery>,
 ) -> Success<Page<StorageBudget>> {
     let PaginationQuery { from, limit } = params;
-    let page = api.budget_list(from, limit);
+    let page = api.budget_list(from, limit).await;
     Success::new(page)
 }
 
@@ -134,7 +138,7 @@ async fn add_income<R: CoreRepo>(
     CurrentUser(user_id): CurrentUser,
     Json(income): Json<NewIncome>,
 ) -> Result<Success<Budget>, ApiError> {
-    let sp = api.get_plan(&user_id).ok_or(ApiError::NotFound)?;
+    let sp = api.get_plan(&user_id).await.ok_or(ApiError::NotFound)?;
     let source = sp
         .plan
         .sources
@@ -179,6 +183,7 @@ async fn save_budget<R: CoreRepo>(
 ) -> Result<Success<BudgetId>, ApiError> {
     let budget_id = api
         .save_budget(build_id(), budget)
+        .await
         .map_err(|e| ApiError::Storage(e.to_string()))?;
     Ok(Success::new(budget_id))
 }
@@ -188,6 +193,7 @@ async fn budget<R: CoreRepo>(
     Path(id): Path<BudgetId>,
 ) -> Result<Success<StorageBudget>, ApiError> {
     api.budget_by_id(&id)
+        .await
         .map(Success::new)
         .ok_or(ApiError::NotFound)
 }
