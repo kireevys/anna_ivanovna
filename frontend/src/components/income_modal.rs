@@ -1,29 +1,26 @@
-use std::{rc::Rc, str::FromStr};
+use std::rc::Rc;
 
 use chrono::{Duration, Local, NaiveDate};
 use rust_decimal::Decimal;
 use wasm_bindgen::{JsCast, closure::Closure};
 use yew::prelude::*;
 
-use ai_core::{distribute::Budget, finance::Money};
+use ai_core::distribute::Budget;
 
 use crate::{
     api::{AddIncomeRequest, ApiClient, ApiError, BudgetEntry},
-    presentation::{formatting::FormattedMoney, history::HistoryEntry},
+    presentation::{
+        history::HistoryEntry,
+        income::{SourceKind, tax_from_net},
+    },
 };
-
-#[derive(Clone, PartialEq)]
-pub enum IncomeModalKind {
-    Salary { tax_rate: String },
-    Other,
-}
 
 #[derive(Properties, PartialEq)]
 pub struct IncomeModalProps {
     pub on_close: Callback<()>,
     pub on_saved: Callback<()>,
     pub source_id: String,
-    pub kind: IncomeModalKind,
+    pub source_kind: SourceKind,
     pub api: Rc<ApiClient>,
 }
 
@@ -181,7 +178,7 @@ impl Component for IncomeModal {
                                 { "Посчитать" }
                             </button>
                         </div>
-                        { Self::render_tax_hint(&ctx.props().kind, &self.amount) }
+                        { Self::render_tax_hint(&ctx.props().source_kind, &self.amount) }
                     </div>
 
                     {match &self.state {
@@ -241,30 +238,18 @@ impl Component for IncomeModal {
 const TOAST_LIVE: Duration = Duration::seconds(2);
 
 impl IncomeModal {
-    fn render_tax_hint(kind: &IncomeModalKind, amount: &str) -> Html {
-        match kind {
-            IncomeModalKind::Salary { tax_rate } => {
-                let result = (|| {
-                    let net = Decimal::from_str(amount).ok()?;
-                    let rate = Decimal::from_str(tax_rate).ok()?;
-                    let hundred = Decimal::from(100);
-                    let gross = net * hundred / (hundred - rate);
-                    let tax = gross - net;
-                    Some((
-                        FormattedMoney::from_money(Money::new_rub(gross)),
-                        FormattedMoney::from_money(Money::new_rub(tax)),
-                    ))
-                })();
-                match result {
-                    Some((gross, tax)) => html! {
-                        <p class="text-sm text-base-content/60 mt-1">
-                            { format!("Gross: {gross}, налог: {tax}") }
-                        </p>
-                    },
-                    None => html! {},
-                }
-            }
-            IncomeModalKind::Other => html! {
+    fn render_tax_hint(source_kind: &SourceKind, amount: &str) -> Html {
+        match source_kind {
+            SourceKind::Salary { tax_rate, .. } => match tax_from_net(amount, tax_rate)
+            {
+                Some(result) => html! {
+                    <p class="text-sm text-base-content/60 mt-1">
+                        { format!("Gross: {}, налог: {}", result.gross, result.tax) }
+                    </p>
+                },
+                None => html! {},
+            },
+            SourceKind::Other => html! {
                 <p class="text-sm text-success/60 mt-1">
                     { "Без налогов" }
                 </p>

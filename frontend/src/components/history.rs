@@ -1,6 +1,6 @@
 use yew::prelude::*;
 
-use crate::presentation::history::{HistoryEntry, TaxInfo};
+use crate::presentation::{history::HistoryEntry, income::SourceKind};
 
 #[derive(Properties, PartialEq)]
 pub struct HistoryProps {
@@ -31,7 +31,7 @@ impl Component for HistoryView {
                                             <h3 class="text-xl font-bold">{ &entry.date }</h3>
                                             <p class="text-sm text-base-content/70">
                                                 { &entry.source_name }
-                                                <span class="badge badge-sm badge-ghost ml-1">{ &entry.kind_label }</span>
+                                                <span class="badge badge-sm badge-ghost ml-1">{ entry.source_kind.kind_label() }</span>
                                             </p>
                                         </div>
                                         <div class="text-right">
@@ -41,7 +41,7 @@ impl Component for HistoryView {
                                     </div>
                                 </div>
                                 <div class="collapse-content">
-                                    {if let TaxInfo::Salary { gross, tax_rate, tax_amount } = &entry.tax_info {
+                                    {if let SourceKind::Salary { gross, tax_rate, tax_amount } = &entry.source_kind {
                                         html! {
                                             <div class="card bg-warning/10 border border-warning/30 shadow mb-4 mt-4">
                                                 <div class="card-body p-4">
