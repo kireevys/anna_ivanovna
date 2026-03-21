@@ -52,12 +52,12 @@ impl<R: CoreRepo> CoreApi<R> {
     }
 
     #[instrument(skip(self))]
-    pub fn get_plan(&self, user_id: &UserId) -> Option<StoragePlan> {
-        self.repo.get_plan(user_id)
+    pub async fn get_plan(&self, user_id: &UserId) -> Option<StoragePlan> {
+        self.repo.get_plan(user_id).await
     }
 
     #[instrument(skip(self, draft))]
-    pub fn create_plan(
+    pub async fn create_plan(
         &self,
         user_id: &UserId,
         plan_id: PlanId,
@@ -66,6 +66,7 @@ impl<R: CoreRepo> CoreApi<R> {
         let plan = Self::validate(draft)?;
         self.repo
             .create_plan(user_id, plan_id, plan)
+            .await
             .map_err(|e| match e {
                 crate::storage::StorageError::PlanAlreadyExists => {
                     Error::PlanAlreadyExists
@@ -75,7 +76,7 @@ impl<R: CoreRepo> CoreApi<R> {
     }
 
     #[instrument(skip(self, draft))]
-    pub fn update_plan(
+    pub async fn update_plan(
         &self,
         user_id: &UserId,
         plan_id: PlanId,
@@ -84,6 +85,7 @@ impl<R: CoreRepo> CoreApi<R> {
         let plan = Self::validate(draft)?;
         self.repo
             .update_plan(user_id, &plan_id, plan)
+            .await
             .map_err(|_| Error::CantUpdatePlan)
     }
 
@@ -97,9 +99,14 @@ impl<R: CoreRepo> CoreApi<R> {
     }
 
     #[instrument(skip(self))]
-    pub fn delete_plan(&self, user_id: &UserId, plan_id: PlanId) -> Result<(), Error> {
+    pub async fn delete_plan(
+        &self,
+        user_id: &UserId,
+        plan_id: PlanId,
+    ) -> Result<(), Error> {
         self.repo
             .delete_plan(user_id, &plan_id)
+            .await
             .map_err(|_| Error::CantDeletePlan)
     }
 
@@ -115,27 +122,28 @@ impl<R: CoreRepo> CoreApi<R> {
     }
 
     #[instrument(skip(budget, self))]
-    pub fn save_budget(
+    pub async fn save_budget(
         &self,
         budget_id: BudgetId,
         budget: Budget,
     ) -> Result<BudgetId, Error> {
         self.repo
             .save_budget(budget_id, budget)
+            .await
             .map_err(|_| Error::CantSaveBudget)
     }
 
-    pub fn budget_list(
+    pub async fn budget_list(
         &self,
         from: Option<Cursor>,
         limit: usize,
     ) -> Page<StorageBudget> {
-        self.repo.budgets(from, limit)
+        self.repo.budgets(from, limit).await
     }
 
     #[instrument(skip(self))]
-    pub fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget> {
-        self.repo.budget_by_id(id)
+    pub async fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget> {
+        self.repo.budget_by_id(id).await
     }
 }
 
@@ -174,11 +182,11 @@ mod tests {
     }
 
     impl CoreRepo for InMemoryCoreRepo {
-        fn get_plan(&self, _user_id: &UserId) -> Option<StoragePlan> {
+        async fn get_plan(&self, _user_id: &UserId) -> Option<StoragePlan> {
             self.plan.lock().unwrap().clone()
         }
 
-        fn create_plan(
+        async fn create_plan(
             &self,
             user_id: &UserId,
             plan_id: PlanId,
@@ -206,7 +214,7 @@ mod tests {
             Ok(plan_id)
         }
 
-        fn update_plan(
+        async fn update_plan(
             &self,
             _user_id: &UserId,
             plan_id: &PlanId,
@@ -232,7 +240,7 @@ mod tests {
             Ok(())
         }
 
-        fn delete_plan(
+        async fn delete_plan(
             &self,
             _user_id: &UserId,
             plan_id: &PlanId,
@@ -259,7 +267,7 @@ mod tests {
             Ok(())
         }
 
-        fn plan_events(
+        async fn plan_events(
             &self,
             _user_id: &UserId,
             plan_id: &PlanId,
@@ -277,7 +285,7 @@ mod tests {
             Page::new(items, None)
         }
 
-        fn save_budget(
+        async fn save_budget(
             &self,
             budget_id: BudgetId,
             _budget: Budget,
@@ -285,11 +293,15 @@ mod tests {
             Ok(budget_id)
         }
 
-        fn budget_by_id(&self, _id: &BudgetId) -> Option<StorageBudget> {
+        async fn budget_by_id(&self, _id: &BudgetId) -> Option<StorageBudget> {
             None
         }
 
-        fn budgets(&self, _from: Option<Cursor>, _limit: usize) -> Page<StorageBudget> {
+        async fn budgets(
+            &self,
+            _from: Option<Cursor>,
+            _limit: usize,
+        ) -> Page<StorageBudget> {
             Page::new(vec![], None)
         }
     }
@@ -330,35 +342,39 @@ mod tests {
         CoreApi::new(Arc::new(InMemoryCoreRepo::new()))
     }
 
-    #[test]
-    fn create_plan_ok() {
+    #[tokio::test]
+    async fn create_plan_ok() {
         let api = make_api();
         let draft = valid_plan();
         api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .await
             .unwrap();
         insta::assert_json_snapshot!(TestResult::Ok {
             draft,
-            stored: api.get_plan(&TEST_USER_ID.into()).unwrap().plan
+            stored: api.get_plan(&TEST_USER_ID.into()).await.unwrap().plan
         });
     }
 
-    #[test]
-    fn create_plan_already_exists() {
+    #[tokio::test]
+    async fn create_plan_already_exists() {
         let api = make_api();
         api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .await
             .unwrap();
         let err = api
             .create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .await
             .unwrap_err();
         insta::assert_debug_snapshot!(err);
     }
 
-    #[test]
-    fn create_plan_invalid_empty() {
+    #[tokio::test]
+    async fn create_plan_invalid_empty() {
         let api = make_api();
         let draft = Plan::default();
         let err = api
             .create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .await
             .unwrap_err();
         insta::assert_json_snapshot!(TestResult::Err {
             draft,
@@ -366,8 +382,8 @@ mod tests {
         });
     }
 
-    #[test]
-    fn create_plan_invalid_too_big_expenses() {
+    #[tokio::test]
+    async fn create_plan_invalid_too_big_expenses() {
         let api = make_api();
         let draft = Plan::build(
             &[other_source("Зарплата", Money::new_rub(dec!(100000)))],
@@ -381,6 +397,7 @@ mod tests {
         );
         let err = api
             .create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .await
             .unwrap_err();
         insta::assert_json_snapshot!(TestResult::Err {
             draft,
@@ -388,10 +405,11 @@ mod tests {
         });
     }
 
-    #[test]
-    fn update_plan_ok() {
+    #[tokio::test]
+    async fn update_plan_ok() {
         let api = make_api();
         api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .await
             .unwrap();
         let updated = Plan::build(
             &[other_source("Фриланс", Money::new_rub(dec!(200000)))],
@@ -404,30 +422,34 @@ mod tests {
             )],
         );
         api.update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), updated.clone())
+            .await
             .unwrap();
         insta::assert_json_snapshot!(TestResult::Ok {
             draft: updated,
-            stored: api.get_plan(&TEST_USER_ID.into()).unwrap().plan
+            stored: api.get_plan(&TEST_USER_ID.into()).await.unwrap().plan
         });
     }
 
-    #[test]
-    fn update_plan_no_existing() {
+    #[tokio::test]
+    async fn update_plan_no_existing() {
         let api = make_api();
         let err = api
             .update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .await
             .unwrap_err();
         insta::assert_debug_snapshot!(err);
     }
 
-    #[test]
-    fn update_plan_invalid() {
+    #[tokio::test]
+    async fn update_plan_invalid() {
         let api = make_api();
         api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .await
             .unwrap();
         let draft = Plan::default();
         let err = api
             .update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), draft.clone())
+            .await
             .unwrap_err();
         insta::assert_json_snapshot!(TestResult::Err {
             draft,
@@ -435,12 +457,13 @@ mod tests {
         });
     }
 
-    #[test]
-    fn update_plan_increments_version() {
+    #[tokio::test]
+    async fn update_plan_increments_version() {
         let api = make_api();
         api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .await
             .unwrap();
-        assert_eq!(api.get_plan(&TEST_USER_ID.into()).unwrap().version, 1);
+        assert_eq!(api.get_plan(&TEST_USER_ID.into()).await.unwrap().version, 1);
 
         let updated = Plan::build(
             &[other_source("Фриланс", Money::new_rub(dec!(200000)))],
@@ -453,19 +476,23 @@ mod tests {
             )],
         );
         api.update_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), updated)
+            .await
             .unwrap();
-        assert_eq!(api.get_plan(&TEST_USER_ID.into()).unwrap().version, 2);
+        assert_eq!(api.get_plan(&TEST_USER_ID.into()).await.unwrap().version, 2);
     }
 
-    #[test]
-    fn delete_plan_ok() {
+    #[tokio::test]
+    async fn delete_plan_ok() {
         let api = make_api();
         api.create_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into(), valid_plan())
+            .await
             .unwrap();
-        assert!(api.get_plan(&TEST_USER_ID.into()).is_some());
-        let result = api.delete_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into());
+        assert!(api.get_plan(&TEST_USER_ID.into()).await.is_some());
+        let result = api
+            .delete_plan(&TEST_USER_ID.into(), TEST_PLAN_ID.into())
+            .await;
         assert!(result.is_ok());
-        assert!(api.get_plan(&TEST_USER_ID.into()).is_none());
+        assert!(api.get_plan(&TEST_USER_ID.into()).await.is_none());
     }
 
     // events are still stored in the repository for history,

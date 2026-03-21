@@ -103,12 +103,12 @@ fn choose_source(plan: &DistributionWeights) -> Result<&IncomeSource, Error> {
 }
 
 #[tracing::instrument(skip(api, cmd))]
-pub fn run<R>(api: CoreApi<R>, cmd: BudgetCommand) -> Result<(), Error>
+pub async fn run<R>(api: CoreApi<R>, cmd: BudgetCommand) -> Result<(), Error>
 where
     R: CoreRepo + Clone + Send + Sync + 'static,
 {
     let user_id: ai_app::storage::UserId = "default".to_string();
-    let sp = api.get_plan(&user_id).ok_or(Error::NoPlan)?;
+    let sp = api.get_plan(&user_id).await.ok_or(Error::NoPlan)?;
     let weights = sp.plan.try_into().map_err(|_| Error::InvalidPlan)?;
     let start = std::time::Instant::now();
     match cmd {
@@ -127,6 +127,7 @@ where
             } else {
                 let id = api
                     .save_budget(id, budget)
+                    .await
                     .map_err(|_| Error::CantWriteResult)?;
                 println!("💾 Бюджет сохранён с ID: {id}");
             }
@@ -135,7 +136,7 @@ where
             let tree = plan_to_tree(&weights);
             println!("{}", to_text(&tree));
         }
-        BudgetCommand::ShowBudget { id } => match api.budget_by_id(&id) {
+        BudgetCommand::ShowBudget { id } => match api.budget_by_id(&id).await {
             Some(budget) => {
                 let tree = budget_to_tree(&budget.budget);
                 println!("{}", to_text(&tree));
