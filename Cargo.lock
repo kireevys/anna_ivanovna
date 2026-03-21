@@ -30,7 +30,7 @@ dependencies = [
 
 [[package]]
 name = "ai_app"
-version = "1.0.1"
+version = "0.2.0"
 dependencies = [
  "ai_core",
  "insta",
@@ -46,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "ai_core"
-version = "1.0.1"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "rstest",
@@ -92,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "anna_ivanovna"
-version = "1.0.1"
+version = "0.2.0"
 dependencies = [
  "ai_app",
  "ai_core",
@@ -1553,7 +1553,7 @@ dependencies = [
 
 [[package]]
 name = "frontend"
-version = "1.0.1"
+version = "0.2.0"
 dependencies = [
  "ai_core",
  "chrono",

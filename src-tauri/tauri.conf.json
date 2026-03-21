@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Anna Ivanovna",
-  "version": "1.0.1",
-  "identifier": "com.kireev.anna_ivanovna",
+  "version": "0.2.0",
+  "identifier": "com.kireev.annabuh",
   "build": {
     "beforeDevCommand": "trunk serve --port 31416 --config frontend/Trunk.toml --features tauri",
     "devUrl": "http://localhost:31416",
@@ -25,7 +25,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "nsis", "deb"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
