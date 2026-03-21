@@ -6,3 +6,5 @@ target/
 *.log
 bench_result.json
 dist
+node_modules/
+frontend/tailwind.css
