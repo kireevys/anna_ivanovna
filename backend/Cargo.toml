@@ -6,7 +6,11 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-metadata.release.wokspace = true
+metadata.release.workspace = true
+
+[lib]
+name = "anna_ivanovna_lib"
+path = "src/lib.rs"
 
 [dependencies]
 ai_app = { path = "../ai-app" }

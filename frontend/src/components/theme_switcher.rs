@@ -34,7 +34,7 @@ const THEMES: &[&str] = &[
     "winter",
 ];
 
-pub const DEFAULT_THEME: &str = "winter";
+pub const DEFAULT_THEME: &str = "aqua";
 
 pub fn user_prefer_theme() -> Option<String> {
     window()
