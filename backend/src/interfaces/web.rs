@@ -198,12 +198,19 @@ async fn budget<R: CoreRepo>(
         .ok_or(ApiError::NotFound)
 }
 
+async fn collections_handler() -> Success<Vec<ai_core::templates::Collection>> {
+    Success {
+        response: ai_core::templates::collections(),
+    }
+}
+
 pub fn create_router<R>(api: CoreApi<R>) -> Router
 where
     R: CoreRepo + Clone + Send + Sync + 'static,
 {
     Router::new()
         .route("/health", get(health_handler))
+        .route("/v1/collections", get(collections_handler))
         .route(
             "/v1/plan",
             get(plan_handler::<R>).post(create_plan_handler::<R>),

@@ -307,7 +307,11 @@ impl CoreRepo for SqliteRepo {
             })
             .collect();
 
-        let next_cursor = items.last().map(|e| e.id.to_string());
+        let next_cursor = if items.len() < limit {
+            None
+        } else {
+            items.last().map(|e| e.id.to_string())
+        };
         Page::new(items, next_cursor)
     }
 
@@ -396,7 +400,11 @@ impl CoreRepo for SqliteRepo {
             })
             .collect();
 
-        let next_cursor = items.last().map(|b| b.id.clone());
+        let next_cursor = if items.len() < limit {
+            None
+        } else {
+            items.last().map(|b| b.id.clone())
+        };
         Page::new(items, next_cursor)
     }
 }

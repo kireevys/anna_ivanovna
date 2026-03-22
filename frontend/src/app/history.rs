@@ -4,7 +4,7 @@ use yew::Context;
 use super::{App, AppMsg, BudgetEntry, PaginatableDataState};
 
 impl App {
-    pub(super) fn handle_switch_view(
+    pub(crate) fn handle_switch_view(
         &mut self,
         ctx: &Context<Self>,
         view: super::View,
@@ -17,13 +17,13 @@ impl App {
         true
     }
 
-    pub(super) fn handle_load_history(&mut self, ctx: &Context<Self>) -> bool {
+    pub(crate) fn handle_load_history(&mut self, ctx: &Context<Self>) -> bool {
         let cursor = self.history.prepare_load();
         self.load_history_async(cursor, ctx.link());
         true
     }
 
-    pub(super) fn handle_history_loaded(
+    pub(crate) fn handle_history_loaded(
         &mut self,
         result: Result<Page<BudgetEntry>, String>,
     ) -> bool {
@@ -38,7 +38,7 @@ impl App {
         true
     }
 
-    pub(super) fn load_history_async(
+    pub(crate) fn load_history_async(
         &self,
         cursor: Option<super::Cursor>,
         link: &yew::html::Scope<Self>,

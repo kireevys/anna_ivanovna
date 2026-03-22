@@ -4,6 +4,7 @@ mod history;
 mod income_modal;
 mod loading;
 mod plan;
+mod template_selector;
 mod theme_switcher;
 mod welcome;
 
@@ -13,5 +14,6 @@ pub use history::HistoryView;
 pub use income_modal::IncomeModal;
 pub use loading::Loading;
 pub use plan::{EditLayout, PlanView, Totals};
+pub use template_selector::TemplateSelector;
 pub use theme_switcher::{DEFAULT_THEME, ThemeSwitcher, set_theme, user_prefer_theme};
 pub use welcome::WelcomeScreen;

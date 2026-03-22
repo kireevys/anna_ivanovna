@@ -1,5 +1,13 @@
 use crate::{
-    api::{ApiClient, ApiError, BudgetEntry, Cursor, Page, StoragePlanFrontend},
+    api::{
+        ApiClient,
+        ApiError,
+        BudgetEntry,
+        Collection,
+        Cursor,
+        Page,
+        StoragePlanFrontend,
+    },
     components::{AppLayout, WelcomeScreen},
     config::API_V1_BASE_URL,
     presentation::{history::HistoryEntry, plan::Plan},
@@ -66,6 +74,7 @@ impl<T> PaginatableDataState<T> {
 enum PlanMode {
     View,
     Edit,
+    Creating,
 }
 
 #[derive(Clone, PartialEq)]
@@ -92,6 +101,7 @@ struct PlanState {
     validation: PlanValidation,
     save_state: SaveState,
     edited_core_plan: Option<ai_core::plan::Plan>,
+    templates: DataState<Vec<Collection>>,
 }
 
 impl PlanState {
@@ -331,13 +341,19 @@ pub enum AppMsg {
     Onboarding(OnboardingMsg),
     SwitchView(View),
     LoadPlan,
-    PlanLoaded(Result<StoragePlanFrontend, String>),
+    PlanLoaded(Result<StoragePlanFrontend, ApiError>),
     EnterEditMode,
     CancelEditMode,
     IncomeSourcesChanged(Vec<crate::presentation::editable_plan::EditableIncomeSource>),
     ExpensesChanged(Vec<crate::presentation::editable_plan::EditableExpense>),
     SavePlan,
     PlanSaveFinished(Result<(), ApiError>),
+    TemplatesLoaded(Result<Vec<Collection>, String>),
+    SelectTemplate(ai_core::plan::Plan),
+    BackToTemplates,
+    CreateFromScratch,
+    CreatePlan,
+    PlanCreateFinished(Result<String, ApiError>),
     LoadHistory,
     HistoryLoaded(Result<Page<BudgetEntry>, String>),
 }
@@ -361,6 +377,7 @@ impl Component for App {
                 validation: PlanValidation::Valid,
                 save_state: SaveState::Idle,
                 edited_core_plan: None,
+                templates: DataState::Loading,
             },
             history: HistoryState {
                 data: PaginatableDataState::Loading,
@@ -374,7 +391,7 @@ impl Component for App {
             AppMsg::Onboarding(msg) => onboarding::handle(self, ctx, msg),
             AppMsg::SwitchView(view) => self.handle_switch_view(ctx, view),
             AppMsg::LoadPlan => self.handle_load_plan(ctx),
-            AppMsg::PlanLoaded(result) => self.handle_plan_loaded(result),
+            AppMsg::PlanLoaded(result) => self.handle_plan_loaded(ctx, result),
             AppMsg::EnterEditMode => self.handle_enter_edit_mode(),
             AppMsg::CancelEditMode => self.handle_cancel_edit_mode(),
             AppMsg::IncomeSourcesChanged(incomes) => {
@@ -384,6 +401,14 @@ impl Component for App {
             AppMsg::SavePlan => self.handle_save_plan(ctx),
             AppMsg::PlanSaveFinished(result) => {
                 self.handle_plan_save_finished(ctx, result)
+            }
+            AppMsg::TemplatesLoaded(result) => self.handle_templates_loaded(result),
+            AppMsg::SelectTemplate(plan) => self.handle_select_template(plan),
+            AppMsg::BackToTemplates => self.handle_back_to_templates(),
+            AppMsg::CreateFromScratch => self.handle_create_from_scratch(),
+            AppMsg::CreatePlan => self.handle_create_plan(ctx),
+            AppMsg::PlanCreateFinished(result) => {
+                self.handle_plan_create_finished(ctx, result)
             }
             AppMsg::LoadHistory => self.handle_load_history(ctx),
             AppMsg::HistoryLoaded(result) => self.handle_history_loaded(result),
