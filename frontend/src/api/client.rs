@@ -1,6 +1,6 @@
 use crate::api::{
     error::ApiError,
-    types::{BudgetEntry, Cursor, Page, StoragePlanFrontend},
+    types::{BudgetEntry, Collection, Cursor, Page, StoragePlanFrontend},
 };
 use ai_core::{distribute::Budget, plan::Plan};
 use chrono::NaiveDate;
@@ -160,6 +160,28 @@ impl ApiClient {
             .await
             .map_err(|e| ApiError::Network(format!("Request failed: {e}")))?;
 
+        self.parse_response(response).await
+    }
+
+    pub async fn get_collections(&self) -> Result<Vec<Collection>, ApiError> {
+        let url = self.build_url("collections")?;
+        let response = Request::get(url.as_str())
+            .send()
+            .await
+            .map_err(|e| ApiError::Network(format!("Request failed: {e}")))?;
+        self.parse_response(response).await
+    }
+
+    pub async fn create_plan(&self, plan: &Plan) -> Result<String, ApiError> {
+        let url = self.build_url("plan")?;
+        let response = Request::post(url.as_str())
+            .json(plan)
+            .map_err(|e| {
+                ApiError::Serialization(format!("Failed to serialize request: {e}"))
+            })?
+            .send()
+            .await
+            .map_err(|e| ApiError::Network(format!("Request failed: {e}")))?;
         self.parse_response(response).await
     }
 }

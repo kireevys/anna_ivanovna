@@ -1,5 +1,13 @@
 use crate::{
-    components::{EditLayout, Error, HistoryView, Loading, PlanView, Totals},
+    components::{
+        EditLayout,
+        Error,
+        HistoryView,
+        Loading,
+        PlanView,
+        TemplateSelector,
+        Totals,
+    },
     presentation::plan::Plan,
 };
 use yew::{Context, Html, html};
@@ -16,7 +24,7 @@ use super::{
 };
 
 impl App {
-    pub(super) fn render_sticky_header(&self) -> Html {
+    pub(crate) fn render_sticky_header(&self) -> Html {
         match self.view {
             View::Plan => {
                 if let DataState::Loaded(view_model) = &self.plan.data {
@@ -25,7 +33,10 @@ impl App {
                         .validation
                     {
                         PlanValidation::Valid => {
-                            if self.plan.mode == PlanMode::Edit {
+                            if matches!(
+                                self.plan.mode,
+                                PlanMode::Edit | PlanMode::Creating
+                            ) {
                                 match self.plan.save_state {
                                     SaveState::Idle => (
                                         "bg-base-200 text-base-content".to_string(),
@@ -100,7 +111,7 @@ impl App {
                                 balance={view_model.balance.clone()}
                             />
                             {
-                                if self.plan.mode == PlanMode::Edit && !bar_class.is_empty() {
+                                if matches!(self.plan.mode, PlanMode::Edit | PlanMode::Creating) && !bar_class.is_empty() {
                                     html! {
                                         <div class={format!("mt-3 rounded-box px-4 py-2 {}", bar_class)}>
                                             { bar_content }
@@ -124,14 +135,21 @@ impl App {
         }
     }
 
-    pub(super) fn render_content(&self, ctx: &Context<Self>) -> Html {
+    pub(crate) fn render_content(&self, ctx: &Context<Self>) -> Html {
         match self.view {
             View::Plan => self.render_plan_content(ctx),
             View::History => self.render_history_content(ctx),
         }
     }
 
-    fn render_plan_content(&self, ctx: &Context<Self>) -> Html {
+    pub(crate) fn render_plan_content(&self, ctx: &Context<Self>) -> Html {
+        if self.plan.mode == PlanMode::Creating {
+            return match &self.plan.data {
+                DataState::Loaded(_) => self.render_plan_edit_mode(ctx),
+                _ => self.render_template_selection(ctx),
+            };
+        }
+
         match &self.plan.data {
             DataState::Loading => html! { <Loading /> },
             DataState::Error(error) => self.render_plan_error(ctx, error),
@@ -139,7 +157,7 @@ impl App {
         }
     }
 
-    fn render_plan_error(&self, ctx: &Context<Self>, error: &str) -> Html {
+    pub(crate) fn render_plan_error(&self, ctx: &Context<Self>, error: &str) -> Html {
         html! {
             <Error
                 message={format!("Ошибка: {}", error)}
@@ -148,14 +166,22 @@ impl App {
         }
     }
 
-    fn render_plan_loaded(&self, ctx: &Context<Self>, view_model: &Plan) -> Html {
+    pub(crate) fn render_plan_loaded(
+        &self,
+        ctx: &Context<Self>,
+        view_model: &Plan,
+    ) -> Html {
         match self.plan.mode {
             PlanMode::View => self.render_plan_view_mode(ctx, view_model),
-            PlanMode::Edit => self.render_plan_edit_mode(ctx),
+            PlanMode::Edit | PlanMode::Creating => self.render_plan_edit_mode(ctx),
         }
     }
 
-    fn render_plan_view_mode(&self, ctx: &Context<Self>, view_model: &Plan) -> Html {
+    pub(crate) fn render_plan_view_mode(
+        &self,
+        ctx: &Context<Self>,
+        view_model: &Plan,
+    ) -> Html {
         html! {
             <div class="space-y-4">
                 <div class="flex justify-end">
@@ -175,8 +201,38 @@ impl App {
         }
     }
 
-    fn render_plan_edit_mode(&self, ctx: &Context<Self>) -> Html {
+    pub(crate) fn render_template_selection(&self, ctx: &Context<Self>) -> Html {
+        match &self.plan.templates {
+            DataState::Loading => html! { <Loading /> },
+            DataState::Error(error) => html! {
+                <Error
+                    message={format!("Ошибка загрузки шаблонов: {}", error)}
+                    on_retry={ctx.link().callback(|_| AppMsg::LoadPlan)}
+                />
+            },
+            DataState::Loaded(collections) => html! {
+                <TemplateSelector
+                    collections={collections.clone()}
+                    on_select={ctx.link().callback(AppMsg::SelectTemplate)}
+                    on_create_empty={ctx.link().callback(|_| AppMsg::CreateFromScratch)}
+                />
+            },
+        }
+    }
+
+    pub(crate) fn render_plan_edit_mode(&self, ctx: &Context<Self>) -> Html {
         let disable_save = !matches!(self.plan.save_state, SaveState::CanSave);
+        let is_new_plan = self.plan.meta.is_none();
+        let on_save = if is_new_plan {
+            ctx.link().callback(|_| AppMsg::CreatePlan)
+        } else {
+            ctx.link().callback(|_| AppMsg::SavePlan)
+        };
+        let on_cancel = if is_new_plan {
+            ctx.link().callback(|_| AppMsg::BackToTemplates)
+        } else {
+            ctx.link().callback(|_| AppMsg::CancelEditMode)
+        };
         let total_income = self
             .plan
             .edited_core_plan
@@ -188,8 +244,8 @@ impl App {
                 expenses={self.plan.expenses.clone()}
                 total_income={total_income}
                 disable_save={disable_save}
-                on_cancel={ctx.link().callback(|_| AppMsg::CancelEditMode)}
-                on_save={ctx.link().callback(|_| AppMsg::SavePlan)}
+                on_cancel={on_cancel}
+                on_save={on_save}
                 on_incomes_change={ctx
                     .link()
                     .callback(AppMsg::IncomeSourcesChanged)}
@@ -200,7 +256,7 @@ impl App {
         }
     }
 
-    fn render_history_content(&self, ctx: &Context<Self>) -> Html {
+    pub(crate) fn render_history_content(&self, ctx: &Context<Self>) -> Html {
         match &self.history.data {
             PaginatableDataState::Loading => html! { <Loading /> },
             PaginatableDataState::Error(error) => html! {
@@ -211,6 +267,19 @@ impl App {
             },
             PaginatableDataState::Loaded { items, next_cursor }
             | PaginatableDataState::LoadingMore { items, next_cursor } => {
+                if items.is_empty() {
+                    return html! {
+                        <div class="flex flex-col items-center justify-center py-20 gap-4">
+                            <p class="text-4xl">{"🏛"}</p>
+                            <h3 class="text-xl font-semibold text-base-content/70">
+                                {"Каждое великое состояние начиналось с первого решения"}
+                            </h3>
+                            <p class="text-sm text-base-content/40 max-w-md text-center">
+                                {"Распределите первый доход — и история ваших финансовых решений начнётся здесь"}
+                            </p>
+                        </div>
+                    };
+                }
                 html! {
                     <>
                         <HistoryView entries={items.clone()} />

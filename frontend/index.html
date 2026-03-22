@@ -7,6 +7,15 @@
     <link data-trunk rel="copy-file" href="../src-tauri/icons/32x32.png" />
     <link rel="icon" type="image/png" href="/32x32.png" />
     <link data-trunk rel="css" href="tailwind.css" />
+    <script>
+      if (window.__TAURI__) {
+        const style = document.createElement("style");
+        style.textContent =
+          "body { -webkit-user-select: none; user-select: none; } " +
+          "input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }";
+        document.head.appendChild(style);
+      }
+    </script>
   </head>
   <body></body>
 </html>

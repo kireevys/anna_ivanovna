@@ -39,3 +39,38 @@ pub struct StoragePlanFrontend {
     pub status: PlanStatus,
     pub plan: Plan,
 }
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub enum Tag {
+    Recommended,
+    Stability,
+    Debt,
+    Future,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(tag = "type")]
+pub enum CollectionContent {
+    Book { book_url: String, audio_url: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Collection {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub content: CollectionContent,
+    pub templates: Vec<PlanTemplate>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PlanTemplate {
+    pub id: String,
+    pub name: String,
+    pub subtitle: String,
+    pub situation: String,
+    pub tagline: String,
+    pub description: String,
+    pub tag: Tag,
+    pub plan: Plan,
+}
