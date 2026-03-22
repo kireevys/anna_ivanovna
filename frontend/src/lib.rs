@@ -5,6 +5,7 @@ mod app;
 mod components;
 mod config;
 mod presentation;
+#[cfg(feature = "tauri")] mod tauri_ipc;
 
 #[wasm_bindgen(start)]
 pub fn run_app() {

@@ -1,16 +1,8 @@
+use std::{path::Path, sync::Arc};
+
 use ai_app::api::CoreApi;
 use anna_ivanovna_lib::{cli, infra, interfaces, storage};
 use clap::Parser;
-use std::sync::Arc;
-
-type Error = infra::config::Error;
-fn get_buh_home() -> Result<std::path::PathBuf, Error> {
-    infra::config::get_buh_home()
-}
-
-fn logging_init(dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    infra::logging::init(dir, "anna_ivanovna.log")
-}
 
 async fn migrate_excel<T: ai_app::storage::CoreRepo>(
     target: &T,
@@ -29,16 +21,9 @@ async fn migrate_excel<T: ai_app::storage::CoreRepo>(
     Ok(())
 }
 
-async fn init_sqlite(
-    buh_home: &std::path::Path,
-) -> Result<storage::sqlite::SqliteRepo, String> {
-    let db_path = buh_home.join("anna_ivanovna.db");
-    storage::sqlite::SqliteRepo::init(&db_path).await
-}
-
 async fn run_web<R: ai_app::storage::CoreRepo + Clone + Send + Sync + 'static>(
     api: CoreApi<R>,
-    host: String,
+    host: &str,
     port: u16,
 ) {
     if let Err(err) = interfaces::web::run(api, &format!("{host}:{port}")).await {
@@ -49,22 +34,29 @@ async fn run_web<R: ai_app::storage::CoreRepo + Clone + Send + Sync + 'static>(
 
 #[tokio::main]
 async fn main() {
-    let buh_home = match get_buh_home() {
-        Ok(path) => path,
+    let cli = cli::Cli::parse();
+
+    let overrides = match &cli.command {
+        cli::Commands::Web { host, port } => infra::config::ConfigOverrides {
+            host: host.clone(),
+            port: *port,
+        },
+        _ => infra::config::ConfigOverrides::default(),
+    };
+
+    let config = match infra::config::init(cli.buh_home.clone(), overrides) {
+        Ok(c) => c,
         Err(e) => {
-            eprintln!("Не удалось определить домашнюю директорию: {e}");
+            eprintln!("Ошибка инициализации: {e}");
             std::process::exit(1);
         }
     };
 
-    if let Err(e) = logging_init(&buh_home) {
-        eprintln!("Ошибка инициализации логирования: {e}");
-        std::process::exit(1);
-    }
-
-    let cli = cli::Cli::parse();
-
-    let repo = match init_sqlite(&buh_home).await {
+    let repo = match storage::sqlite::SqliteRepo::init(Path::new(
+        config.database.connection_string(),
+    ))
+    .await
+    {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Ошибка инициализации SQLite: {e}");
@@ -93,8 +85,13 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-        cli::Commands::Web { host, port } => {
-            run_web(CoreApi::new(Arc::new(repo)), host, port).await;
+        cli::Commands::Web { .. } => {
+            run_web(
+                CoreApi::new(Arc::new(repo)),
+                &config.server.host,
+                config.server.port,
+            )
+            .await;
         }
         cli::Commands::Budget(cmd) => {
             if let Err(e) = cli::run(CoreApi::new(Arc::new(repo)), cmd).await {

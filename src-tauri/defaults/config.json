@@ -1,0 +1,7 @@
+{
+  "buh_home": "MyBuh",
+  "database": {
+    "type": "sqlite",
+    "name": "anna_ivanovna.db"
+  }
+}
