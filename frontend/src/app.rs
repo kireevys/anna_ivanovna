@@ -1,6 +1,6 @@
 use crate::{
     api::{ApiClient, ApiError, BudgetEntry, Cursor, Page, StoragePlanFrontend},
-    components::AppLayout,
+    components::{AppLayout, WelcomeScreen},
     config::API_V1_BASE_URL,
     presentation::{history::HistoryEntry, plan::Plan},
 };
@@ -9,8 +9,25 @@ use std::{rc::Rc, str::FromStr};
 use yew::{Component, Context, Html, html};
 
 mod history;
+mod onboarding;
 mod plan;
 mod view;
+
+#[derive(Clone, PartialEq)]
+#[cfg_attr(not(feature = "tauri"), allow(dead_code))]
+pub enum AppPhase {
+    /// Checking if app is configured (Tauri only)
+    Checking,
+    /// First run — show welcome/onboarding screen
+    Onboarding {
+        default_path: String,
+        chosen_path: Option<String>,
+        error: Option<String>,
+        saving: bool,
+    },
+    /// App is ready — backend running, show main UI
+    Ready,
+}
 
 #[derive(Clone, PartialEq)]
 pub enum View {
@@ -294,13 +311,24 @@ impl HistoryState {
 }
 
 pub struct App {
+    phase: AppPhase,
     view: View,
     plan: PlanState,
     history: HistoryState,
     api: Rc<ApiClient>,
 }
 
+#[cfg_attr(not(feature = "tauri"), allow(dead_code))]
+pub enum OnboardingMsg {
+    PhaseResolved(AppPhase),
+    PickFolder,
+    FolderPicked(Option<String>),
+    CompleteSetup,
+    SetupFinished(Result<(), String>),
+}
+
 pub enum AppMsg {
+    Onboarding(OnboardingMsg),
     SwitchView(View),
     LoadPlan,
     PlanLoaded(Result<StoragePlanFrontend, String>),
@@ -319,8 +347,10 @@ impl Component for App {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        ctx.link().send_message(AppMsg::LoadPlan);
+        let initial_phase = onboarding::resolve_initial_phase(ctx);
+
         Self {
+            phase: initial_phase,
             view: View::Plan,
             plan: PlanState {
                 data: DataState::Loading,
@@ -341,6 +371,7 @@ impl Component for App {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            AppMsg::Onboarding(msg) => onboarding::handle(self, ctx, msg),
             AppMsg::SwitchView(view) => self.handle_switch_view(ctx, view),
             AppMsg::LoadPlan => self.handle_load_plan(ctx),
             AppMsg::PlanLoaded(result) => self.handle_plan_loaded(result),
@@ -360,14 +391,34 @@ impl Component for App {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        html! {
-            <AppLayout
-                current_view={self.view.clone()}
-                on_switch_view={ctx.link().callback(AppMsg::SwitchView)}
-                sticky_header={self.render_sticky_header()}
-            >
-                {self.render_content(ctx)}
-            </AppLayout>
+        match &self.phase {
+            AppPhase::Checking => html! {
+                <crate::components::Loading />
+            },
+            AppPhase::Onboarding {
+                default_path,
+                chosen_path,
+                error,
+                saving,
+            } => html! {
+                <WelcomeScreen
+                    default_path={default_path.clone()}
+                    chosen_path={chosen_path.clone()}
+                    error={error.clone()}
+                    saving={*saving}
+                    on_pick_folder={ctx.link().callback(|_| AppMsg::Onboarding(OnboardingMsg::PickFolder))}
+                    on_complete={ctx.link().callback(|_| AppMsg::Onboarding(OnboardingMsg::CompleteSetup))}
+                />
+            },
+            AppPhase::Ready => html! {
+                <AppLayout
+                    current_view={self.view.clone()}
+                    on_switch_view={ctx.link().callback(AppMsg::SwitchView)}
+                    sticky_header={self.render_sticky_header()}
+                >
+                    {self.render_content(ctx)}
+                </AppLayout>
+            },
         }
     }
 }

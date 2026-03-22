@@ -21,10 +21,13 @@ use thiserror::Error;
     name = "Anna Ivanovna",
     version = env!("CARGO_PKG_VERSION"),
     author = "github.com/kireevys",
-    about = "Планировщик бюджета - автоматическое распределение доходов по статьям расходов",
-    long_about = "Anna Ivanovna помогает автоматически распределять ваши доходы по заранее составленному плану бюджета.\n\nСоздайте план один раз, и программа будет автоматически рассчитывать, сколько денег тратить на каждую категорию при получении дохода.\n\nПримеры:\n  anna_ivanovna plan               # Показать текущий план\n  anna_ivanovna income 50000       # Добавить доход 50000₽\n  anna_ivanovna web 0.0.0.0 8080   # Запустить web-интерфейс"
+    about = "Планировщик бюджета - автоматическое распределение доходов по статьям расходов"
 )]
 pub struct Cli {
+    /// Путь к домашней директории данных
+    #[clap(long, env = "BUH_HOME")]
+    pub buh_home: Option<PathBuf>,
+
     #[clap(subcommand)]
     pub command: Commands,
 }
@@ -35,7 +38,15 @@ pub enum Commands {
     Budget(BudgetCommand),
 
     /// Запустить web-интерфейс
-    Web { host: String, port: u16 },
+    Web {
+        /// Host (overrides config.json)
+        #[clap(long)]
+        host: Option<String>,
+
+        /// Port (overrides config.json)
+        #[clap(long)]
+        port: Option<u16>,
+    },
 
     /// Миграция данных из Excel CSV в SQLite
     MigrateExcel {
