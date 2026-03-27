@@ -1,6 +1,9 @@
-use std::{collections::BTreeMap, fmt};
+use std::collections::BTreeMap;
+
+use rust_decimal::Decimal;
 
 use ai_core::{
+    finance::{Money, Percentage},
     plan::Plan as CorePlan,
     planning::{
         Expense as ExpenseCore,
@@ -51,29 +54,40 @@ impl From<&IncomeSourceCore> for IncomeSource {
 }
 
 #[derive(Clone, PartialEq)]
-pub enum ExpenseValue {
-    Money(FormattedMoney),
-    Percentage(FormattedPercentage),
+pub enum AccountingUnit {
+    Money,
+    Rate,
 }
 
-impl fmt::Display for ExpenseValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ExpenseValue::Money(money) => write!(f, "{}", money),
-            ExpenseValue::Percentage(percentage) => write!(f, "{}", percentage),
-        }
-    }
+#[derive(Clone, PartialEq)]
+pub struct ExpenseValue {
+    pub money: FormattedMoney,
+    pub rate: FormattedPercentage,
+    pub unit: AccountingUnit,
 }
 
-impl From<&ExpenseValueCore> for ExpenseValue {
-    fn from(value: &ExpenseValueCore) -> Self {
+impl ExpenseValue {
+    fn from_core(value: &ExpenseValueCore, total_income: Money) -> Self {
         match value {
             ExpenseValueCore::MONEY { value } => {
-                ExpenseValue::Money(FormattedMoney::from_money(*value))
+                let rate = if total_income.value == Decimal::ZERO {
+                    Percentage::ZERO
+                } else {
+                    Percentage::of(value.value, total_income.value)
+                };
+                Self {
+                    rate: FormattedPercentage::from_percentage(rate),
+                    money: FormattedMoney::from_money(*value),
+                    unit: AccountingUnit::Money,
+                }
             }
-            ExpenseValueCore::RATE { value } => ExpenseValue::Percentage(
-                FormattedPercentage::from_percentage(value.clone()),
-            ),
+            ExpenseValueCore::RATE { value } => Self {
+                money: FormattedMoney::from_money(Money::new_rub(
+                    value.apply_to(total_income.value),
+                )),
+                rate: FormattedPercentage::from_percentage(value.clone()),
+                unit: AccountingUnit::Rate,
+            },
         }
     }
 }
@@ -84,11 +98,11 @@ pub struct Expense {
     pub value: ExpenseValue,
 }
 
-impl From<&ExpenseCore> for Expense {
-    fn from(expense: &ExpenseCore) -> Self {
+impl Expense {
+    fn from_core(expense: &ExpenseCore, total_income: Money) -> Self {
         Self {
             name: expense.name.clone(),
-            value: ExpenseValue::from(&expense.value),
+            value: ExpenseValue::from_core(&expense.value, total_income),
         }
     }
 }
@@ -112,6 +126,8 @@ impl From<&CorePlan> for Plan {
         let total_expenses = FormattedMoney::from_money(plan.total_expenses());
         let balance = FormattedMoney::from_money(plan.balance());
 
+        let income = plan.total_incomes();
+
         // Группируем расходы по категориям и преобразуем в ViewModel за один проход
         let mut categories: BTreeMap<CategoryKey, Vec<Expense>> = plan
             .expenses
@@ -121,7 +137,9 @@ impl From<&CorePlan> for Plan {
                     None => CategoryKey::NoCategory,
                     Some(name) => CategoryKey::Named(name.clone()),
                 };
-                acc.entry(key).or_default().push(Expense::from(expense));
+                acc.entry(key)
+                    .or_default()
+                    .push(Expense::from_core(expense, income));
                 acc
             });
 

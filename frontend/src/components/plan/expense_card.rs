@@ -1,4 +1,4 @@
-use crate::presentation::plan::Expense;
+use crate::presentation::plan::{AccountingUnit, Expense};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -17,17 +17,41 @@ impl Component for ExpenseCard {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let expense_name = ctx.props().expense.name.clone();
+        let expense = &ctx.props().expense;
+        let expense_name = expense.name.clone();
+        let value = &expense.value;
+
+        let money_active = value.unit == AccountingUnit::Money;
+        let rate_active = value.unit == AccountingUnit::Rate;
+
+        let money_badge = if money_active {
+            "btn btn-xs join-item btn-primary"
+        } else {
+            "btn btn-xs join-item"
+        };
+        let rate_badge = if rate_active {
+            "btn btn-xs join-item btn-primary"
+        } else {
+            "btn btn-xs join-item"
+        };
+
         html! {
             <div class="relative group">
-                <div class="flex justify-between items-center p-2 bg-base-100 rounded gap-2 max-w-xs">
+                <div class="flex justify-between items-center p-2 bg-base-100 rounded gap-2">
                     <span
                         class="font-medium truncate flex-1 min-w-0"
                         title={expense_name.clone()}
                     >
-                        { &ctx.props().expense.name }
+                        { &expense.name }
                     </span>
-                    <span class="font-bold flex-shrink-0">{ ctx.props().expense.value.to_string() }</span>
+                    <span class="flex items-center gap-2 flex-shrink-0">
+                        <span class="font-bold">{ value.money.to_string() }</span>
+                        <span class="text-base-content/60">{ value.rate.to_string() }</span>
+                        <span class="join">
+                            <span class={money_badge}>{"₽"}</span>
+                            <span class={rate_badge}>{"%"}</span>
+                        </span>
+                    </span>
                 </div>
                 <div class="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 z-10 whitespace-pre-wrap max-w-xs">
                     { expense_name }
