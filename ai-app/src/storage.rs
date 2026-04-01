@@ -142,59 +142,50 @@ impl<T> Page<T> {
         Self { items, next_cursor }
     }
 }
-pub trait CoreRepo: Send + Sync {
+#[trait_variant::make(CoreRepo: Send)]
+pub trait LocalCoreRepo: Sync {
     /// Возвращает активный план пользователя
-    fn get_plan(
-        &self,
-        user_id: &UserId,
-    ) -> impl Future<Output = Option<StoragePlan>> + Send;
+    async fn get_plan(&self, user_id: &UserId) -> Option<StoragePlan>;
 
     /// Создаёт новый план для пользователя с указанным внешним идентификатором.
-    fn create_plan(
+    async fn create_plan(
         &self,
         user_id: &UserId,
         plan_id: PlanId,
         plan: Plan,
-    ) -> impl Future<Output = Result<PlanId, StorageError>> + Send;
+    ) -> Result<PlanId, StorageError>;
 
     /// Обновляет указанный план пользователя и добавляет событие об изменении.
-    fn update_plan(
+    async fn update_plan(
         &self,
         user_id: &UserId,
         plan_id: &PlanId,
         plan: Plan,
-    ) -> impl Future<Output = Result<(), StorageError>> + Send;
+    ) -> Result<(), StorageError>;
 
     /// Помечает план пользователя как удалённый (soft delete) и добавляет событие.
-    fn delete_plan(
+    async fn delete_plan(
         &self,
         user_id: &UserId,
         plan_id: &PlanId,
-    ) -> impl Future<Output = Result<(), StorageError>> + Send;
+    ) -> Result<(), StorageError>;
 
     /// Возвращает страницу событий указанного плана пользователя.
-    fn plan_events(
+    async fn plan_events(
         &self,
         user_id: &UserId,
         plan_id: &PlanId,
         from: Option<Cursor>,
         limit: usize,
-    ) -> impl Future<Output = Page<PlanEvent>> + Send;
+    ) -> Page<PlanEvent>;
 
-    fn save_budget(
+    async fn save_budget(
         &self,
         budget_id: BudgetId,
         budget: Budget,
-    ) -> impl Future<Output = Result<BudgetId, StorageError>> + Send;
+    ) -> Result<BudgetId, StorageError>;
 
-    fn budget_by_id(
-        &self,
-        id: &BudgetId,
-    ) -> impl Future<Output = Option<StorageBudget>> + Send;
+    async fn budget_by_id(&self, id: &BudgetId) -> Option<StorageBudget>;
 
-    fn budgets(
-        &self,
-        from: Option<Cursor>,
-        limit: usize,
-    ) -> impl Future<Output = Page<StorageBudget>> + Send;
+    async fn budgets(&self, from: Option<Cursor>, limit: usize) -> Page<StorageBudget>;
 }
