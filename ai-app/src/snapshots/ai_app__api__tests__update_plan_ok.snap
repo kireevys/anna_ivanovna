@@ -1,6 +1,6 @@
 ---
 source: ai-app/src/api.rs
-expression: "TestResult::Ok\n{ draft: updated, stored: api.get_plan(&TEST_USER_ID.into()).unwrap().plan }"
+expression: "TestResult::Ok\n{\n    draft: updated, stored:\n    api.get_plan(&TEST_USER_ID.into()).await.unwrap().plan\n}"
 ---
 {
   "status": "Ok",
@@ -20,11 +20,14 @@ expression: "TestResult::Ok\n{ draft: updated, stored: api.get_plan(&TEST_USER_I
     "expenses": [
       {
         "name": "Ипотека",
-        "value": {
-          "MONEY": {
-            "value": {
-              "value": "80000",
-              "currency": "RUB"
+        "kind": {
+          "type": "envelope",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "80000",
+                "currency": "RUB"
+              }
             }
           }
         },
@@ -48,11 +51,14 @@ expression: "TestResult::Ok\n{ draft: updated, stored: api.get_plan(&TEST_USER_I
     "expenses": [
       {
         "name": "Ипотека",
-        "value": {
-          "MONEY": {
-            "value": {
-              "value": "80000",
-              "currency": "RUB"
+        "kind": {
+          "type": "envelope",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "80000",
+                "currency": "RUB"
+              }
             }
           }
         },

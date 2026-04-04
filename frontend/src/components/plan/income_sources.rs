@@ -5,7 +5,7 @@ use yew::prelude::*;
 use crate::{
     api::ApiClient,
     components::IncomeModal,
-    presentation::{income::SourceKind, plan::IncomeSource},
+    presentation::{income::SourceKind, plan::read::IncomeSource},
 };
 
 #[derive(Properties, PartialEq)]

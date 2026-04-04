@@ -1,0 +1,16 @@
+---
+source: ai-core/src/planning/tests.rs
+expression: "serde_json::to_value(&expense).unwrap()"
+---
+{
+  "category": "Быт",
+  "kind": {
+    "type": "envelope",
+    "value": {
+      "RATE": {
+        "value": "30"
+      }
+    }
+  },
+  "name": "Продукты"
+}

@@ -10,7 +10,10 @@ use crate::{
     },
     components::{AppLayout, WelcomeScreen},
     config::API_V1_BASE_URL,
-    presentation::{history::HistoryEntry, plan::Plan},
+    presentation::{
+        history::HistoryEntry,
+        plan::{editable, read::Plan},
+    },
 };
 use rust_decimal::Decimal;
 use std::{rc::Rc, str::FromStr};
@@ -96,8 +99,8 @@ struct PlanState {
     data: DataState<Plan>,
     meta: Option<StoragePlanFrontend>,
     mode: PlanMode,
-    incomes: Vec<crate::presentation::editable_plan::EditableIncomeSource>,
-    expenses: Vec<crate::presentation::editable_plan::EditableExpense>,
+    incomes: Vec<editable::IncomeSource>,
+    expenses: Vec<editable::Expense>,
     validation: PlanValidation,
     save_state: SaveState,
     edited_core_plan: Option<ai_core::plan::Plan>,
@@ -117,17 +120,11 @@ impl PlanState {
         self.mode = mode;
     }
 
-    fn set_incomes(
-        &mut self,
-        incomes: Vec<crate::presentation::editable_plan::EditableIncomeSource>,
-    ) {
+    fn set_incomes(&mut self, incomes: Vec<editable::IncomeSource>) {
         self.incomes = incomes;
     }
 
-    fn set_expenses(
-        &mut self,
-        expenses: Vec<crate::presentation::editable_plan::EditableExpense>,
-    ) {
+    fn set_expenses(&mut self, expenses: Vec<editable::Expense>) {
         self.expenses = expenses;
     }
 
@@ -145,7 +142,7 @@ impl PlanState {
         Self::validate_named_items(
             self.incomes
                 .iter()
-                .map(|i| (i.name.as_str(), i.amount.as_str(), i.is_valid)),
+                .map(|i| (i.name.as_str(), i.amount.as_str())),
             "дохода",
             &mut format_messages,
         );
@@ -153,10 +150,19 @@ impl PlanState {
         Self::validate_named_items(
             self.expenses
                 .iter()
-                .map(|e| (e.name.as_str(), e.amount.as_str(), e.is_valid)),
+                .map(|e| (e.name.as_str(), e.primary_amount())),
             "расхода",
             &mut format_messages,
         );
+
+        for expense in &self.expenses {
+            if expense.active_type == editable::ActiveType::Credit {
+                for error in expense.credit.validation_errors() {
+                    let label = Self::item_display_name(&expense.name, "Расход");
+                    format_messages.push(format!("{label}: {error}"));
+                }
+            }
+        }
 
         if !format_messages.is_empty() {
             self.validation = PlanValidation::FormatInvalid {
@@ -169,8 +175,7 @@ impl PlanState {
             let mut business_messages = Vec::new();
 
             for income in &self.incomes {
-                if income.is_valid
-                    && !income.amount.is_empty()
+                if !income.amount.is_empty()
                     && let Ok(v) = Decimal::from_str(&income.amount)
                     && v <= Decimal::ZERO
                 {
@@ -182,9 +187,9 @@ impl PlanState {
             }
 
             for expense in &self.expenses {
-                if expense.is_valid
-                    && !expense.amount.is_empty()
-                    && let Ok(v) = Decimal::from_str(&expense.amount)
+                let amount_str = expense.primary_amount();
+                if !amount_str.is_empty()
+                    && let Ok(v) = Decimal::from_str(amount_str)
                     && v <= Decimal::ZERO
                 {
                     business_messages.push(format!(
@@ -214,14 +219,14 @@ impl PlanState {
     }
 
     fn validate_named_items<'a>(
-        items: impl Iterator<Item = (&'a str, &'a str, bool)>,
+        items: impl Iterator<Item = (&'a str, &'a str)>,
         label: &str,
         messages: &mut Vec<String>,
     ) {
         let items: Vec<_> = items.collect();
 
-        for &(name, amount, is_valid) in &items {
-            if !is_valid && !amount.is_empty() {
+        for &(name, amount) in &items {
+            if !amount.is_empty() && Decimal::from_str(amount).is_err() {
                 messages.push(format!(
                     "{}: некорректное число",
                     Self::item_display_name(name, label),
@@ -229,16 +234,16 @@ impl PlanState {
             }
         }
 
-        if items.iter().any(|&(name, _, _)| name.trim().is_empty()) {
+        if items.iter().any(|&(name, _)| name.trim().is_empty()) {
             messages.push(format!("Не указано название {label}"));
         }
 
-        if items.iter().any(|&(_, amount, _)| amount.is_empty()) {
+        if items.iter().any(|&(_, amount)| amount.is_empty()) {
             messages.push(format!("Не указана сумма {label}"));
         }
 
         let mut seen = std::collections::HashSet::new();
-        for &(name, _, _) in &items {
+        for &(name, _) in &items {
             let trimmed = name.trim().to_lowercase();
             if !trimmed.is_empty() && !seen.insert(trimmed) {
                 messages.push(format!(
@@ -344,8 +349,8 @@ pub enum AppMsg {
     PlanLoaded(Result<StoragePlanFrontend, ApiError>),
     EnterEditMode,
     CancelEditMode,
-    IncomeSourcesChanged(Vec<crate::presentation::editable_plan::EditableIncomeSource>),
-    ExpensesChanged(Vec<crate::presentation::editable_plan::EditableExpense>),
+    IncomeSourcesChanged(Vec<editable::IncomeSource>),
+    ExpensesChanged(Vec<editable::Expense>),
     SavePlan,
     PlanSaveFinished(Result<(), ApiError>),
     TemplatesLoaded(Result<Vec<Collection>, String>),

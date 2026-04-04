@@ -65,14 +65,14 @@ pub fn collections() -> Vec<Collection> {
         plan: Plan::build(
             std::slice::from_ref(&default_income),
             &[
-                Expense::new(
+                Expense::envelope(
                     "Заплати себе первому".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(10),
                     },
                     Some("Капитал".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "На жизнь".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(90),
@@ -94,21 +94,21 @@ pub fn collections() -> Vec<Collection> {
         plan: Plan::build(
             std::slice::from_ref(&default_income),
             &[
-                Expense::new(
+                Expense::envelope(
                     "Заплати себе первому".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(20),
                     },
                     Some("Капитал".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Необходимое".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(50),
                     },
                     Some("На жизнь".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Для удовольствия".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(30),
@@ -130,21 +130,21 @@ pub fn collections() -> Vec<Collection> {
         plan: Plan::build(
             std::slice::from_ref(&default_income),
             &[
-                Expense::new(
+                Expense::envelope(
                     "Заплати себе первому".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(10),
                     },
                     Some("Капитал".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Необходимое".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(70),
                     },
                     Some("На жизнь".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Погашение долгов".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(20),
@@ -166,28 +166,28 @@ pub fn collections() -> Vec<Collection> {
         plan: Plan::build(
             std::slice::from_ref(&default_income),
             &[
-                Expense::new(
+                Expense::envelope(
                     "Заплати себе первому".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(10),
                     },
                     Some("Капитал".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Необходимое".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(50),
                     },
                     Some("На жизнь".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Большая цель".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(20),
                     },
                     Some("Будущее".to_string()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Приумножай".to_string(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(20),

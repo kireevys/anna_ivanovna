@@ -436,14 +436,14 @@ mod tests {
                 },
             )],
             &[
-                Expense::new(
+                Expense::envelope(
                     "Аренда".into(),
                     ExpenseValue::MONEY {
                         value: Money::new_rub(dec!(30000)),
                     },
                     Some("Жильё".into()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Накопления".into(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(20),

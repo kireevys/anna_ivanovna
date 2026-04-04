@@ -20,9 +20,12 @@ expression: "TestResult::Err { draft, error: err.to_string() }"
     "expenses": [
       {
         "name": "Всё",
-        "value": {
-          "RATE": {
-            "value": "101"
+        "kind": {
+          "type": "envelope",
+          "value": {
+            "RATE": {
+              "value": "101"
+            }
           }
         },
         "category": null

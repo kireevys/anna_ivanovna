@@ -73,6 +73,10 @@ cargo build --release
 cargo install --path .
 ```
 
+## 🎨 Иконки
+
+Используем [Lucide](https://lucide.dev) — inline SVG, без внешних зависимостей. Иконки добавляются по мере необходимости в `frontend/src/components/icons.rs`.
+
 ## 🤖 CI/CD
 
 Проект использует GitHub Actions для автоматизации ключевых процессов:

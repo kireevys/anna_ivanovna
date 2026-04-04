@@ -4,18 +4,29 @@ use rust_decimal::Decimal;
 
 use ai_core::finance::{Money, Percentage};
 
-use crate::presentation::{
-    editable_plan::{EditableExpense, EditableExpenseKind},
-    formatting::FormattedMoney,
+use crate::{
+    components::icons::XIcon,
+    presentation::{
+        formatting::FormattedMoney,
+        plan::editable::{ActiveType, Expense, ExpenseType, ValueKind},
+    },
 };
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct ExpensesEditorProps {
-    pub expenses: Vec<EditableExpense>,
+    pub expenses: Vec<Expense>,
     pub total_income: Option<Decimal>,
-    pub on_change: Callback<Vec<EditableExpense>>,
+    pub on_change: Callback<Vec<Expense>>,
+}
+
+pub enum CreditField {
+    MonthlyPayment,
+    TotalAmount,
+    InterestRate,
+    TermMonths,
+    StartDate,
 }
 
 pub enum ExpensesEditorMsg {
@@ -25,7 +36,7 @@ pub enum ExpensesEditorMsg {
     },
     KindChanged {
         pos: usize,
-        kind: EditableExpenseKind,
+        kind: ValueKind,
     },
     NameChanged {
         pos: usize,
@@ -33,6 +44,15 @@ pub enum ExpensesEditorMsg {
     },
     CategoryChanged {
         pos: usize,
+        value: String,
+    },
+    ExpenseTypeChanged {
+        pos: usize,
+        is_credit: bool,
+    },
+    CreditFieldChanged {
+        pos: usize,
+        field: CreditField,
         value: String,
     },
     StartAdding,
@@ -60,13 +80,13 @@ impl Component for ExpensesEditor {
         match msg {
             ExpensesEditorMsg::AmountChanged { pos, value } => {
                 if let Some(expense) = updated.get_mut(pos) {
-                    expense.amount = value;
+                    expense.envelope.amount = value;
                 }
                 ctx.props().on_change.emit(updated);
             }
             ExpensesEditorMsg::KindChanged { pos, kind } => {
                 if let Some(expense) = updated.get_mut(pos) {
-                    expense.kind = kind;
+                    expense.envelope.value_kind = kind;
                 }
                 ctx.props().on_change.emit(updated);
             }
@@ -83,9 +103,32 @@ impl Component for ExpensesEditor {
                 }
                 ctx.props().on_change.emit(updated);
             }
+            ExpensesEditorMsg::ExpenseTypeChanged { pos, is_credit } => {
+                if let Some(expense) = updated.get_mut(pos) {
+                    expense.active_type = if is_credit {
+                        ActiveType::Credit
+                    } else {
+                        ActiveType::Envelope
+                    };
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            ExpensesEditorMsg::CreditFieldChanged { pos, field, value } => {
+                if let Some(expense) = updated.get_mut(pos) {
+                    let credit = &mut expense.credit;
+                    match field {
+                        CreditField::MonthlyPayment => credit.monthly_payment = value,
+                        CreditField::TotalAmount => credit.total_amount = value,
+                        CreditField::InterestRate => credit.interest_rate = value,
+                        CreditField::TermMonths => credit.term_months = value,
+                        CreditField::StartDate => credit.start_date = value,
+                    }
+                }
+                ctx.props().on_change.emit(updated);
+            }
             ExpensesEditorMsg::StartAdding => {
                 self.adding = true;
-                updated.insert(0, EditableExpense::empty());
+                updated.insert(0, Expense::empty());
                 ctx.props().on_change.emit(updated);
             }
             ExpensesEditorMsg::ConfirmNew => {
@@ -157,16 +200,8 @@ impl Component for ExpensesEditor {
 }
 
 impl ExpensesEditor {
-    fn render_new_expense_card(
-        &self,
-        ctx: &Context<Self>,
-        expense: &EditableExpense,
-    ) -> Html {
-        let amount_class = if expense.is_valid || expense.amount.is_empty() {
-            "input input-bordered w-full"
-        } else {
-            "input input-bordered input-error w-full"
-        };
+    fn render_new_expense_card(&self, ctx: &Context<Self>, expense: &Expense) -> Html {
+        let is_credit = expense.active_type == ActiveType::Credit;
         html! {
             <div class="card bg-base-200 shadow border-2 border-primary">
                 <div class="card-body p-3 space-y-2">
@@ -192,26 +227,8 @@ impl ExpensesEditor {
                             })}
                         />
                     </div>
-                    <div class="flex items-center gap-2">
-                        <div class="join">
-                            { Self::render_kind_button(ctx, 0, EditableExpenseKind::Money, "₽", expense.kind == EditableExpenseKind::Money) }
-                            { Self::render_kind_button(ctx, 0, EditableExpenseKind::Rate, "%", expense.kind == EditableExpenseKind::Rate) }
-                        </div>
-                        <input
-                            class={amount_class}
-                            placeholder="Сумма"
-                            value={expense.amount.clone()}
-                            oninput={ctx.link().callback(|e: InputEvent| {
-                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
-                                ExpensesEditorMsg::AmountChanged { pos: 0, value }
-                            })}
-                        />
-                    </div>
-                    {if expense.kind == EditableExpenseKind::Rate {
-                        Self::render_rate_hint(ctx.props().total_income, &expense.amount)
-                    } else {
-                        html! {}
-                    }}
+                    { Self::render_type_toggle(ctx, 0, is_credit) }
+                    { Self::render_expense_fields(ctx, 0, &expense.expense_type()) }
                     <div class="flex gap-2 justify-end">
                         <button
                             class="btn btn-sm btn-ghost"
@@ -235,13 +252,9 @@ impl ExpensesEditor {
         &self,
         ctx: &Context<Self>,
         pos: usize,
-        expense: &EditableExpense,
+        expense: &Expense,
     ) -> Html {
-        let amount_class = if expense.is_valid || expense.amount.is_empty() {
-            "input input-bordered w-full"
-        } else {
-            "input input-bordered input-error w-full"
-        };
+        let is_credit = expense.active_type == ActiveType::Credit;
         html! {
             <div class="card bg-base-100 shadow">
                 <div class="card-body p-3 space-y-2">
@@ -269,29 +282,173 @@ impl ExpensesEditor {
                             class="btn btn-sm btn-ghost btn-square text-error"
                             onclick={ctx.link().callback(move |_| ExpensesEditorMsg::DeleteExpense { pos })}
                         >
-                            {"✕"}
+                            <XIcon />
                         </button>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <div class="join">
-                            { Self::render_kind_button(ctx, pos, EditableExpenseKind::Money, "₽", expense.kind == EditableExpenseKind::Money) }
-                            { Self::render_kind_button(ctx, pos, EditableExpenseKind::Rate, "%", expense.kind == EditableExpenseKind::Rate) }
-                        </div>
+                    { Self::render_type_toggle(ctx, pos, is_credit) }
+                    { Self::render_expense_fields(ctx, pos, &expense.expense_type()) }
+                </div>
+            </div>
+        }
+    }
+
+    fn render_type_toggle(ctx: &Context<Self>, pos: usize, is_credit: bool) -> Html {
+        let envelope_class = if !is_credit {
+            "btn btn-sm join-item btn-primary"
+        } else {
+            "btn btn-sm join-item btn-outline"
+        };
+        let credit_class = if is_credit {
+            "btn btn-sm join-item btn-primary"
+        } else {
+            "btn btn-sm join-item btn-outline"
+        };
+        html! {
+            <div class="join">
+                <button
+                    class={envelope_class}
+                    onclick={ctx.link().callback(move |_| ExpensesEditorMsg::ExpenseTypeChanged { pos, is_credit: false })}
+                >
+                    {"Конверт"}
+                </button>
+                <button
+                    class={credit_class}
+                    onclick={ctx.link().callback(move |_| ExpensesEditorMsg::ExpenseTypeChanged { pos, is_credit: true })}
+                >
+                    {"Кредит"}
+                </button>
+            </div>
+        }
+    }
+
+    fn render_expense_fields(
+        ctx: &Context<Self>,
+        pos: usize,
+        expense_type: &ExpenseType,
+    ) -> Html {
+        match expense_type {
+            ExpenseType::Envelope { value_kind, amount } => {
+                Self::render_envelope_fields(ctx, pos, *value_kind, amount)
+            }
+            ExpenseType::Credit {
+                monthly_payment,
+                total_amount,
+                interest_rate,
+                term_months,
+                start_date,
+            } => Self::render_credit_fields(
+                ctx,
+                pos,
+                monthly_payment,
+                total_amount,
+                interest_rate,
+                term_months,
+                start_date,
+            ),
+        }
+    }
+
+    fn render_envelope_fields(
+        ctx: &Context<Self>,
+        pos: usize,
+        value_kind: ValueKind,
+        amount: &str,
+    ) -> Html {
+        let amount_owned = amount.to_owned();
+        html! {
+            <>
+                <div class="flex items-center gap-2">
+                    <div class="join">
+                        { Self::render_kind_button(ctx, pos, ValueKind::Money, "₽", value_kind == ValueKind::Money) }
+                        { Self::render_kind_button(ctx, pos, ValueKind::Rate, "%", value_kind == ValueKind::Rate) }
+                    </div>
+                    <input
+                        class="input input-bordered w-full"
+                        placeholder="Сумма"
+                        value={amount_owned.clone()}
+                        oninput={ctx.link().callback(move |e: InputEvent| {
+                            let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                            ExpensesEditorMsg::AmountChanged { pos, value }
+                        })}
+                    />
+                </div>
+                {if value_kind == ValueKind::Rate {
+                    Self::render_rate_hint(ctx.props().total_income, &amount_owned)
+                } else {
+                    html! {}
+                }}
+            </>
+        }
+    }
+
+    fn render_credit_fields(
+        ctx: &Context<Self>,
+        pos: usize,
+        monthly_payment: &str,
+        total_amount: &str,
+        interest_rate: &str,
+        term_months: &str,
+        start_date: &str,
+    ) -> Html {
+        html! {
+            <div class="space-y-2">
+                <div>
+                    <label class="text-xs text-base-content/60">{"Ежемесячный платёж"}</label>
+                    <input
+                        class="input input-bordered input-sm w-full"
+                        value={monthly_payment.to_owned()}
+                        oninput={ctx.link().callback(move |e: InputEvent| {
+                            let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                            ExpensesEditorMsg::CreditFieldChanged { pos, field: CreditField::MonthlyPayment, value }
+                        })}
+                    />
+                </div>
+                <div>
+                    <label class="text-xs text-base-content/60">{"Сумма кредита"}</label>
+                    <input
+                        class="input input-bordered input-sm w-full"
+                        value={total_amount.to_owned()}
+                        oninput={ctx.link().callback(move |e: InputEvent| {
+                            let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                            ExpensesEditorMsg::CreditFieldChanged { pos, field: CreditField::TotalAmount, value }
+                        })}
+                    />
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="flex-1">
+                        <label class="text-xs text-base-content/60">{"Ставка, %"}</label>
                         <input
-                            class={amount_class}
-                            placeholder="Сумма"
-                            value={expense.amount.clone()}
+                            class="input input-bordered input-sm w-full"
+                            value={interest_rate.to_owned()}
                             oninput={ctx.link().callback(move |e: InputEvent| {
                                 let value = e.target_unchecked_into::<HtmlInputElement>().value();
-                                ExpensesEditorMsg::AmountChanged { pos, value }
+                                ExpensesEditorMsg::CreditFieldChanged { pos, field: CreditField::InterestRate, value }
                             })}
                         />
                     </div>
-                    {if expense.kind == EditableExpenseKind::Rate {
-                        Self::render_rate_hint(ctx.props().total_income, &expense.amount)
-                    } else {
-                        html! {}
-                    }}
+                    <div class="w-24">
+                        <label class="text-xs text-base-content/60">{"Срок, мес."}</label>
+                        <input
+                            class="input input-bordered input-sm w-full"
+                            value={term_months.to_owned()}
+                            oninput={ctx.link().callback(move |e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                ExpensesEditorMsg::CreditFieldChanged { pos, field: CreditField::TermMonths, value }
+                            })}
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-base-content/60">{"Дата оформления"}</label>
+                    <input
+                        type="date"
+                        class="input input-bordered input-sm w-full"
+                        value={start_date.to_owned()}
+                        oninput={ctx.link().callback(move |e: InputEvent| {
+                            let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                            ExpensesEditorMsg::CreditFieldChanged { pos, field: CreditField::StartDate, value }
+                        })}
+                    />
                 </div>
             </div>
         }
@@ -316,7 +473,7 @@ impl ExpensesEditor {
     fn render_kind_button(
         ctx: &Context<Self>,
         pos: usize,
-        kind: EditableExpenseKind,
+        kind: ValueKind,
         label: &str,
         active: bool,
     ) -> Html {

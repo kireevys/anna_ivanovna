@@ -1,0 +1,22 @@
+---
+source: ai-core/src/planning/tests.rs
+expression: json
+---
+{
+  "category": "Кредиты",
+  "kind": {
+    "interest_rate": "12",
+    "monthly_payment": {
+      "currency": "RUB",
+      "value": "15000"
+    },
+    "start_date": "2025-01-01",
+    "term_months": 36,
+    "total_amount": {
+      "currency": "RUB",
+      "value": "500000"
+    },
+    "type": "credit"
+  },
+  "name": "Ипотека"
+}

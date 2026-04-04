@@ -179,7 +179,7 @@ mod test_distribute {
     fn income_from_unknown_source() {
         let source = other_source("Gold goose", rub(1.0));
         let source_1 = other_source("Unknown", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.5) },
             None,
@@ -193,7 +193,7 @@ mod test_distribute {
     #[test]
     fn expense_is_money_and_less_than_incomes() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.5) },
             None,
@@ -213,7 +213,7 @@ mod test_distribute {
     #[test]
     fn expense_is_money_and_more_than_incomes() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(1.0) },
             None,
@@ -233,7 +233,7 @@ mod test_distribute {
     #[test]
     fn expense_is_full_by_rate() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(100),
@@ -255,7 +255,7 @@ mod test_distribute {
     #[test]
     fn expense_is_half_by_rate() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(50),
@@ -277,7 +277,7 @@ mod test_distribute {
     #[test]
     fn expense_is_zero_by_rate() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(0),
@@ -299,7 +299,7 @@ mod test_distribute {
     #[test]
     fn expense_is_one_percent_by_rate() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(1),
@@ -322,13 +322,13 @@ mod test_distribute {
     fn expenses_with_and_without_categories() {
         let source = other_source("Gold goose", rub(1.0));
 
-        let expense_no_category = Expense::new(
+        let expense_no_category = Expense::envelope(
             "Еда".to_string(),
             ExpenseValue::MONEY { value: rub(0.3) },
             None,
         );
 
-        let expense_with_category = Expense::new(
+        let expense_with_category = Expense::envelope(
             "Развлечения".to_string(),
             ExpenseValue::MONEY { value: rub(0.2) },
             Some("Досуг".to_string()),
@@ -353,7 +353,7 @@ mod test_distribute {
     fn expense_with_category_only() {
         let source = other_source("Gold goose", rub(1.0));
 
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Кино".to_string(),
             ExpenseValue::MONEY { value: rub(0.4) },
             Some("Развлечения".to_string()),

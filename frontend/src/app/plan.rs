@@ -1,6 +1,6 @@
 use crate::{
     api::{ApiError, StoragePlanFrontend},
-    presentation::plan::Plan,
+    presentation::plan::{editable, read::Plan},
 };
 use ai_core::{finance::Percentage, planning::ExpenseValue};
 use rust_decimal::Decimal;
@@ -34,14 +34,8 @@ impl App {
         match result {
             Ok(storage_plan) => {
                 self.plan.set_meta(Some(storage_plan.clone()));
-                let incomes =
-                    crate::presentation::editable_plan::incomes_from_core_plan(
-                        &storage_plan.plan,
-                    );
-                let expenses =
-                    crate::presentation::editable_plan::expenses_from_core_plan(
-                        &storage_plan.plan,
-                    );
+                let incomes = editable::incomes_from_core_plan(&storage_plan.plan);
+                let expenses = editable::expenses_from_core_plan(&storage_plan.plan);
                 self.plan.set_incomes(incomes);
                 self.plan.set_expenses(expenses);
                 self.plan.set_mode(PlanMode::View);
@@ -69,29 +63,22 @@ impl App {
 
     pub(crate) fn handle_enter_edit_mode(&mut self) -> bool {
         if let Some(storage_plan) = self.plan.meta.clone() {
-            let incomes = crate::presentation::editable_plan::incomes_from_core_plan(
-                &storage_plan.plan,
-            );
-            let expenses = crate::presentation::editable_plan::expenses_from_core_plan(
-                &storage_plan.plan,
-            );
+            let incomes = editable::incomes_from_core_plan(&storage_plan.plan);
+            let expenses = editable::expenses_from_core_plan(&storage_plan.plan);
             self.plan.set_incomes(incomes);
             self.plan.set_expenses(expenses);
             self.plan.set_mode(PlanMode::Edit);
             self.plan.reset_validation();
+            self.rebuild_plan_and_validate();
         }
         true
     }
 
     pub(crate) fn handle_cancel_edit_mode(&mut self) -> bool {
         if let Some(storage_plan) = self.plan.meta.clone() {
-            let incomes = crate::presentation::editable_plan::incomes_from_core_plan(
-                &storage_plan.plan,
-            );
+            let incomes = editable::incomes_from_core_plan(&storage_plan.plan);
             self.plan.set_incomes(incomes);
-            let expenses = crate::presentation::editable_plan::expenses_from_core_plan(
-                &storage_plan.plan,
-            );
+            let expenses = editable::expenses_from_core_plan(&storage_plan.plan);
             self.plan.set_expenses(expenses);
             self.plan
                 .set_data(DataState::Loaded(Plan::from(&storage_plan.plan)));
@@ -104,36 +91,18 @@ impl App {
 
     pub(crate) fn handle_income_sources_changed(
         &mut self,
-        incomes: Vec<crate::presentation::editable_plan::EditableIncomeSource>,
+        incomes: Vec<editable::IncomeSource>,
     ) -> bool {
-        let validated: Vec<_> = incomes
-            .into_iter()
-            .map(|mut income| {
-                income.is_valid =
-                    rust_decimal::Decimal::from_str_exact(&income.amount).is_ok();
-                income
-            })
-            .collect();
-
-        self.plan.set_incomes(validated);
+        self.plan.set_incomes(incomes);
         self.rebuild_plan_and_validate();
         true
     }
 
     pub(crate) fn handle_expenses_changed(
         &mut self,
-        expenses: Vec<crate::presentation::editable_plan::EditableExpense>,
+        expenses: Vec<editable::Expense>,
     ) -> bool {
-        let validated: Vec<_> = expenses
-            .into_iter()
-            .map(|mut expense| {
-                expense.is_valid =
-                    rust_decimal::Decimal::from_str_exact(&expense.amount).is_ok();
-                expense
-            })
-            .collect();
-
-        self.plan.set_expenses(validated);
+        self.plan.set_expenses(expenses);
         self.rebuild_plan_and_validate();
         true
     }
@@ -148,7 +117,7 @@ impl App {
             return;
         };
 
-        let updated_plan = crate::presentation::editable_plan::build_updated_plan(
+        let updated_plan = editable::build_updated_plan(
             &base_plan,
             &self.plan.incomes,
             &self.plan.expenses,
@@ -167,7 +136,7 @@ impl App {
         let non_positive_expenses_money = updated_plan
             .expenses
             .iter()
-            .filter_map(|e| match &e.value {
+            .filter_map(|e| match e.value() {
                 ExpenseValue::MONEY { value } => Some(value.value),
                 _ => None,
             })
@@ -175,11 +144,11 @@ impl App {
         let non_positive_expenses_rate = updated_plan
             .expenses
             .iter()
-            .filter_map(|e| match &e.value {
+            .filter_map(|e| match e.value() {
                 ExpenseValue::RATE { value } => Some(value),
                 _ => None,
             })
-            .any(|p| *p <= Percentage::ZERO);
+            .any(|p| p <= Percentage::ZERO);
         let is_empty =
             updated_plan.sources.is_empty() || updated_plan.expenses.is_empty();
         let business_invalid = is_empty
@@ -280,9 +249,8 @@ impl App {
     }
 
     pub(crate) fn handle_select_template(&mut self, plan: ai_core::plan::Plan) -> bool {
-        let incomes = crate::presentation::editable_plan::incomes_from_core_plan(&plan);
-        let expenses =
-            crate::presentation::editable_plan::expenses_from_core_plan(&plan);
+        let incomes = editable::incomes_from_core_plan(&plan);
+        let expenses = editable::expenses_from_core_plan(&plan);
         self.plan.set_incomes(incomes);
         self.plan.set_expenses(expenses);
         self.plan.edited_core_plan = Some(plan.clone());

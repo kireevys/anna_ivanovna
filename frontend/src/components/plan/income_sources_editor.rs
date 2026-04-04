@@ -1,15 +1,20 @@
+use std::str::FromStr;
+
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use crate::presentation::{
-    editable_plan::{EditableIncomeKind, EditableIncomeSource},
-    income::{OTHER_LABEL, SALARY_LABEL, tax_from_gross},
+use crate::{
+    components::icons::XIcon,
+    presentation::{
+        income::{OTHER_LABEL, SALARY_LABEL, tax_from_gross},
+        plan::editable,
+    },
 };
 
 #[derive(Properties, PartialEq)]
 pub struct IncomeSourcesEditorProps {
-    pub sources: Vec<EditableIncomeSource>,
-    pub on_change: Callback<Vec<EditableIncomeSource>>,
+    pub sources: Vec<editable::IncomeSource>,
+    pub on_change: Callback<Vec<editable::IncomeSource>>,
 }
 
 pub enum IncomeSourcesEditorMsg {
@@ -23,7 +28,7 @@ pub enum IncomeSourcesEditorMsg {
     },
     KindChanged {
         pos: usize,
-        kind: EditableIncomeKind,
+        kind: editable::IncomeKind,
     },
     TaxRateChanged {
         pos: usize,
@@ -78,7 +83,7 @@ impl Component for IncomeSourcesEditor {
             }
             IncomeSourcesEditorMsg::StartAdding => {
                 self.adding = true;
-                updated.insert(0, EditableIncomeSource::empty());
+                updated.insert(0, editable::IncomeSource::empty());
                 ctx.props().on_change.emit(updated);
             }
             IncomeSourcesEditorMsg::ConfirmNew => {
@@ -141,18 +146,20 @@ impl IncomeSourcesEditor {
     fn render_new_source_card(
         &self,
         ctx: &Context<Self>,
-        source: &EditableIncomeSource,
+        source: &editable::IncomeSource,
     ) -> Html {
-        let amount_class = if source.is_valid || source.amount.is_empty() {
+        let is_valid = source.amount.is_empty()
+            || rust_decimal::Decimal::from_str(&source.amount).is_ok();
+        let amount_class = if is_valid {
             "input input-bordered w-full"
         } else {
             "input input-bordered input-error w-full"
         };
         let amount_label = match source.kind {
-            EditableIncomeKind::Salary => "Gross",
-            EditableIncomeKind::Other => "Сумма",
+            editable::IncomeKind::Salary => "Gross",
+            editable::IncomeKind::Other => "Сумма",
         };
-        let is_salary = source.kind == EditableIncomeKind::Salary;
+        let is_salary = source.kind == editable::IncomeKind::Salary;
         html! {
             <div class="card bg-base-200 shadow border-2 border-primary">
                 <div class="card-body p-4 space-y-2">
@@ -209,18 +216,20 @@ impl IncomeSourcesEditor {
         &self,
         ctx: &Context<Self>,
         pos: usize,
-        source: &EditableIncomeSource,
+        source: &editable::IncomeSource,
     ) -> Html {
-        let amount_class = if source.is_valid || source.amount.is_empty() {
+        let is_valid = source.amount.is_empty()
+            || rust_decimal::Decimal::from_str(&source.amount).is_ok();
+        let amount_class = if is_valid {
             "input input-bordered w-full"
         } else {
             "input input-bordered input-error w-full"
         };
         let amount_label = match source.kind {
-            EditableIncomeKind::Salary => "Gross",
-            EditableIncomeKind::Other => "Сумма",
+            editable::IncomeKind::Salary => "Gross",
+            editable::IncomeKind::Other => "Сумма",
         };
-        let is_salary = source.kind == EditableIncomeKind::Salary;
+        let is_salary = source.kind == editable::IncomeKind::Salary;
         html! {
             <div class="card bg-base-200 shadow">
                 <div class="card-body p-4 space-y-2">
@@ -238,7 +247,7 @@ impl IncomeSourcesEditor {
                             class="btn btn-sm btn-ghost btn-square text-error"
                             onclick={ctx.link().callback(move |_| IncomeSourcesEditorMsg::DeleteSource { pos })}
                         >
-                            {"✕"}
+                            <XIcon />
                         </button>
                     </div>
                     { Self::render_kind_select(ctx, pos, source.kind) }
@@ -269,19 +278,19 @@ impl IncomeSourcesEditor {
     fn render_kind_select(
         ctx: &Context<Self>,
         pos: usize,
-        current: EditableIncomeKind,
+        current: editable::IncomeKind,
     ) -> Html {
-        let salary_selected = current == EditableIncomeKind::Salary;
-        let other_selected = current == EditableIncomeKind::Other;
+        let salary_selected = current == editable::IncomeKind::Salary;
+        let other_selected = current == editable::IncomeKind::Other;
         html! {
             <select
                 class="select select-bordered select-sm w-full"
                 onchange={ctx.link().callback(move |e: Event| {
                     let value = e.target_unchecked_into::<HtmlInputElement>().value();
                     let kind = if value == "salary" {
-                        EditableIncomeKind::Salary
+                        editable::IncomeKind::Salary
                     } else {
-                        EditableIncomeKind::Other
+                        editable::IncomeKind::Other
                     };
                     IncomeSourcesEditorMsg::KindChanged { pos, kind }
                 })}

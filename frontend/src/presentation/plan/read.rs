@@ -2,11 +2,14 @@ use std::collections::BTreeMap;
 
 use rust_decimal::Decimal;
 
+use chrono::NaiveDate;
+
 use ai_core::{
     finance::{Money, Percentage},
     plan::Plan as CorePlan,
     planning::{
         Expense as ExpenseCore,
+        ExpenseKind as CoreExpenseKind,
         ExpenseValue as ExpenseValueCore,
         IncomeSource as IncomeSourceCore,
     },
@@ -93,16 +96,42 @@ impl ExpenseValue {
 }
 
 #[derive(Clone, PartialEq)]
+pub enum ExpenseKindView {
+    Envelope,
+    Credit {
+        total_amount: FormattedMoney,
+        interest_rate: FormattedPercentage,
+        term_months: u32,
+        monthly_payment: FormattedMoney,
+        start_date: NaiveDate,
+    },
+}
+
+#[derive(Clone, PartialEq)]
 pub struct Expense {
     pub name: String,
     pub value: ExpenseValue,
+    pub kind: ExpenseKindView,
 }
 
 impl Expense {
     fn from_core(expense: &ExpenseCore, total_income: Money) -> Self {
+        let kind = match &expense.kind {
+            CoreExpenseKind::Envelope { .. } => ExpenseKindView::Envelope,
+            CoreExpenseKind::Credit(credit) => ExpenseKindView::Credit {
+                total_amount: FormattedMoney::from_money(credit.total_amount),
+                interest_rate: FormattedPercentage::from_percentage(
+                    credit.interest_rate.clone(),
+                ),
+                term_months: credit.term_months,
+                monthly_payment: FormattedMoney::from_money(credit.monthly_payment),
+                start_date: credit.start_date,
+            },
+        };
         Self {
             name: expense.name.clone(),
-            value: ExpenseValue::from_core(&expense.value, total_income),
+            value: ExpenseValue::from_core(&expense.value(), total_income),
+            kind,
         }
     }
 }

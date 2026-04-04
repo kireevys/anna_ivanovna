@@ -50,6 +50,7 @@ name = "ai_core"
 version = "0.2.3"
 dependencies = [
  "chrono",
+ "insta",
  "rstest",
  "rust_decimal",
  "rust_decimal_macros",

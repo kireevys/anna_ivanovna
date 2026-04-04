@@ -310,14 +310,14 @@ mod tests {
         Plan::build(
             &[other_source("Зарплата", Money::new_rub(dec!(100000)))],
             &[
-                Expense::new(
+                Expense::envelope(
                     "Аренда".into(),
                     ExpenseValue::MONEY {
                         value: Money::new_rub(dec!(30000)),
                     },
                     Some("Жильё".into()),
                 ),
-                Expense::new(
+                Expense::envelope(
                     "Накопления".into(),
                     ExpenseValue::RATE {
                         value: Percentage::from_int(20),
@@ -387,7 +387,7 @@ mod tests {
         let api = make_api();
         let draft = Plan::build(
             &[other_source("Зарплата", Money::new_rub(dec!(100000)))],
-            &[Expense::new(
+            &[Expense::envelope(
                 "Всё".into(),
                 ExpenseValue::RATE {
                     value: Percentage::from_int(101),
@@ -413,7 +413,7 @@ mod tests {
             .unwrap();
         let updated = Plan::build(
             &[other_source("Фриланс", Money::new_rub(dec!(200000)))],
-            &[Expense::new(
+            &[Expense::envelope(
                 "Ипотека".into(),
                 ExpenseValue::MONEY {
                     value: Money::new_rub(dec!(80000)),
@@ -467,7 +467,7 @@ mod tests {
 
         let updated = Plan::build(
             &[other_source("Фриланс", Money::new_rub(dec!(200000)))],
-            &[Expense::new(
+            &[Expense::envelope(
                 "Ипотека".into(),
                 ExpenseValue::MONEY {
                     value: Money::new_rub(dec!(80000)),

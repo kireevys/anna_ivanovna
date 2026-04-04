@@ -18,11 +18,11 @@ impl TryFrom<Plan> for DistributionWeights {
         let mut rate_plan = HashMap::with_capacity(draft.expenses.len());
         let mut total = Percentage::ZERO;
         for e in draft.expenses {
-            let current = match &e.value {
+            let current = match e.value() {
                 ExpenseValue::MONEY { value } => {
                     Percentage::of(value.value, plan_total.value)
                 }
-                ExpenseValue::RATE { value } => value.clone(),
+                ExpenseValue::RATE { value } => value,
             };
             total += current.clone();
             if total > Percentage::ONE_HUNDRED {
@@ -84,8 +84,8 @@ impl Plan {
         let total_income = self.total_incomes();
         self.expenses
             .iter()
-            .map(|expense| match &expense.value {
-                ExpenseValue::MONEY { value } => *value,
+            .map(|expense| match expense.value() {
+                ExpenseValue::MONEY { value } => value,
                 ExpenseValue::RATE { value } => {
                     Money::new_rub(value.apply_to(total_income.value))
                 }
@@ -139,7 +139,7 @@ mod test_planning {
     #[test]
     fn add_value_expense() {
         let mut draft = Plan::new();
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black hole".to_string(),
             ExpenseValue::MONEY {
                 value: Money::new(dec!(1), Currency::RUB),
@@ -154,7 +154,7 @@ mod test_planning {
     #[test]
     fn add_rate_expense() {
         let mut draft = Plan::new();
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(10),
@@ -185,7 +185,7 @@ mod test_planning {
     #[test]
     fn build_rate_plan_from_rate_expense() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(100),
@@ -212,7 +212,7 @@ mod test_planning {
     #[test]
     fn build_plan_with_overhead_percent() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(101),
@@ -232,14 +232,14 @@ mod test_planning {
     #[test]
     fn build_rate_with_overhead_total_percent() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense_1 = Expense::new(
+        let expense_1 = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(100),
             },
             None,
         );
-        let expense_2 = Expense::new(
+        let expense_2 = Expense::envelope(
             "Little bit".to_string(),
             ExpenseValue::MONEY {
                 value: Money::new_rub(dec!(0.01)),
@@ -259,7 +259,7 @@ mod test_planning {
     #[test]
     fn build_rate_when_has_rest() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense = Expense::new(
+        let expense = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(50),
@@ -285,17 +285,17 @@ mod test_planning {
     #[test]
     fn build_full_plan() {
         let source = other_source("Gold goose", rub(1.0));
-        let expense_1 = Expense::new(
+        let expense_1 = Expense::envelope(
             "Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.25) },
             None,
         );
-        let expense_2 = Expense::new(
+        let expense_2 = Expense::envelope(
             "Yet Another Black Hole".to_string(),
             ExpenseValue::MONEY { value: rub(0.5) },
             None,
         );
-        let expense_3 = Expense::new(
+        let expense_3 = Expense::envelope(
             "Rate Black Hole".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::QUARTER,
@@ -326,21 +326,21 @@ mod test_planning {
     #[test]
     fn test_plan_display() {
         let source = other_source("Зарплата", rub(100000.0));
-        let expense_1 = Expense::new(
+        let expense_1 = Expense::envelope(
             "Аренда".to_string(),
             ExpenseValue::MONEY {
                 value: rub(25000.0),
             },
             Some("Жизнеобеспечение".to_string()),
         );
-        let expense_2 = Expense::new(
+        let expense_2 = Expense::envelope(
             "Продукты".to_string(),
             ExpenseValue::MONEY {
                 value: rub(20000.0),
             },
             Some("Питание".to_string()),
         );
-        let expense_3 = Expense::new(
+        let expense_3 = Expense::envelope(
             "Развлечения".to_string(),
             ExpenseValue::RATE {
                 value: Percentage::from_int(15),
