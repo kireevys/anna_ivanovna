@@ -1,0 +1,17 @@
+---
+source: ai-core/src/planning/tests.rs
+expression: credit
+---
+{
+  "monthly_payment": {
+    "value": "15000",
+    "currency": "RUB"
+  },
+  "total_amount": {
+    "value": "500000",
+    "currency": "RUB"
+  },
+  "interest_rate": "12",
+  "term_months": 36,
+  "start_date": "2025-01-01"
+}

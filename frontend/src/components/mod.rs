@@ -1,6 +1,7 @@
 mod app_layout;
 mod error;
 mod history;
+pub mod icons;
 mod income_modal;
 mod loading;
 mod plan;

@@ -76,7 +76,7 @@ fn parse_entry(key: &str, value: &str) -> io::Result<Option<BudgetEntry>> {
         ))
     })?;
     let expense_value = ExpenseValue::MONEY { value: money };
-    let expense = Expense::new(key.to_string(), expense_value, None);
+    let expense = Expense::envelope(key.to_string(), expense_value, None);
     Ok(Some(BudgetEntry::new(expense, money)))
 }
 

@@ -5,7 +5,7 @@ use yew::prelude::*;
 use crate::{
     api::ApiClient,
     components::plan::{ExpenseCategories, IncomeSources},
-    presentation::plan::Plan,
+    presentation::plan::read::Plan,
 };
 
 #[derive(Properties, PartialEq)]

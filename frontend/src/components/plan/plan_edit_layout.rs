@@ -7,20 +7,20 @@ use crate::{
         IncomeSourcesEditor,
         SectionCard,
     },
-    presentation::editable_plan::{EditableExpense, EditableIncomeSource},
+    presentation::plan::editable,
 };
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct EditLayoutProps {
-    pub incomes: Vec<EditableIncomeSource>,
-    pub expenses: Vec<EditableExpense>,
+    pub incomes: Vec<editable::IncomeSource>,
+    pub expenses: Vec<editable::Expense>,
     pub total_income: Option<Decimal>,
     pub disable_save: bool,
     pub on_cancel: Callback<()>,
     pub on_save: Callback<()>,
-    pub on_incomes_change: Callback<Vec<EditableIncomeSource>>,
-    pub on_expenses_change: Callback<Vec<EditableExpense>>,
+    pub on_incomes_change: Callback<Vec<editable::IncomeSource>>,
+    pub on_expenses_change: Callback<Vec<editable::Expense>>,
 }
 
 pub struct EditLayout;

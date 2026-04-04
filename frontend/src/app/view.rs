@@ -8,7 +8,7 @@ use crate::{
         TemplateSelector,
         Totals,
     },
-    presentation::plan::Plan,
+    presentation::plan::read::Plan,
 };
 use yew::{Context, Html, html};
 

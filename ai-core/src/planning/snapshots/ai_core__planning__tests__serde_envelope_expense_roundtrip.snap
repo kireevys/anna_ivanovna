@@ -1,0 +1,19 @@
+---
+source: ai-core/src/planning/tests.rs
+expression: json
+---
+{
+  "category": "Быт",
+  "kind": {
+    "type": "envelope",
+    "value": {
+      "MONEY": {
+        "value": {
+          "currency": "RUB",
+          "value": "25000"
+        }
+      }
+    }
+  },
+  "name": "Продукты"
+}

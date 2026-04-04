@@ -1,6 +1,6 @@
 ---
 source: ai-app/src/api.rs
-expression: "TestResult::Ok\n{ draft, stored: api.get_plan(&TEST_USER_ID.into()).unwrap().plan }"
+expression: "TestResult::Ok\n{ draft, stored: api.get_plan(&TEST_USER_ID.into()).await.unwrap().plan }"
 ---
 {
   "status": "Ok",
@@ -20,11 +20,14 @@ expression: "TestResult::Ok\n{ draft, stored: api.get_plan(&TEST_USER_ID.into())
     "expenses": [
       {
         "name": "Аренда",
-        "value": {
-          "MONEY": {
-            "value": {
-              "value": "30000",
-              "currency": "RUB"
+        "kind": {
+          "type": "envelope",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "30000",
+                "currency": "RUB"
+              }
             }
           }
         },
@@ -32,9 +35,12 @@ expression: "TestResult::Ok\n{ draft, stored: api.get_plan(&TEST_USER_ID.into())
       },
       {
         "name": "Накопления",
-        "value": {
-          "RATE": {
-            "value": "20"
+        "kind": {
+          "type": "envelope",
+          "value": {
+            "RATE": {
+              "value": "20"
+            }
           }
         },
         "category": null
@@ -57,11 +63,14 @@ expression: "TestResult::Ok\n{ draft, stored: api.get_plan(&TEST_USER_ID.into())
     "expenses": [
       {
         "name": "Аренда",
-        "value": {
-          "MONEY": {
-            "value": {
-              "value": "30000",
-              "currency": "RUB"
+        "kind": {
+          "type": "envelope",
+          "value": {
+            "MONEY": {
+              "value": {
+                "value": "30000",
+                "currency": "RUB"
+              }
             }
           }
         },
@@ -69,9 +78,12 @@ expression: "TestResult::Ok\n{ draft, stored: api.get_plan(&TEST_USER_ID.into())
       },
       {
         "name": "Накопления",
-        "value": {
-          "RATE": {
-            "value": "20"
+        "kind": {
+          "type": "envelope",
+          "value": {
+            "RATE": {
+              "value": "20"
+            }
           }
         },
         "category": null
