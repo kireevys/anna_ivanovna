@@ -1,0 +1,27 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: SelectingTemplate
+    payload:
+      templates:
+        Loaded: []
+  cmds: []
+- step: 001_from_scratch
+  model:
+    state: Creating
+    payload:
+      edit:
+        incomes: []
+        expenses: []
+        validation:
+          BusinessInvalid:
+            messages:
+              - "План некорректен: расходы превышают доходы"
+        save_state: Disabled
+        core_plan:
+          sources: []
+          expenses: []
+  cmds:
+    - ScrollToTop

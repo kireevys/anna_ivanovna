@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use ai_core::{
     finance::{Money, Percentage},
@@ -18,13 +19,13 @@ use ai_core::{
 
 use crate::presentation::formatting::FormattedPercentage;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub enum IncomeKind {
     Salary,
     Other,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct IncomeSource {
     pub name: String,
     pub kind: IncomeKind,
@@ -89,13 +90,13 @@ fn apply_incomes_to_core_plan(plan: &CorePlan, incomes: &[IncomeSource]) -> Core
     updated
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub enum ValueKind {
     Money,
     Rate,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum ExpenseType {
     Envelope {
         value_kind: ValueKind,
@@ -110,19 +111,19 @@ pub enum ExpenseType {
     },
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub enum ActiveType {
     Envelope,
     Credit,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct EnvelopeData {
     pub value_kind: ValueKind,
     pub amount: String,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct CreditData {
     pub monthly_payment: String,
     pub total_amount: String,
@@ -187,7 +188,7 @@ impl CreditData {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct Expense {
     pub name: String,
     pub category: Option<String>,

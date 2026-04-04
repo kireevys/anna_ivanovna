@@ -1,17 +1,17 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 
-mod api;
-mod app;
-mod components;
+pub mod api;
 mod config;
-mod presentation;
+pub mod engine;
+pub mod presentation;
+mod runtime;
 #[cfg(feature = "tauri")] mod tauri_ipc;
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    components::set_theme(
-        &components::user_prefer_theme()
-            .unwrap_or(components::DEFAULT_THEME.to_string()),
+    presentation::components::set_theme(
+        &presentation::components::user_prefer_theme()
+            .unwrap_or(presentation::components::DEFAULT_THEME.to_string()),
     );
-    yew::Renderer::<app::App>::new().render();
+    yew::Renderer::<runtime::App>::new().render();
 }

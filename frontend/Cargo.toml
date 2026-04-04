@@ -28,3 +28,8 @@ wasm-bindgen-futures = "0.4.55"
 web-sys = "0.3"
 yew = { version = "0.21.0", features = ["csr"] }
 yew-router = "0.18.0"
+
+[dev-dependencies]
+insta = { version = "1.42", features = ["yaml"] }
+rstest = "0.25"
+toml = "0.8"

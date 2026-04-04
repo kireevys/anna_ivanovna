@@ -1,0 +1,329 @@
+use std::str::FromStr;
+
+use web_sys::HtmlInputElement;
+use yew::prelude::*;
+
+use crate::presentation::{
+    components::icons::XIcon,
+    income::{OTHER_LABEL, SALARY_LABEL, tax_from_gross},
+    plan::editable,
+};
+
+#[derive(Properties, PartialEq)]
+pub struct IncomeSourcesEditorProps {
+    pub sources: Vec<editable::IncomeSource>,
+    pub on_change: Callback<Vec<editable::IncomeSource>>,
+}
+
+pub enum IncomeSourcesEditorMsg {
+    AmountChanged {
+        pos: usize,
+        value: String,
+    },
+    NameChanged {
+        pos: usize,
+        value: String,
+    },
+    KindChanged {
+        pos: usize,
+        kind: editable::IncomeKind,
+    },
+    TaxRateChanged {
+        pos: usize,
+        value: String,
+    },
+    StartAdding,
+    ConfirmNew,
+    CancelNew,
+    DeleteSource {
+        pos: usize,
+    },
+}
+
+pub struct IncomeSourcesEditor {
+    adding: bool,
+}
+
+impl Component for IncomeSourcesEditor {
+    type Message = IncomeSourcesEditorMsg;
+    type Properties = IncomeSourcesEditorProps;
+
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self { adding: false }
+    }
+
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        let mut updated = ctx.props().sources.clone();
+        match msg {
+            IncomeSourcesEditorMsg::AmountChanged { pos, value } => {
+                if let Some(source) = updated.get_mut(pos) {
+                    source.amount = value;
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::NameChanged { pos, value } => {
+                if let Some(source) = updated.get_mut(pos) {
+                    source.name = value;
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::KindChanged { pos, kind } => {
+                if let Some(source) = updated.get_mut(pos) {
+                    source.kind = kind;
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::TaxRateChanged { pos, value } => {
+                if let Some(source) = updated.get_mut(pos) {
+                    source.tax_rate = value;
+                }
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::StartAdding => {
+                self.adding = true;
+                updated.insert(0, editable::IncomeSource::empty());
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::ConfirmNew => {
+                self.adding = false;
+            }
+            IncomeSourcesEditorMsg::CancelNew => {
+                self.adding = false;
+                updated.remove(0);
+                ctx.props().on_change.emit(updated);
+            }
+            IncomeSourcesEditorMsg::DeleteSource { pos } => {
+                if pos < updated.len() {
+                    if self.adding && pos == 0 {
+                        self.adding = false;
+                    }
+                    updated.remove(pos);
+                }
+                ctx.props().on_change.emit(updated);
+            }
+        }
+        true
+    }
+
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let sources = &ctx.props().sources;
+
+        html! {
+            <div class="space-y-4">
+                {if self.adding {
+                    if let Some(first) = sources.first() {
+                        self.render_new_source_card(ctx, first)
+                    } else {
+                        html! {}
+                    }
+                } else {
+                    html! {
+                        <button
+                            class="btn btn-outline btn-primary w-full"
+                            onclick={ctx.link().callback(|_| IncomeSourcesEditorMsg::StartAdding)}
+                        >
+                            {"+ Добавить источник дохода"}
+                        </button>
+                    }
+                }}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {for sources.iter().enumerate()
+                        .skip(if self.adding { 1 } else { 0 })
+                        .map(|(pos, source)| {
+                            self.render_source_card(ctx, pos, source)
+                        })
+                    }
+                </div>
+            </div>
+        }
+    }
+}
+
+impl IncomeSourcesEditor {
+    fn render_new_source_card(
+        &self,
+        ctx: &Context<Self>,
+        source: &editable::IncomeSource,
+    ) -> Html {
+        let is_valid = source.amount.is_empty()
+            || rust_decimal::Decimal::from_str(&source.amount).is_ok();
+        let amount_class = if is_valid {
+            "input input-bordered w-full"
+        } else {
+            "input input-bordered input-error w-full"
+        };
+        let amount_label = match source.kind {
+            editable::IncomeKind::Salary => "Gross",
+            editable::IncomeKind::Other => "Сумма",
+        };
+        let is_salary = source.kind == editable::IncomeKind::Salary;
+        html! {
+            <div class="card bg-base-200 shadow border-2 border-primary">
+                <div class="card-body p-4 space-y-2">
+                    <h4 class="font-medium text-sm text-primary">{"Новый источник дохода"}</h4>
+                    <input
+                        class="input input-bordered input-sm w-full"
+                        placeholder="Название"
+                        value={source.name.clone()}
+                        oninput={ctx.link().callback(|e: InputEvent| {
+                            let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                            IncomeSourcesEditorMsg::NameChanged { pos: 0, value }
+                        })}
+                    />
+                    { Self::render_kind_select(ctx, 0, source.kind) }
+                    <input
+                        class={amount_class}
+                        placeholder={amount_label}
+                        value={source.amount.clone()}
+                        oninput={ctx.link().callback(|e: InputEvent| {
+                            let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                            IncomeSourcesEditorMsg::AmountChanged { pos: 0, value }
+                        })}
+                    />
+                    {if is_salary {
+                        html! {
+                            <>
+                                { Self::render_tax_rate_input(ctx, 0, &source.tax_rate) }
+                                { Self::render_net_hint(&source.amount, &source.tax_rate) }
+                            </>
+                        }
+                    } else {
+                        html! {}
+                    }}
+                    <div class="flex gap-2 justify-end">
+                        <button
+                            class="btn btn-sm btn-ghost"
+                            onclick={ctx.link().callback(|_| IncomeSourcesEditorMsg::CancelNew)}
+                        >
+                            {"Отмена"}
+                        </button>
+                        <button
+                            class="btn btn-sm btn-primary"
+                            onclick={ctx.link().callback(|_| IncomeSourcesEditorMsg::ConfirmNew)}
+                        >
+                            {"Добавить"}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    fn render_source_card(
+        &self,
+        ctx: &Context<Self>,
+        pos: usize,
+        source: &editable::IncomeSource,
+    ) -> Html {
+        let is_valid = source.amount.is_empty()
+            || rust_decimal::Decimal::from_str(&source.amount).is_ok();
+        let amount_class = if is_valid {
+            "input input-bordered w-full"
+        } else {
+            "input input-bordered input-error w-full"
+        };
+        let amount_label = match source.kind {
+            editable::IncomeKind::Salary => "Gross",
+            editable::IncomeKind::Other => "Сумма",
+        };
+        let is_salary = source.kind == editable::IncomeKind::Salary;
+        html! {
+            <div class="card bg-base-200 shadow">
+                <div class="card-body p-4 space-y-2">
+                    <div class="flex items-center gap-2">
+                        <input
+                            class="input input-bordered input-sm flex-1"
+                            placeholder="Название"
+                            value={source.name.clone()}
+                            oninput={ctx.link().callback(move |e: InputEvent| {
+                                let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                                IncomeSourcesEditorMsg::NameChanged { pos, value }
+                            })}
+                        />
+                        <button
+                            class="btn btn-sm btn-ghost btn-square text-error"
+                            onclick={ctx.link().callback(move |_| IncomeSourcesEditorMsg::DeleteSource { pos })}
+                        >
+                            <XIcon />
+                        </button>
+                    </div>
+                    { Self::render_kind_select(ctx, pos, source.kind) }
+                    <input
+                        class={amount_class}
+                        placeholder={amount_label}
+                        value={source.amount.clone()}
+                        oninput={ctx.link().callback(move |e: InputEvent| {
+                            let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                            IncomeSourcesEditorMsg::AmountChanged { pos, value }
+                        })}
+                    />
+                    {if is_salary {
+                        html! {
+                            <>
+                                { Self::render_tax_rate_input(ctx, pos, &source.tax_rate) }
+                                { Self::render_net_hint(&source.amount, &source.tax_rate) }
+                            </>
+                        }
+                    } else {
+                        html! {}
+                    }}
+                </div>
+            </div>
+        }
+    }
+
+    fn render_kind_select(
+        ctx: &Context<Self>,
+        pos: usize,
+        current: editable::IncomeKind,
+    ) -> Html {
+        let salary_selected = current == editable::IncomeKind::Salary;
+        let other_selected = current == editable::IncomeKind::Other;
+        html! {
+            <select
+                class="select select-bordered select-sm w-full"
+                onchange={ctx.link().callback(move |e: Event| {
+                    let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                    let kind = if value == "salary" {
+                        editable::IncomeKind::Salary
+                    } else {
+                        editable::IncomeKind::Other
+                    };
+                    IncomeSourcesEditorMsg::KindChanged { pos, kind }
+                })}
+            >
+                <option value="salary" selected={salary_selected}>{ SALARY_LABEL }</option>
+                <option value="other" selected={other_selected}>{ OTHER_LABEL }</option>
+            </select>
+        }
+    }
+
+    fn render_net_hint(amount: &str, tax_rate: &str) -> Html {
+        match tax_from_gross(amount, tax_rate) {
+            Some(result) => html! {
+                <p class="text-sm text-base-content/60">
+                    { format!("На руки: {} (налог: {})", result.net, result.tax) }
+                </p>
+            },
+            None => html! {},
+        }
+    }
+
+    fn render_tax_rate_input(ctx: &Context<Self>, pos: usize, tax_rate: &str) -> Html {
+        html! {
+            <div class="flex items-center gap-2">
+                <input
+                    class="input input-bordered input-sm w-full"
+                    placeholder="Ставка налога, %"
+                    value={tax_rate.to_string()}
+                    oninput={ctx.link().callback(move |e: InputEvent| {
+                        let value = e.target_unchecked_into::<HtmlInputElement>().value();
+                        IncomeSourcesEditorMsg::TaxRateChanged { pos, value }
+                    })}
+                />
+                <span class="text-sm text-base-content/60">{"%"}</span>
+            </div>
+        }
+    }
+}

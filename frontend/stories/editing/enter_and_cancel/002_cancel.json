@@ -1,0 +1,6 @@
+{
+  "type": "Edit",
+  "payload": {
+    "type": "Cancel"
+  }
+}

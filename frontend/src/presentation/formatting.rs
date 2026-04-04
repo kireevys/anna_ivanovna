@@ -1,10 +1,13 @@
-use ai_core::finance::{Money, Percentage};
 use std::fmt;
 
-#[derive(Clone, PartialEq, Debug)]
+use serde::{Deserialize, Serialize};
+
+use ai_core::finance::{Money, Percentage};
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct FormattedMoney(pub Money);
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct FormattedPercentage(pub Percentage);
 
 impl FormattedMoney {

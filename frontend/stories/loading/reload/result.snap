@@ -1,0 +1,12 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: Loading
+  cmds: []
+- step: 001_reload
+  model:
+    state: Loading
+  cmds:
+    - LoadPlan

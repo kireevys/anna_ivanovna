@@ -1,0 +1,8 @@
+{
+  "state": "SelectingTemplate",
+  "payload": {
+    "templates": {
+      "Loaded": []
+    }
+  }
+}
