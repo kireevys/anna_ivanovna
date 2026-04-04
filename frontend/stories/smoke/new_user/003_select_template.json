@@ -1,0 +1,37 @@
+{
+  "type": "Template",
+  "payload": {
+    "type": "Select",
+    "payload": {
+      "sources": [
+        {
+          "name": "Зарплата",
+          "kind": {
+            "type": "other",
+            "expected": {
+              "value": "100000",
+              "currency": "RUB"
+            }
+          }
+        }
+      ],
+      "expenses": [
+        {
+          "name": "Аренда",
+          "kind": {
+            "type": "envelope",
+            "value": {
+              "MONEY": {
+                "value": {
+                  "value": "30000",
+                  "currency": "RUB"
+                }
+              }
+            }
+          },
+          "category": null
+        }
+      ]
+    }
+  }
+}

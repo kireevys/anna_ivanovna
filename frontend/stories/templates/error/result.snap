@@ -1,0 +1,16 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: SelectingTemplate
+    payload:
+      templates: Loading
+  cmds: []
+- step: 001_templates_error
+  model:
+    state: SelectingTemplate
+    payload:
+      templates:
+        Error: Ошибка загрузки
+  cmds: []

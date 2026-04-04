@@ -1,0 +1,16 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: SelectingTemplate
+    payload:
+      templates: Loading
+  cmds: []
+- step: 001_templates_loaded
+  model:
+    state: SelectingTemplate
+    payload:
+      templates:
+        Loaded: []
+  cmds: []

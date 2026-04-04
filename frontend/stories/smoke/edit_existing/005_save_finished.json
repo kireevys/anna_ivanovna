@@ -1,0 +1,9 @@
+{
+  "type": "Persist",
+  "payload": {
+    "type": "SaveFinished",
+    "payload": {
+      "Ok": null
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "type": "Edit",
+  "payload": {
+    "type": "ExpensesChanged",
+    "payload": [
+      {
+        "name": "Еда",
+        "category": null,
+        "active_type": "Envelope",
+        "envelope": {
+          "value_kind": "Money",
+          "amount": "50000"
+        },
+        "credit": {
+          "monthly_payment": "",
+          "total_amount": "",
+          "interest_rate": "",
+          "term_months": "",
+          "start_date": ""
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "type": "Loading",
+  "payload": {
+    "type": "Loaded",
+    "payload": {
+      "Ok": {
+        "id": "plan-1",
+        "version": 1,
+        "status": "active",
+        "plan": {
+          "sources": [
+            {
+              "name": "Зарплата",
+              "kind": {
+                "type": "other",
+                "expected": {
+                  "value": "100000",
+                  "currency": "RUB"
+                }
+              }
+            }
+          ],
+          "expenses": [
+            {
+              "name": "Аренда",
+              "kind": {
+                "type": "envelope",
+                "value": {
+                  "MONEY": {
+                    "value": {
+                      "value": "30000",
+                      "currency": "RUB"
+                    }
+                  }
+                }
+              },
+              "category": null
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,178 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: Loading
+  cmds: []
+- step: 001_plan_not_found
+  model:
+    state: SelectingTemplate
+    payload:
+      templates: Loading
+  cmds:
+    - LoadTemplates
+- step: 002_templates_loaded
+  model:
+    state: SelectingTemplate
+    payload:
+      templates:
+        Loaded: []
+  cmds: []
+- step: 003_select_template
+  model:
+    state: Creating
+    payload:
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Other
+            amount: "100000"
+            tax_rate: "13"
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "30000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation: Valid
+        save_state: CanSave
+        core_plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds:
+    - ScrollToTop
+- step: 004_change_incomes
+  model:
+    state: Creating
+    payload:
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Other
+            amount: "150000"
+            tax_rate: "13"
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "30000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation: Valid
+        save_state: CanSave
+        core_plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "150000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds: []
+- step: 005_create
+  model:
+    state: Creating
+    payload:
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Other
+            amount: "150000"
+            tax_rate: "13"
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "30000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation: Valid
+        save_state: Saving
+        core_plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "150000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds:
+    - CreatePlan:
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "150000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+- step: 006_create_finished
+  model:
+    state: Loading
+  cmds:
+    - LoadPlan

@@ -1,0 +1,11 @@
+{
+  "type": "Loading",
+  "payload": {
+    "type": "Loaded",
+    "payload": {
+      "Err": {
+        "Http": [404, ""]
+      }
+    }
+  }
+}

@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
-use rust_decimal::Decimal;
-
 use chrono::NaiveDate;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use ai_core::{
     finance::{Money, Percentage},
@@ -22,7 +22,7 @@ use crate::presentation::{
 
 const NO_CATEGORY: &str = "Без категории";
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum CategoryKey {
     NoCategory,
     Named(String),
@@ -37,7 +37,7 @@ impl CategoryKey {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct IncomeSource {
     pub id: String,
     pub name: String,
@@ -56,13 +56,13 @@ impl From<&IncomeSourceCore> for IncomeSource {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum AccountingUnit {
     Money,
     Rate,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct ExpenseValue {
     pub money: FormattedMoney,
     pub rate: FormattedPercentage,
@@ -95,7 +95,7 @@ impl ExpenseValue {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum ExpenseKindView {
     Envelope,
     Credit {
@@ -107,7 +107,7 @@ pub enum ExpenseKindView {
     },
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct Expense {
     pub name: String,
     pub value: ExpenseValue,
@@ -136,7 +136,7 @@ impl Expense {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct Plan {
     pub sources: Vec<IncomeSource>,
     pub total_income: FormattedMoney,

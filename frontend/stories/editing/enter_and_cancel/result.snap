@@ -1,0 +1,177 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: Viewing
+    payload:
+      plan:
+        sources:
+          - id: Зарплата
+            name: Зарплата
+            amount:
+              value: "100000"
+              currency: RUB
+            source_kind: Other
+        total_income:
+          value: "100000"
+          currency: RUB
+        total_expenses:
+          value: "30000"
+          currency: RUB
+        balance:
+          value: "70000"
+          currency: RUB
+        categories:
+          NoCategory:
+            - name: Аренда
+              value:
+                money:
+                  value: "30000"
+                  currency: RUB
+                rate: "30.00"
+                unit: Money
+              kind: Envelope
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds: []
+- step: 001_enter
+  model:
+    state: Editing
+    payload:
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Other
+            amount: "100000"
+            tax_rate: "13"
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "30000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation: Valid
+        save_state: CanSave
+        core_plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds: []
+- step: 002_cancel
+  model:
+    state: Viewing
+    payload:
+      plan:
+        sources:
+          - id: Зарплата
+            name: Зарплата
+            amount:
+              value: "100000"
+              currency: RUB
+            source_kind: Other
+        total_income:
+          value: "100000"
+          currency: RUB
+        total_expenses:
+          value: "30000"
+          currency: RUB
+        balance:
+          value: "70000"
+          currency: RUB
+        categories:
+          NoCategory:
+            - name: Аренда
+              value:
+                money:
+                  value: "30000"
+                  currency: RUB
+                rate: "30.00"
+                unit: Money
+              kind: Envelope
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds: []

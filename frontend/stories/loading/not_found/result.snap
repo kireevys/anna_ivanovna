@@ -1,0 +1,14 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: Loading
+  cmds: []
+- step: 001_plan_not_found
+  model:
+    state: SelectingTemplate
+    payload:
+      templates: Loading
+  cmds:
+    - LoadTemplates

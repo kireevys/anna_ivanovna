@@ -1,0 +1,82 @@
+{
+  "state": "Viewing",
+  "payload": {
+    "plan": {
+      "sources": [
+        {
+          "id": "Зарплата",
+          "name": "Зарплата",
+          "amount": {
+            "value": "100000",
+            "currency": "RUB"
+          },
+          "source_kind": "Other"
+        }
+      ],
+      "total_income": {
+        "value": "100000",
+        "currency": "RUB"
+      },
+      "total_expenses": {
+        "value": "30000",
+        "currency": "RUB"
+      },
+      "balance": {
+        "value": "70000",
+        "currency": "RUB"
+      },
+      "categories": {
+        "NoCategory": [
+          {
+            "name": "Аренда",
+            "value": {
+              "money": {
+                "value": "30000",
+                "currency": "RUB"
+              },
+              "rate": "30.00",
+              "unit": "Money"
+            },
+            "kind": "Envelope"
+          }
+        ]
+      }
+    },
+    "origin": {
+      "id": "plan-1",
+      "version": 1,
+      "status": "active",
+      "plan": {
+        "sources": [
+          {
+            "name": "Зарплата",
+            "kind": {
+              "type": "other",
+              "expected": {
+                "value": "100000",
+                "currency": "RUB"
+              }
+            }
+          }
+        ],
+        "expenses": [
+          {
+            "name": "Аренда",
+            "kind": {
+              "type": "envelope",
+              "value": {
+                "MONEY": {
+                  "value": {
+                    "value": "30000",
+                    "currency": "RUB"
+                  }
+                }
+              }
+            },
+            "category": null
+          }
+        ]
+      }
+    }
+  }
+}

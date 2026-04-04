@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 use ai_core::{
     finance::{Money, Percentage},
@@ -12,7 +13,7 @@ use crate::presentation::formatting::{FormattedMoney, FormattedPercentage};
 pub const SALARY_LABEL: &str = "Зарплата";
 pub const OTHER_LABEL: &str = "Другое";
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum SourceKind {
     Salary {
         gross: FormattedMoney,

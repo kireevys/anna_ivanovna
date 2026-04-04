@@ -1,3 +1,4 @@
+pub mod components;
 pub mod formatting;
 pub mod history;
 pub mod income;

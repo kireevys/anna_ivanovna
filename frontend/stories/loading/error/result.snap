@@ -1,0 +1,12 @@
+---
+source: frontend/tests/plan_stories.rs
+---
+- step: initial
+  model:
+    state: Loading
+  cmds: []
+- step: 001_server_error
+  model:
+    state: Error
+    payload: "HTTP 500: Internal Server Error"
+  cmds: []

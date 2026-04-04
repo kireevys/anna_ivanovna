@@ -1,0 +1,6 @@
+{
+  "type": "Template",
+  "payload": {
+    "type": "CreateFromScratch"
+  }
+}

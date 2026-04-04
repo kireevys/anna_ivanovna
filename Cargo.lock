@@ -51,7 +51,7 @@ version = "0.2.3"
 dependencies = [
  "chrono",
  "insta",
- "rstest",
+ "rstest 0.26.1",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -107,7 +107,7 @@ dependencies = [
  "homedir",
  "rand 0.9.1",
  "ratatui",
- "rstest",
+ "rstest 0.26.1",
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
@@ -1562,11 +1562,14 @@ dependencies = [
  "chrono",
  "gloo-net 0.5.0",
  "gloo-timers 0.3.0",
+ "insta",
  "js-sys",
  "once_cell",
+ "rstest 0.25.0",
  "rust_decimal",
  "serde",
  "serde_json",
+ "toml 0.8.23",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -4467,13 +4470,43 @@ dependencies = [
 
 [[package]]
 name = "rstest"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fc39292f8613e913f7df8fa892b8944ceb47c247b78e1b1ae2f09e019be789d"
+dependencies = [
+ "futures-timer",
+ "futures-util",
+ "rstest_macros 0.25.0",
+ "rustc_version",
+]
+
+[[package]]
+name = "rstest"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5a3193c063baaa2a95a33f03035c8a72b83d97a54916055ba22d35ed3839d49"
 dependencies = [
  "futures-timer",
  "futures-util",
- "rstest_macros",
+ "rstest_macros 0.26.1",
+]
+
+[[package]]
+name = "rstest_macros"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f168d99749d307be9de54d23fd226628d99768225ef08f6ffb52e0182a27746"
+dependencies = [
+ "cfg-if",
+ "glob",
+ "proc-macro-crate 3.3.0",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "relative-path",
+ "rustc_version",
+ "syn 2.0.104",
+ "unicode-ident",
 ]
 
 [[package]]
@@ -6048,6 +6081,7 @@ dependencies = [
  "serde",
  "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
+ "toml_write",
  "winnow 0.7.11",
 ]
 
@@ -6059,6 +6093,12 @@ checksum = "7df25b4befd31c4816df190124375d5a20c6b6921e2cad937316de3fccd63420"
 dependencies = [
  "winnow 1.0.0",
 ]
+
+[[package]]
+name = "toml_write"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "toml_writer"
