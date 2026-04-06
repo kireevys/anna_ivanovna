@@ -1,4 +1,5 @@
 use rust_decimal::Decimal;
+use yew::prelude::*;
 
 use crate::{
     engine::plan::editable,
@@ -9,7 +10,6 @@ use crate::{
         SectionCard,
     },
 };
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct EditLayoutProps {

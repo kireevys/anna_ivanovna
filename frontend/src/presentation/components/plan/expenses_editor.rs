@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
 use rust_decimal::Decimal;
+use web_sys::HtmlInputElement;
+use yew::prelude::*;
 
 use ai_core::finance::{Money, Percentage};
 
@@ -8,8 +10,6 @@ use crate::{
     engine::plan::editable::{ActiveType, Expense, ExpenseType, ValueKind},
     presentation::{components::icons::XIcon, formatting::FormattedMoney},
 };
-use web_sys::HtmlInputElement;
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct ExpensesEditorProps {
