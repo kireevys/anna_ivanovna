@@ -6,13 +6,17 @@ use std::{
 use rstest::rstest;
 use serde::{Serialize, de::DeserializeOwned};
 
-use frontend::engine::plan::update;
+use frontend::engine::core::Model;
 
 #[derive(Serialize)]
-struct StepResult<Model, Cmd> {
+struct StepResult<M: Model>
+where
+    M: Serialize,
+    M::Cmd: Serialize,
+{
     step: String,
-    model: Model,
-    cmds: Vec<Cmd>,
+    model: M,
+    cmds: Vec<M::Cmd>,
 }
 
 #[derive(serde::Deserialize)]
@@ -29,13 +33,11 @@ enum StoryState {
 const INITIAL_FILE: &str = "initial.json";
 const RESULT_SNAPSHOT: &str = "result";
 
-fn run_story<Model, Msg, Cmd>(
-    config_path: &Path,
-    update_fn: fn(&Model, Msg) -> (Model, Vec<Cmd>),
-) where
-    Model: Clone + DeserializeOwned + Serialize,
-    Msg: DeserializeOwned,
-    Cmd: Serialize,
+fn run_story<M>(config_path: &Path)
+where
+    M: Model + DeserializeOwned + Serialize,
+    M::Msg: DeserializeOwned,
+    M::Cmd: Serialize,
 {
     let story_dir = config_path
         .parent()
@@ -53,7 +55,7 @@ fn run_story<Model, Msg, Cmd>(
     let initial_path = story_dir.join(INITIAL_FILE);
     let initial_text =
         fs::read_to_string(&initial_path).expect("failed to read initial.json");
-    let mut model: Model =
+    let mut model: M =
         serde_json::from_str(&initial_text).expect("failed to parse initial.json");
 
     let mut msg_files: Vec<_> = fs::read_dir(story_dir)
@@ -70,7 +72,7 @@ fn run_story<Model, Msg, Cmd>(
 
     msg_files.sort_by_key(|entry| entry.file_name());
 
-    let mut log: Vec<StepResult<Model, Cmd>> = vec![StepResult {
+    let mut log: Vec<StepResult<M>> = vec![StepResult {
         step: "initial".to_string(),
         model: model.clone(),
         cmds: vec![],
@@ -85,9 +87,9 @@ fn run_story<Model, Msg, Cmd>(
             .into_owned();
         let msg_text =
             fs::read_to_string(entry.path()).expect("failed to read message file");
-        let msg: Msg =
+        let msg: M::Msg =
             serde_json::from_str(&msg_text).expect("failed to parse message file");
-        let (new_model, new_cmds) = update_fn(&model, msg);
+        let (new_model, new_cmds) = model.handle(msg);
         model = new_model;
         log.push(StepResult {
             step: step_name,
@@ -106,6 +108,16 @@ fn run_story<Model, Msg, Cmd>(
 }
 
 #[rstest]
-fn plan_stories(#[files("stories/**/**/config.toml")] path: PathBuf) {
-    run_story(&path, update::handle);
+fn plan(#[files("stories/plan/**/config.toml")] path: PathBuf) {
+    run_story::<frontend::engine::plan::model::PlanModel>(&path);
+}
+
+#[rstest]
+fn history(#[files("stories/history/**/config.toml")] path: PathBuf) {
+    run_story::<frontend::engine::history::HistoryModel>(&path);
+}
+
+#[rstest]
+fn onboarding(#[files("stories/onboarding/**/config.toml")] path: PathBuf) {
+    run_story::<frontend::engine::onboarding::OnboardingModel>(&path);
 }

@@ -1,0 +1,28 @@
+{
+  "Loaded": {
+    "Ok": {
+      "items": [
+        {
+          "id": "entry-2",
+          "budget": {
+            "income": {
+              "source": {
+                "name": "Фриланс",
+                "kind": {
+                  "type": "other",
+                  "expected": { "value": "50000", "currency": "RUB" }
+                }
+              },
+              "amount": { "value": "50000", "currency": "RUB" },
+              "date": "2026-03-15"
+            },
+            "rest": { "value": "0", "currency": "RUB" },
+            "no_category": [],
+            "categories": {}
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  }
+}

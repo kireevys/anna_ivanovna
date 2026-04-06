@@ -1,0 +1,28 @@
+{
+  "Loaded": {
+    "Ok": {
+      "items": [
+        {
+          "id": "entry-1",
+          "budget": {
+            "income": {
+              "source": {
+                "name": "Зарплата",
+                "kind": {
+                  "type": "other",
+                  "expected": { "value": "100000", "currency": "RUB" }
+                }
+              },
+              "amount": { "value": "100000", "currency": "RUB" },
+              "date": "2026-04-01"
+            },
+            "rest": { "value": "0", "currency": "RUB" },
+            "no_category": [],
+            "categories": {}
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  }
+}

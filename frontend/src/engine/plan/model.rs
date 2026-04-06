@@ -4,15 +4,11 @@ use ai_core::plan::Plan as CorePlan;
 
 use crate::{
     api::{Collection, StoragePlanFrontend},
-    presentation::plan::{editable, read::Plan},
+    engine::core::{DataState, Model},
+    presentation::plan::editable,
 };
 
-#[derive(Clone, PartialEq, Deserialize, Serialize)]
-pub enum DataState<T> {
-    Loading,
-    Loaded(T),
-    Error(String),
-}
+use crate::engine::plan::{cmd, msg};
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum PlanValidation {
@@ -31,11 +27,11 @@ pub enum SaveState {
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct EditState {
-    pub incomes: Vec<editable::IncomeSource>,
-    pub expenses: Vec<editable::Expense>,
-    pub validation: PlanValidation,
-    pub save_state: SaveState,
-    pub core_plan: Option<CorePlan>,
+    pub(crate) incomes: Vec<editable::IncomeSource>,
+    pub(crate) expenses: Vec<editable::Expense>,
+    pub(crate) validation: PlanValidation,
+    pub(crate) save_state: SaveState,
+    pub(crate) core_plan: Option<CorePlan>,
 }
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
@@ -50,11 +46,19 @@ pub enum PlanModel {
         edit: EditState,
     },
     Viewing {
-        plan: Plan,
         origin: StoragePlanFrontend,
     },
     Editing {
         origin: StoragePlanFrontend,
         edit: EditState,
     },
+}
+
+impl Model for PlanModel {
+    type Msg = msg::Msg;
+    type Cmd = cmd::Cmd;
+
+    fn handle(self, msg: Self::Msg) -> (Self, Vec<Self::Cmd>) {
+        crate::engine::plan::update::handle(self, msg)
+    }
 }

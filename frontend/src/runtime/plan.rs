@@ -1,86 +1,67 @@
-use yew::Context;
+use std::rc::Rc;
+
+use yew::html::Scope;
 
 use crate::{
-    engine::plan::{
-        cmd::PlanCmd,
-        msg::{LoadingMsg, PersistMsg, PlanMsg, TemplateMsg},
+    api::ApiClient,
+    engine::{
+        app::msg,
+        core::Shell,
+        plan::{
+            self,
+            msg::{LoadingMsg, Msg, PersistMsg, TemplateMsg},
+        },
     },
-    runtime::{App, AppMsg},
+    runtime::App,
 };
 
-fn scroll_to_top() {
-    if let Some(window) = web_sys::window() {
-        window.scroll_to_with_x_and_y(0.0, 0.0);
-    }
+pub struct PlanShell {
+    pub api: Rc<ApiClient>,
+    pub link: Scope<App>,
 }
 
-impl App {
-    pub(crate) fn execute_plan_cmds(&self, cmds: Vec<PlanCmd>, ctx: &Context<Self>) {
-        for cmd in cmds {
-            match cmd {
-                PlanCmd::LoadPlan => self.load_plan_async(ctx.link()),
-                PlanCmd::LoadTemplates => self.load_templates_async(ctx.link()),
-                PlanCmd::SavePlan { id, plan } => {
-                    self.save_plan_async(id, plan, ctx.link())
+impl Shell<plan::model::PlanModel> for PlanShell {
+    fn execute(&self, cmd: plan::cmd::Cmd) {
+        let api = self.api.clone();
+        let link = self.link.clone();
+        match cmd {
+            plan::cmd::Cmd::LoadPlan => {
+                wasm_bindgen_futures::spawn_local(async move {
+                    let result = api.get_plan().await;
+                    link.send_message(msg::Msg::Plan(Msg::Loading(
+                        LoadingMsg::Loaded(result),
+                    )));
+                });
+            }
+            plan::cmd::Cmd::LoadTemplates => {
+                wasm_bindgen_futures::spawn_local(async move {
+                    let result = api.get_collections().await.map_err(|e| e.to_string());
+                    link.send_message(msg::Msg::Plan(Msg::Template(
+                        TemplateMsg::TemplatesLoaded(result),
+                    )));
+                });
+            }
+            plan::cmd::Cmd::SavePlan { id, plan } => {
+                wasm_bindgen_futures::spawn_local(async move {
+                    let result = api.update_plan(&id, &plan).await;
+                    link.send_message(msg::Msg::Plan(Msg::Persist(
+                        PersistMsg::SaveFinished(result),
+                    )));
+                });
+            }
+            plan::cmd::Cmd::CreatePlan { plan } => {
+                wasm_bindgen_futures::spawn_local(async move {
+                    let result = api.create_plan(&plan).await;
+                    link.send_message(msg::Msg::Plan(Msg::Persist(
+                        PersistMsg::CreateFinished(result),
+                    )));
+                });
+            }
+            plan::cmd::Cmd::ScrollToTop => {
+                if let Some(window) = web_sys::window() {
+                    window.scroll_to_with_x_and_y(0.0, 0.0);
                 }
-                PlanCmd::CreatePlan { plan } => {
-                    self.create_plan_async(plan, ctx.link())
-                }
-                PlanCmd::ScrollToTop => scroll_to_top(),
             }
         }
-    }
-
-    pub(crate) fn load_plan_async(&self, link: &yew::html::Scope<Self>) {
-        let api = self.api.clone();
-        let link = link.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let result = api.get_plan().await;
-            link.send_message(AppMsg::Plan(PlanMsg::Loading(LoadingMsg::Loaded(
-                result,
-            ))));
-        });
-    }
-
-    fn save_plan_async(
-        &self,
-        id: String,
-        core_plan: ai_core::plan::Plan,
-        link: &yew::html::Scope<Self>,
-    ) {
-        let api = self.api.clone();
-        let link = link.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let result = api.update_plan(&id, &core_plan).await;
-            link.send_message(AppMsg::Plan(PlanMsg::Persist(
-                PersistMsg::SaveFinished(result),
-            )));
-        });
-    }
-
-    fn load_templates_async(&self, link: &yew::html::Scope<Self>) {
-        let api = self.api.clone();
-        let link = link.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let result = api.get_collections().await.map_err(|e| e.to_string());
-            link.send_message(AppMsg::Plan(PlanMsg::Template(
-                TemplateMsg::TemplatesLoaded(result),
-            )));
-        });
-    }
-
-    fn create_plan_async(
-        &self,
-        core_plan: ai_core::plan::Plan,
-        link: &yew::html::Scope<Self>,
-    ) {
-        let api = self.api.clone();
-        let link = link.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let result = api.create_plan(&core_plan).await;
-            link.send_message(AppMsg::Plan(PlanMsg::Persist(
-                PersistMsg::CreateFinished(result),
-            )));
-        });
     }
 }
