@@ -11,13 +11,9 @@ use ai_core::{
         Expense as ExpenseCore,
         ExpenseKind as CoreExpenseKind,
         ExpenseValue as ExpenseValueCore,
+        IncomeKind,
         IncomeSource as IncomeSourceCore,
     },
-};
-
-use crate::presentation::{
-    formatting::{FormattedMoney, FormattedPercentage},
-    income::SourceKind,
 };
 
 const NO_CATEGORY: &str = "Без категории";
@@ -41,8 +37,8 @@ impl CategoryKey {
 pub struct IncomeSource {
     pub id: String,
     pub name: String,
-    pub amount: FormattedMoney,
-    pub source_kind: SourceKind,
+    pub amount: Money,
+    pub source_kind: IncomeKind,
 }
 
 impl From<&IncomeSourceCore> for IncomeSource {
@@ -50,8 +46,8 @@ impl From<&IncomeSourceCore> for IncomeSource {
         Self {
             id: source.name.clone(), // FIXME: source_id == name
             name: source.name.clone(),
-            amount: FormattedMoney::from_money(source.net()),
-            source_kind: SourceKind::from(&source.kind),
+            amount: source.net(),
+            source_kind: source.kind.clone(),
         }
     }
 }
@@ -64,8 +60,8 @@ pub enum AccountingUnit {
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct ExpenseValue {
-    pub money: FormattedMoney,
-    pub rate: FormattedPercentage,
+    pub money: Money,
+    pub rate: Percentage,
     pub unit: AccountingUnit,
 }
 
@@ -79,16 +75,14 @@ impl ExpenseValue {
                     Percentage::of(value.value, total_income.value)
                 };
                 Self {
-                    rate: FormattedPercentage::from_percentage(rate),
-                    money: FormattedMoney::from_money(*value),
+                    rate,
+                    money: *value,
                     unit: AccountingUnit::Money,
                 }
             }
             ExpenseValueCore::RATE { value } => Self {
-                money: FormattedMoney::from_money(Money::new_rub(
-                    value.apply_to(total_income.value),
-                )),
-                rate: FormattedPercentage::from_percentage(value.clone()),
+                money: Money::new_rub(value.apply_to(total_income.value)),
+                rate: value.clone(),
                 unit: AccountingUnit::Rate,
             },
         }
@@ -99,10 +93,10 @@ impl ExpenseValue {
 pub enum ExpenseKindView {
     Envelope,
     Credit {
-        total_amount: FormattedMoney,
-        interest_rate: FormattedPercentage,
+        total_amount: Money,
+        interest_rate: Percentage,
         term_months: u32,
-        monthly_payment: FormattedMoney,
+        monthly_payment: Money,
         start_date: NaiveDate,
     },
 }
@@ -119,12 +113,10 @@ impl Expense {
         let kind = match &expense.kind {
             CoreExpenseKind::Envelope { .. } => ExpenseKindView::Envelope,
             CoreExpenseKind::Credit(credit) => ExpenseKindView::Credit {
-                total_amount: FormattedMoney::from_money(credit.total_amount),
-                interest_rate: FormattedPercentage::from_percentage(
-                    credit.interest_rate.clone(),
-                ),
+                total_amount: credit.total_amount,
+                interest_rate: credit.interest_rate.clone(),
                 term_months: credit.term_months,
-                monthly_payment: FormattedMoney::from_money(credit.monthly_payment),
+                monthly_payment: credit.monthly_payment,
                 start_date: credit.start_date,
             },
         };
@@ -139,25 +131,23 @@ impl Expense {
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct Plan {
     pub sources: Vec<IncomeSource>,
-    pub total_income: FormattedMoney,
-    pub total_expenses: FormattedMoney,
-    pub balance: FormattedMoney,
+    pub total_income: Money,
+    pub total_expenses: Money,
+    pub balance: Money,
     pub categories: BTreeMap<CategoryKey, Vec<Expense>>,
 }
 
 impl From<&CorePlan> for Plan {
     fn from(plan: &CorePlan) -> Self {
-        // Источники дохода
         let sources: Vec<IncomeSource> =
             plan.sources.iter().map(IncomeSource::from).collect();
 
-        let total_income = FormattedMoney::from_money(plan.total_incomes());
-        let total_expenses = FormattedMoney::from_money(plan.total_expenses());
-        let balance = FormattedMoney::from_money(plan.balance());
+        let total_income = plan.total_incomes();
+        let total_expenses = plan.total_expenses();
+        let balance = plan.balance();
 
         let income = plan.total_incomes();
 
-        // Группируем расходы по категориям и преобразуем в ViewModel за один проход
         let mut categories: BTreeMap<CategoryKey, Vec<Expense>> = plan
             .expenses
             .iter()
@@ -172,7 +162,6 @@ impl From<&CorePlan> for Plan {
                 acc
             });
 
-        // Сортируем расходы внутри каждой категории
         for expenses in categories.values_mut() {
             expenses.sort_by(|a, b| a.name.cmp(&b.name));
         }
