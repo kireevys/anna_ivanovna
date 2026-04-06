@@ -1,15 +1,15 @@
 use rust_decimal::Decimal;
+use yew::prelude::*;
 
-use crate::presentation::{
-    components::plan::{
+use crate::{
+    engine::plan::editable,
+    presentation::components::plan::{
         EditActionsBar,
         ExpensesEditor,
         IncomeSourcesEditor,
         SectionCard,
     },
-    plan::editable,
 };
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct EditLayoutProps {

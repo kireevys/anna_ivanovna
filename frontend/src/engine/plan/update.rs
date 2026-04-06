@@ -9,11 +9,11 @@ use crate::{
         core::DataState,
         plan::{
             cmd::Cmd,
+            editable,
             model::{EditState, PlanModel, PlanValidation, SaveState},
             msg::{EditMsg, LoadingMsg, Msg, PersistMsg, TemplateMsg},
         },
     },
-    presentation::plan::editable,
 };
 
 pub(crate) fn handle(model: PlanModel, msg: Msg) -> (PlanModel, Vec<Cmd>) {

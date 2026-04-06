@@ -1,8 +1,12 @@
-use crate::presentation::{
-    components::icons::{LandmarkIcon, MailIcon},
-    plan::read::{AccountingUnit, Expense, ExpenseKindView},
-};
 use yew::prelude::*;
+
+use crate::{
+    engine::plan::view_model::{AccountingUnit, Expense, ExpenseKindView},
+    presentation::{
+        components::icons::{LandmarkIcon, MailIcon},
+        formatting::{FormattedMoney, FormattedPercentage},
+    },
+};
 
 #[derive(Properties, PartialEq)]
 pub struct ExpenseCardProps {
@@ -57,10 +61,10 @@ impl Component for ExpenseCard {
                         </span>
                         <div class="absolute right-0 top-full mt-1 hidden group-hover/credit:block bg-base-300 text-base-content text-xs rounded-lg py-2 px-3 z-20 whitespace-nowrap shadow-lg">
                             <div class="font-semibold mb-1">{"Кредит"}</div>
-                            <div>{ format!("Сумма: {total_amount}") }</div>
-                            <div>{ format!("Ставка: {interest_rate}") }</div>
+                            <div>{ format!("Сумма: {}", FormattedMoney::from_money(*total_amount)) }</div>
+                            <div>{ format!("Ставка: {}", FormattedPercentage::from_percentage(interest_rate.clone())) }</div>
                             <div>{ format!("Срок: {term_months} мес.") }</div>
-                            <div>{ format!("С {start_date}") }</div>
+                            <div>{ format!("С {}", start_date.format("%Y-%m-%d")) }</div>
                         </div>
                     </div>
                 }
@@ -77,8 +81,8 @@ impl Component for ExpenseCard {
                         { &expense.name }
                     </span>
                     <span class="flex items-center gap-2 flex-shrink-0">
-                        <span class="font-bold">{ value.money.to_string() }</span>
-                        <span class="text-base-content/60">{ value.rate.to_string() }</span>
+                        <span class="font-bold">{ FormattedMoney::from_money(value.money).to_string() }</span>
+                        <span class="text-base-content/60">{ FormattedPercentage::from_percentage(value.rate.clone()).to_string() }</span>
                         { type_badge }
                     </span>
                 </div>

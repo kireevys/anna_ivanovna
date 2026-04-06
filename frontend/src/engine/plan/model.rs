@@ -4,11 +4,11 @@ use ai_core::plan::Plan as CorePlan;
 
 use crate::{
     api::{Collection, StoragePlanFrontend},
-    engine::core::{DataState, Model},
-    presentation::plan::editable,
+    engine::{
+        core::{DataState, Model},
+        plan::{cmd, editable, msg},
+    },
 };
-
-use crate::engine::plan::{cmd, msg};
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub enum PlanValidation {

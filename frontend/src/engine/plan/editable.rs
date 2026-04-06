@@ -17,8 +17,6 @@ use ai_core::{
     },
 };
 
-use crate::presentation::formatting::FormattedPercentage;
-
 #[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub enum IncomeKind {
     Salary,
@@ -52,7 +50,7 @@ pub fn incomes_from_core_plan(plan: &CorePlan) -> Vec<IncomeSource> {
                 name: source.name.clone(),
                 kind: IncomeKind::Salary,
                 amount: gross.value.to_string(),
-                tax_rate: FormattedPercentage::from(tax_rate.clone()).raw_value(),
+                tax_rate: percentage_to_raw_string(tax_rate),
             },
             CoreIncomeKind::Other { expected } => IncomeSource {
                 name: source.name.clone(),
@@ -280,10 +278,7 @@ pub fn expenses_from_core_plan(plan: &CorePlan) -> Vec<Expense> {
                 credit: CreditData {
                     monthly_payment: credit.monthly_payment.value.to_string(),
                     total_amount: credit.total_amount.value.to_string(),
-                    interest_rate: FormattedPercentage::from_percentage(
-                        credit.interest_rate.clone(),
-                    )
-                    .raw_value(),
+                    interest_rate: percentage_to_raw_string(&credit.interest_rate),
                     term_months: credit.term_months.to_string(),
                     start_date: credit.start_date.to_string(),
                 },
@@ -353,4 +348,8 @@ fn apply_expenses_to_core_plan(plan: &CorePlan, expenses: &[Expense]) -> CorePla
         .collect();
 
     updated
+}
+
+fn percentage_to_raw_string(value: &Percentage) -> String {
+    value.to_string().trim_end_matches('%').trim().to_string()
 }
