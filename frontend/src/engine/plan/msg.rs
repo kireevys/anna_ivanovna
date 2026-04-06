@@ -4,7 +4,7 @@ use ai_core::plan::Plan;
 
 use crate::{
     api::{ApiError, Collection, StoragePlanFrontend},
-    presentation::plan::editable,
+    engine::plan::editable,
 };
 
 #[derive(Deserialize, Serialize)]

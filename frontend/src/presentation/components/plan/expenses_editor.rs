@@ -4,10 +4,9 @@ use rust_decimal::Decimal;
 
 use ai_core::finance::{Money, Percentage};
 
-use crate::presentation::{
-    components::icons::XIcon,
-    formatting::FormattedMoney,
-    plan::editable::{ActiveType, Expense, ExpenseType, ValueKind},
+use crate::{
+    engine::plan::editable::{ActiveType, Expense, ExpenseType, ValueKind},
+    presentation::{components::icons::XIcon, formatting::FormattedMoney},
 };
 use web_sys::HtmlInputElement;
 use yew::prelude::*;

@@ -2,9 +2,10 @@ use rust_decimal::Decimal;
 
 use ai_core::{finance::Percentage, plan::Plan as CorePlan, planning::ExpenseValue};
 
-use crate::{
-    engine::plan::{model::EditState, update::validate::recompute_validation},
-    presentation::plan::editable,
+use crate::engine::plan::{
+    editable,
+    model::EditState,
+    update::validate::recompute_validation,
 };
 
 pub(crate) fn rebuild_and_validate(

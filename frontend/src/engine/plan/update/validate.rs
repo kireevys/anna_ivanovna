@@ -2,9 +2,9 @@ use std::{collections::HashSet, str::FromStr};
 
 use rust_decimal::Decimal;
 
-use crate::{
-    engine::plan::model::{PlanValidation, SaveState},
-    presentation::plan::editable,
+use crate::engine::plan::{
+    editable,
+    model::{PlanValidation, SaveState},
 };
 
 pub(crate) fn recompute_validation(
