@@ -1,5 +1,6 @@
-use ai_core::{finance::Money, planning::IncomeKind};
 use yew::prelude::*;
+
+use ai_core::{finance::Money, planning::IncomeKind};
 
 use crate::{
     engine::history::HistoryEntry,
