@@ -7,7 +7,10 @@ use crate::{
     presentation::plan::editable,
 };
 
-pub fn rebuild_and_validate(edit: &EditState, base_plan: &CorePlan) -> EditState {
+pub(crate) fn rebuild_and_validate(
+    edit: &EditState,
+    base_plan: &CorePlan,
+) -> EditState {
     let updated_plan =
         editable::build_updated_plan(base_plan, &edit.incomes, &edit.expenses);
 

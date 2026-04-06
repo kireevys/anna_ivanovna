@@ -12,7 +12,7 @@ pub struct BudgetEntry {
     pub budget: Budget,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Page<T> {
     pub items: Vec<T>,
     pub next_cursor: Option<Cursor>,

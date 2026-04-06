@@ -5,49 +5,48 @@ use ai_core::plan::Plan as CorePlan;
 
 use crate::{
     api::ApiError,
-    engine::plan::{
-        cmd::PlanCmd,
-        model::{DataState, EditState, PlanModel, PlanValidation, SaveState},
-        msg::{EditMsg, LoadingMsg, PersistMsg, PlanMsg, TemplateMsg},
+    engine::{
+        core::DataState,
+        plan::{
+            cmd::Cmd,
+            model::{EditState, PlanModel, PlanValidation, SaveState},
+            msg::{EditMsg, LoadingMsg, Msg, PersistMsg, TemplateMsg},
+        },
     },
-    presentation::plan::{editable, read::Plan},
+    presentation::plan::editable,
 };
 
-pub fn handle(model: &PlanModel, msg: PlanMsg) -> (PlanModel, Vec<PlanCmd>) {
+pub(crate) fn handle(model: PlanModel, msg: Msg) -> (PlanModel, Vec<Cmd>) {
     match msg {
-        PlanMsg::Loading(m) => handle_loading(model, m),
-        PlanMsg::Template(m) => handle_template(model, m),
-        PlanMsg::Edit(m) => handle_edit(model, m),
-        PlanMsg::Persist(m) => handle_persist(model, m),
+        Msg::Loading(m) => handle_loading(model, m),
+        Msg::Template(m) => handle_template(model, m),
+        Msg::Edit(m) => handle_edit(model, m),
+        Msg::Persist(m) => handle_persist(model, m),
     }
 }
 
-fn handle_loading(_model: &PlanModel, msg: LoadingMsg) -> (PlanModel, Vec<PlanCmd>) {
+fn handle_loading(_model: PlanModel, msg: LoadingMsg) -> (PlanModel, Vec<Cmd>) {
     match msg {
-        LoadingMsg::Reload => (PlanModel::Loading, vec![PlanCmd::LoadPlan]),
+        LoadingMsg::Reload => (PlanModel::Loading, vec![Cmd::LoadPlan]),
         LoadingMsg::Loaded(result) => match result {
-            Ok(storage_plan) => {
-                let plan = Plan::from(&storage_plan.plan);
-                (
-                    PlanModel::Viewing {
-                        plan,
-                        origin: storage_plan,
-                    },
-                    vec![],
-                )
-            }
+            Ok(storage_plan) => (
+                PlanModel::Viewing {
+                    origin: storage_plan,
+                },
+                vec![],
+            ),
             Err(ApiError::Http(404, _)) => (
                 PlanModel::SelectingTemplate {
                     templates: DataState::Loading,
                 },
-                vec![PlanCmd::LoadTemplates],
+                vec![Cmd::LoadTemplates],
             ),
             Err(e) => (PlanModel::Error(e.to_string()), vec![]),
         },
     }
 }
 
-fn handle_template(model: &PlanModel, msg: TemplateMsg) -> (PlanModel, Vec<PlanCmd>) {
+fn handle_template(model: PlanModel, msg: TemplateMsg) -> (PlanModel, Vec<Cmd>) {
     match msg {
         TemplateMsg::TemplatesLoaded(result) => {
             if let PlanModel::SelectingTemplate { .. } = model {
@@ -66,16 +65,16 @@ fn handle_template(model: &PlanModel, msg: TemplateMsg) -> (PlanModel, Vec<PlanC
                     ),
                 }
             } else {
-                (model.clone(), vec![])
+                (model, vec![])
             }
         }
         TemplateMsg::Select(plan) => {
             if let PlanModel::SelectingTemplate { .. } = model {
                 let edit = edit_state_from_core_plan(&plan);
                 let edit = rebuild_edit(edit, &plan);
-                (PlanModel::Creating { edit }, vec![PlanCmd::ScrollToTop])
+                (PlanModel::Creating { edit }, vec![Cmd::ScrollToTop])
             } else {
-                (model.clone(), vec![])
+                (model, vec![])
             }
         }
         TemplateMsg::CreateFromScratch => {
@@ -83,9 +82,9 @@ fn handle_template(model: &PlanModel, msg: TemplateMsg) -> (PlanModel, Vec<PlanC
                 let empty_plan = CorePlan::build(&[], &[]);
                 let edit = edit_state_from_core_plan(&empty_plan);
                 let edit = rebuild_edit(edit, &empty_plan);
-                (PlanModel::Creating { edit }, vec![PlanCmd::ScrollToTop])
+                (PlanModel::Creating { edit }, vec![Cmd::ScrollToTop])
             } else {
-                (model.clone(), vec![])
+                (model, vec![])
             }
         }
         TemplateMsg::Back => {
@@ -94,160 +93,139 @@ fn handle_template(model: &PlanModel, msg: TemplateMsg) -> (PlanModel, Vec<PlanC
                     PlanModel::SelectingTemplate {
                         templates: DataState::Loading,
                     },
-                    vec![PlanCmd::LoadTemplates],
+                    vec![Cmd::LoadTemplates],
                 )
             } else {
-                (model.clone(), vec![])
+                (model, vec![])
             }
         }
     }
 }
 
-fn handle_edit(model: &PlanModel, msg: EditMsg) -> (PlanModel, Vec<PlanCmd>) {
+fn handle_edit(model: PlanModel, msg: EditMsg) -> (PlanModel, Vec<Cmd>) {
     match msg {
         EditMsg::Enter => {
             if let PlanModel::Viewing { origin, .. } = model {
                 let edit = edit_state_from_core_plan(&origin.plan);
                 let edit = rebuild_edit(edit, &origin.plan);
-                (
-                    PlanModel::Editing {
-                        origin: origin.clone(),
-                        edit,
-                    },
-                    vec![],
-                )
+                (PlanModel::Editing { origin, edit }, vec![])
             } else {
-                (model.clone(), vec![])
+                (model, vec![])
             }
         }
         EditMsg::Cancel => {
             if let PlanModel::Editing { origin, .. } = model {
-                let plan = Plan::from(&origin.plan);
-                (
-                    PlanModel::Viewing {
-                        plan,
-                        origin: origin.clone(),
-                    },
-                    vec![],
-                )
+                (PlanModel::Viewing { origin }, vec![])
             } else {
-                (model.clone(), vec![])
+                (model, vec![])
             }
         }
-        EditMsg::IncomesChanged(incomes) => update_edit(model, |edit| EditState {
-            incomes,
-            ..edit.clone()
-        }),
-        EditMsg::ExpensesChanged(expenses) => update_edit(model, |edit| EditState {
-            expenses,
-            ..edit.clone()
-        }),
+        EditMsg::IncomesChanged(incomes) => {
+            update_edit(model, |edit| EditState { incomes, ..edit })
+        }
+        EditMsg::ExpensesChanged(expenses) => {
+            update_edit(model, |edit| EditState { expenses, ..edit })
+        }
     }
 }
 
-fn handle_persist(model: &PlanModel, msg: PersistMsg) -> (PlanModel, Vec<PlanCmd>) {
+fn handle_persist(model: PlanModel, msg: PersistMsg) -> (PlanModel, Vec<Cmd>) {
     match msg {
         PersistMsg::Save => {
-            if let PlanModel::Editing { origin, edit } = model {
-                if !matches!(edit.validation, PlanValidation::Valid)
-                    || !matches!(edit.save_state, SaveState::CanSave)
-                {
-                    let new_edit = EditState {
-                        save_state: SaveState::Disabled,
-                        ..edit.clone()
-                    };
-                    return (
-                        PlanModel::Editing {
-                            origin: origin.clone(),
-                            edit: new_edit,
+            let PlanModel::Editing { origin, edit } = model else {
+                return (model, vec![]);
+            };
+            if !matches!(edit.validation, PlanValidation::Valid)
+                || !matches!(edit.save_state, SaveState::CanSave)
+            {
+                return (
+                    PlanModel::Editing {
+                        origin,
+                        edit: EditState {
+                            save_state: SaveState::Disabled,
+                            ..edit
                         },
-                        vec![],
-                    );
-                }
-
-                if let Some(core_plan) = &edit.core_plan {
-                    let new_edit = EditState {
-                        save_state: SaveState::Saving,
-                        ..edit.clone()
-                    };
-                    (
-                        PlanModel::Editing {
-                            origin: origin.clone(),
-                            edit: new_edit,
-                        },
-                        vec![PlanCmd::SavePlan {
-                            id: origin.id.clone(),
-                            plan: core_plan.clone(),
-                        }],
-                    )
-                } else {
-                    (model.clone(), vec![])
-                }
-            } else {
-                (model.clone(), vec![])
+                    },
+                    vec![],
+                );
             }
+            let Some(core_plan) = edit.core_plan.clone() else {
+                return (PlanModel::Editing { origin, edit }, vec![]);
+            };
+            let id = origin.id.clone();
+            (
+                PlanModel::Editing {
+                    origin,
+                    edit: EditState {
+                        save_state: SaveState::Saving,
+                        ..edit
+                    },
+                },
+                vec![Cmd::SavePlan {
+                    id,
+                    plan: core_plan,
+                }],
+            )
         }
         PersistMsg::SaveFinished(result) => {
-            if let PlanModel::Editing { origin, edit } = model {
-                match result {
-                    Ok(()) => (PlanModel::Loading, vec![PlanCmd::LoadPlan]),
-                    Err(ApiError::Http(422, _)) => (
-                        PlanModel::Editing {
-                            origin: origin.clone(),
-                            edit: apply_422(edit),
-                        },
-                        vec![],
-                    ),
-                    Err(e) => (PlanModel::Error(e.to_string()), vec![]),
-                }
-            } else {
-                (model.clone(), vec![])
+            let PlanModel::Editing { origin, edit } = model else {
+                return (model, vec![]);
+            };
+            match result {
+                Ok(()) => (PlanModel::Loading, vec![Cmd::LoadPlan]),
+                Err(ApiError::Http(422, _)) => (
+                    PlanModel::Editing {
+                        origin,
+                        edit: apply_422(edit),
+                    },
+                    vec![],
+                ),
+                Err(e) => (PlanModel::Error(e.to_string()), vec![]),
             }
         }
         PersistMsg::Create => {
-            if let PlanModel::Creating { edit } = model {
-                if !matches!(edit.validation, PlanValidation::Valid)
-                    || !matches!(edit.save_state, SaveState::CanSave)
-                {
-                    let new_edit = EditState {
-                        save_state: SaveState::Disabled,
-                        ..edit.clone()
-                    };
-                    return (PlanModel::Creating { edit: new_edit }, vec![]);
-                }
-
-                if let Some(core_plan) = &edit.core_plan {
-                    let new_edit = EditState {
-                        save_state: SaveState::Saving,
-                        ..edit.clone()
-                    };
-                    (
-                        PlanModel::Creating { edit: new_edit },
-                        vec![PlanCmd::CreatePlan {
-                            plan: core_plan.clone(),
-                        }],
-                    )
-                } else {
-                    (model.clone(), vec![])
-                }
-            } else {
-                (model.clone(), vec![])
+            let PlanModel::Creating { edit } = model else {
+                return (model, vec![]);
+            };
+            if !matches!(edit.validation, PlanValidation::Valid)
+                || !matches!(edit.save_state, SaveState::CanSave)
+            {
+                return (
+                    PlanModel::Creating {
+                        edit: EditState {
+                            save_state: SaveState::Disabled,
+                            ..edit
+                        },
+                    },
+                    vec![],
+                );
             }
+            let Some(core_plan) = edit.core_plan.clone() else {
+                return (PlanModel::Creating { edit }, vec![]);
+            };
+            (
+                PlanModel::Creating {
+                    edit: EditState {
+                        save_state: SaveState::Saving,
+                        ..edit
+                    },
+                },
+                vec![Cmd::CreatePlan { plan: core_plan }],
+            )
         }
         PersistMsg::CreateFinished(result) => {
-            if let PlanModel::Creating { edit } = model {
-                match result {
-                    Ok(_) => (PlanModel::Loading, vec![PlanCmd::LoadPlan]),
-                    Err(ApiError::Http(422, _)) => (
-                        PlanModel::Creating {
-                            edit: apply_422(edit),
-                        },
-                        vec![],
-                    ),
-                    Err(e) => (PlanModel::Error(e.to_string()), vec![]),
-                }
-            } else {
-                (model.clone(), vec![])
+            let PlanModel::Creating { edit } = model else {
+                return (model, vec![]);
+            };
+            match result {
+                Ok(_) => (PlanModel::Loading, vec![Cmd::LoadPlan]),
+                Err(ApiError::Http(422, _)) => (
+                    PlanModel::Creating {
+                        edit: apply_422(edit),
+                    },
+                    vec![],
+                ),
+                Err(e) => (PlanModel::Error(e.to_string()), vec![]),
             }
         }
     }
@@ -270,9 +248,9 @@ fn rebuild_edit(edit: EditState, base_plan: &CorePlan) -> EditState {
 }
 
 fn update_edit(
-    model: &PlanModel,
-    f: impl FnOnce(&EditState) -> EditState,
-) -> (PlanModel, Vec<PlanCmd>) {
+    model: PlanModel,
+    f: impl FnOnce(EditState) -> EditState,
+) -> (PlanModel, Vec<Cmd>) {
     match model {
         PlanModel::Editing { origin, edit } => {
             let new_edit = f(edit);
@@ -283,7 +261,7 @@ fn update_edit(
             let new_edit = rebuild::rebuild_and_validate(&new_edit, &base_plan);
             (
                 PlanModel::Editing {
-                    origin: origin.clone(),
+                    origin,
                     edit: new_edit,
                 },
                 vec![],
@@ -306,19 +284,19 @@ fn update_edit(
                 (PlanModel::Creating { edit: new_edit }, vec![])
             }
         }
-        _ => (model.clone(), vec![]),
+        _ => (model, vec![]),
     }
 }
 
 pub(crate) const EXPENSES_EXCEED_INCOME: &str =
     "План некорректен: расходы превышают доходы";
 
-fn apply_422(edit: &EditState) -> EditState {
+fn apply_422(edit: EditState) -> EditState {
     EditState {
         validation: PlanValidation::BusinessInvalid {
             messages: vec![EXPENSES_EXCEED_INCOME.into()],
         },
         save_state: SaveState::Disabled,
-        ..edit.clone()
+        ..edit
     }
 }

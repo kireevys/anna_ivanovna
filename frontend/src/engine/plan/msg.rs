@@ -9,7 +9,7 @@ use crate::{
 
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "type", content = "payload")]
-pub enum PlanMsg {
+pub enum Msg {
     Loading(LoadingMsg),
     Template(TemplateMsg),
     Edit(EditMsg),
@@ -50,26 +50,26 @@ pub enum PersistMsg {
     CreateFinished(Result<String, ApiError>),
 }
 
-impl From<LoadingMsg> for PlanMsg {
+impl From<LoadingMsg> for Msg {
     fn from(msg: LoadingMsg) -> Self {
-        PlanMsg::Loading(msg)
+        Msg::Loading(msg)
     }
 }
 
-impl From<TemplateMsg> for PlanMsg {
+impl From<TemplateMsg> for Msg {
     fn from(msg: TemplateMsg) -> Self {
-        PlanMsg::Template(msg)
+        Msg::Template(msg)
     }
 }
 
-impl From<EditMsg> for PlanMsg {
+impl From<EditMsg> for Msg {
     fn from(msg: EditMsg) -> Self {
-        PlanMsg::Edit(msg)
+        Msg::Edit(msg)
     }
 }
 
-impl From<PersistMsg> for PlanMsg {
+impl From<PersistMsg> for Msg {
     fn from(msg: PersistMsg) -> Self {
-        PlanMsg::Persist(msg)
+        Msg::Persist(msg)
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     presentation::plan::editable,
 };
 
-pub fn recompute_validation(
+pub(crate) fn recompute_validation(
     edit: &crate::engine::plan::model::EditState,
     business_invalid: bool,
 ) -> (PlanValidation, SaveState) {

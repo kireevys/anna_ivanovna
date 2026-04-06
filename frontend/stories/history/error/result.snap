@@ -1,0 +1,18 @@
+---
+source: frontend/tests/stories.rs
+---
+- step: initial
+  model:
+    data:
+      items: []
+      next_cursor: ~
+      status: Loading
+  cmds: []
+- step: 001_error
+  model:
+    data:
+      items: []
+      next_cursor: ~
+      status:
+        Error: Network error
+  cmds: []

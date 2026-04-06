@@ -1,0 +1,9 @@
+---
+source: frontend/tests/stories.rs
+---
+- step: initial
+  model: Checking
+  cmds: []
+- step: 001_resolved
+  model: Ready
+  cmds: []

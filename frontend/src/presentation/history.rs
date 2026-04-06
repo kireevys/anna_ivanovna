@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     api::BudgetEntry,
     presentation::{formatting::FormattedMoney, income::SourceKind},
@@ -7,7 +9,7 @@ use crate::{
 
 const NO_CATEGORY: &str = "Без категории";
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct HistoryEntry {
     pub id: String,
     pub date: String,
@@ -18,13 +20,13 @@ pub struct HistoryEntry {
     pub categories: Vec<Category>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct Category {
     pub name: String,
     pub entries: Vec<ExpenseEntry>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct ExpenseEntry {
     pub name: String,
     pub amount: FormattedMoney,

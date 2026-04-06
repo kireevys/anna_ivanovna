@@ -3,7 +3,7 @@ use serde::Serialize;
 use ai_core::plan::Plan;
 
 #[derive(Clone, PartialEq, Serialize)]
-pub enum PlanCmd {
+pub enum Cmd {
     LoadPlan,
     LoadTemplates,
     SavePlan { id: String, plan: Plan },

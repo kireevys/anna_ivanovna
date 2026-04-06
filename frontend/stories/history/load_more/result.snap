@@ -1,0 +1,70 @@
+---
+source: frontend/tests/stories.rs
+---
+- step: initial
+  model:
+    data:
+      items:
+        - id: entry-1
+          date: 2026-04-01
+          source_name: Зарплата
+          income_amount:
+            value: "100000"
+            currency: RUB
+          source_kind: Other
+          rest:
+            value: "0"
+            currency: RUB
+          categories: []
+      next_cursor: cursor-abc
+      status: Idle
+  cmds: []
+- step: 001_load
+  model:
+    data:
+      items:
+        - id: entry-1
+          date: 2026-04-01
+          source_name: Зарплата
+          income_amount:
+            value: "100000"
+            currency: RUB
+          source_kind: Other
+          rest:
+            value: "0"
+            currency: RUB
+          categories: []
+      next_cursor: cursor-abc
+      status: Loading
+  cmds:
+    - Fetch:
+        cursor: cursor-abc
+- step: 002_loaded
+  model:
+    data:
+      items:
+        - id: entry-1
+          date: 2026-04-01
+          source_name: Зарплата
+          income_amount:
+            value: "100000"
+            currency: RUB
+          source_kind: Other
+          rest:
+            value: "0"
+            currency: RUB
+          categories: []
+        - id: entry-2
+          date: 2026-03-15
+          source_name: Фриланс
+          income_amount:
+            value: "50000"
+            currency: RUB
+          source_kind: Other
+          rest:
+            value: "0"
+            currency: RUB
+          categories: []
+      next_cursor: ~
+      status: Idle
+  cmds: []

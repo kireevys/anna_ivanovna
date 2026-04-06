@@ -1,0 +1,19 @@
+---
+source: frontend/tests/stories.rs
+---
+- step: initial
+  model:
+    Setup:
+      default_path: /home/user/.buh
+      chosen_path: ~
+      error: ~
+      saving: false
+  cmds: []
+- step: 001_picked
+  model:
+    Setup:
+      default_path: /home/user/.buh
+      chosen_path: /custom/path
+      error: ~
+      saving: false
+  cmds: []
