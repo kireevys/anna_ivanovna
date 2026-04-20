@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "settings",
+  "description": "Capability for the settings window (custom protocol)",
+  "remote": {
+    "urls": ["settings://localhost/*"]
+  },
+  "permissions": [
+    "core:default"
+  ]
+}
