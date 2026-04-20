@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding: 24px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        h1 { font-size: 18px; margin-bottom: 20px; }
+        .field { margin-bottom: 16px; }
+        label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+        input, select {
+            width: 100%; padding: 8px 10px;
+            border: 1px solid #ccc; border-radius: 4px;
+            font-size: 14px; background: #fff;
+        }
+        input:focus, select:focus { outline: none; border-color: #007aff; }
+        .row { display: flex; gap: 12px; }
+        .row .field { flex: 1; }
+        fieldset {
+            border: 1px solid #ddd; border-radius: 6px;
+            padding: 16px; margin-bottom: 16px;
+        }
+        legend { font-size: 14px; font-weight: 600; padding: 0 8px; }
+        .actions { margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end; }
+        button {
+            padding: 8px 20px; border: none; border-radius: 4px;
+            font-size: 14px; cursor: pointer;
+        }
+        .btn-save { background: #007aff; color: #fff; }
+        .btn-save:hover { background: #0056b3; }
+        .btn-restart { background: #ff9500; color: #fff; }
+        .btn-restart:hover { background: #cc7700; }
+        .status { margin-top: 12px; font-size: 13px; color: #666; min-height: 20px; }
+        .status.error { color: #ff3b30; }
+        .status.success { color: #34c759; }
+    </style>
+</head>
+<body>
+    <h1>Настройки</h1>
+
+    <fieldset>
+        <legend>Сервер</legend>
+        <div class="row">
+            <div class="field">
+                <label for="host">Хост</label>
+                <input type="text" id="host" placeholder="127.0.0.1">
+            </div>
+            <div class="field">
+                <label for="port">Порт</label>
+                <input type="number" id="port" placeholder="31415" min="1" max="65535">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>База данных</legend>
+        <div class="field">
+            <label for="db-type">Тип</label>
+            <select id="db-type" disabled>
+                <option value="sqlite">SQLite</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="db-name">Путь к файлу БД</label>
+            <input type="text" id="db-name" placeholder="anna_ivanovna.db">
+        </div>
+    </fieldset>
+
+    <div class="actions">
+        <button class="btn-restart" id="btn-restart">Перезапустить сервер</button>
+        <button class="btn-save" id="btn-save">Сохранить</button>
+    </div>
+    <div class="status" id="status"></div>
+
+    <script>
+        const { invoke } = window.__TAURI__.core;
+
+        const hostEl = document.getElementById('host');
+        const portEl = document.getElementById('port');
+        const dbNameEl = document.getElementById('db-name');
+        const statusEl = document.getElementById('status');
+
+        function setStatus(text, type) {
+            statusEl.textContent = text;
+            statusEl.className = 'status ' + (type || '');
+        }
+
+        async function loadConfig() {
+            try {
+                const config = await invoke('get_config');
+                hostEl.value = config.server.host;
+                portEl.value = config.server.port;
+                dbNameEl.value = config.database.name;
+            } catch (e) {
+                setStatus('Ошибка загрузки: ' + e, 'error');
+            }
+        }
+
+        document.getElementById('btn-save').addEventListener('click', async () => {
+            const config = {
+                server: {
+                    host: hostEl.value,
+                    port: parseInt(portEl.value, 10),
+                },
+                database: {
+                    type: 'sqlite',
+                    name: dbNameEl.value,
+                },
+            };
+            try {
+                await invoke('save_config', { config });
+                setStatus('Сохранено. Перезапустите сервер для применения.', 'success');
+            } catch (e) {
+                setStatus('Ошибка сохранения: ' + e, 'error');
+            }
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', async () => {
+            setStatus('Перезапуск...');
+            try {
+                await invoke('restart_backend');
+                setStatus('Сервер перезапущен', 'success');
+            } catch (e) {
+                setStatus('Ошибка перезапуска: ' + e, 'error');
+            }
+        });
+
+        loadConfig();
+    </script>
+</body>
+</html>
