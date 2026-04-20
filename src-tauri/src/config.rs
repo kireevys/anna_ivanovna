@@ -65,6 +65,11 @@ impl TauriConfigProvider {
         read_json(&buh_home.join("config.json"))
     }
 
+    pub fn save(&self, config: &Config) -> Result<(), Error> {
+        let buh_home = self.resolve_buh_home()?;
+        write_json(&buh_home.join("config.json"), config)
+    }
+
     pub fn save_initial(
         &self,
         buh_home: &Path,
