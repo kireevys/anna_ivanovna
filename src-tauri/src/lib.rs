@@ -11,14 +11,17 @@ use std::{
 use ai_app::api::CoreApi;
 use anna_ivanovna_lib::{interfaces::web::create_router, storage::sqlite::SqliteRepo};
 use config::TauriConfigProvider;
-use tauri::{Manager, RunEvent, async_runtime::spawn};
+use tauri::{
+    Manager,
+    RunEvent,
+    async_runtime::spawn,
+    menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
+};
 use tauri_plugin_dialog::DialogExt;
 use tokio::sync::watch;
 
-const BACKEND_HOST: &str = "127.0.0.1";
-const BACKEND_PORT: u16 = 31415;
-
 struct AppState {
+    shutdown_tx: watch::Sender<bool>,
     shutdown_rx: std::sync::Mutex<watch::Receiver<bool>>,
     backend_started: AtomicBool,
 }
@@ -142,6 +145,65 @@ async fn start_app_backend(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn get_config(app: tauri::AppHandle) -> Result<ai_app::config::Config, String> {
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("failed to resolve app config dir: {e}"))?;
+
+    let provider = TauriConfigProvider::new(config_dir);
+    provider
+        .load()
+        .map_err(|e| format!("failed to load config: {e}"))
+}
+
+#[tauri::command]
+fn save_config(
+    app: tauri::AppHandle,
+    config: ai_app::config::Config,
+) -> Result<(), String> {
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("failed to resolve app config dir: {e}"))?;
+
+    let provider = TauriConfigProvider::new(config_dir);
+    provider
+        .save(&config)
+        .map_err(|e| format!("failed to save config: {e}"))
+}
+
+#[tauri::command]
+async fn restart_backend(app: tauri::AppHandle) -> Result<(), String> {
+    let state = app.state::<AppState>();
+
+    let _ = state.shutdown_tx.send(true);
+
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+    state.backend_started.store(false, Ordering::SeqCst);
+    let _ = state.shutdown_tx.send(false);
+
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("failed to resolve app config dir: {e}"))?;
+
+    let provider = TauriConfigProvider::new(config_dir);
+    let config = provider
+        .load()
+        .map_err(|e| format!("failed to load config: {e}"))?;
+
+    try_start_backend(&app, config)?;
+
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.eval("setTimeout(() => location.reload(), 500)");
+    }
+
+    Ok(())
+}
+
 fn try_start_backend(
     app: &tauri::AppHandle,
     config: ai_app::config::Config,
@@ -164,6 +226,31 @@ fn try_start_backend(
     Ok(())
 }
 
+fn open_settings_window(
+    app: &tauri::AppHandle,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    tauri::WebviewWindowBuilder::new(
+        app,
+        "settings",
+        tauri::WebviewUrl::External(
+            "settings://localhost/"
+                .parse()
+                .map_err(|e| format!("{e}"))?,
+        ),
+    )
+    .title("Настройки")
+    .inner_size(480.0, 400.0)
+    .resizable(false)
+    .build()?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt::init();
@@ -174,6 +261,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
+            shutdown_tx: shutdown_tx.clone(),
             shutdown_rx: std::sync::Mutex::new(shutdown_rx),
             backend_started: AtomicBool::new(false),
         })
@@ -183,7 +271,56 @@ pub fn run() {
             pick_data_folder,
             complete_setup,
             start_app_backend,
+            get_config,
+            save_config,
+            restart_backend,
         ])
+        .register_uri_scheme_protocol("settings", |_ctx, _request| {
+            let html = include_str!("../assets/settings.html");
+            tauri::http::Response::builder()
+                .status(200)
+                .header("Content-Type", "text/html; charset=utf-8")
+                .body(html.as_bytes().to_vec())
+                .unwrap()
+        })
+        .setup(|app| {
+            let settings_item = MenuItemBuilder::new("Настройки…")
+                .id("settings")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+
+            let file_menu = SubmenuBuilder::new(app, "Файл")
+                .item(&settings_item)
+                .separator()
+                .quit()
+                .build()?;
+
+            let edit_menu = SubmenuBuilder::new(app, "Правка")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .items(&[&file_menu, &edit_menu])
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            app.on_menu_event(move |app_handle, event| {
+                if event.id().0.as_str() == "settings"
+                    && let Err(e) = open_settings_window(app_handle)
+                {
+                    tracing::error!("Failed to open settings window: {e}");
+                }
+            });
+
+            Ok(())
+        })
         .build(tauri::generate_context!())
         .expect("failed to build tauri application");
 
@@ -217,11 +354,11 @@ async fn run_backend(
     let api = CoreApi::new(Arc::new(repo));
     let app = create_router(api);
 
-    let addr = format!("{BACKEND_HOST}:{BACKEND_PORT}");
+    let addr = format!("{}:{}", config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await.map_err(|e| {
         format!(
             "Не удалось запустить сервер на {addr}: {e}. \
-             Порт {BACKEND_PORT} занят — закройте приложение, которое его использует, \
+             Порт занят — закройте приложение, которое его использует, \
              и попробуйте снова."
         )
     })?;
