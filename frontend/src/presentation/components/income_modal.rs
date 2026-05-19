@@ -9,8 +9,9 @@ use ai_core::distribute::Budget;
 
 use crate::{
     api::{AddIncomeRequest, ApiClient, ApiError, BudgetEntry},
+    engine::history::HistoryEntry,
     presentation::{
-        history::HistoryEntry,
+        formatting::FormattedMoney,
         income::{SourceKind, tax_from_net},
     },
 };
@@ -331,13 +332,13 @@ impl IncomeModal {
                             <div>
                                 <div class="text-sm text-base-content/70">{ "Доход" }</div>
                                 <div class="text-2xl font-bold text-success">
-                                    { entry.income_amount.to_string() }
+                                    { FormattedMoney::from_money(entry.income_amount).to_string() }
                                 </div>
                             </div>
                             <div class="text-right">
                                 <div class="text-sm text-base-content/70">{ "Остаток" }</div>
                                 <div class="text-2xl font-bold text-warning">
-                                    { entry.rest.to_string() }
+                                    { FormattedMoney::from_money(entry.rest).to_string() }
                                 </div>
                             </div>
                         </div>
@@ -355,7 +356,7 @@ impl IncomeModal {
                                             html! {
                                                 <div class="flex justify-between items-center text-sm">
                                                     <span>{ &expense.name }</span>
-                                                    <span class="font-bold">{ expense.amount.to_string() }</span>
+                                                    <span class="font-bold">{ FormattedMoney::from_money(expense.amount).to_string() }</span>
                                                 </div>
                                             }
                                         })}

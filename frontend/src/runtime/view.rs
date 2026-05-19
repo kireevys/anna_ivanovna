@@ -15,6 +15,7 @@ use crate::{
         plan::{
             model::{EditState, PlanModel, PlanValidation, SaveState},
             msg::{EditMsg, LoadingMsg, PersistMsg, TemplateMsg},
+            view_model::Plan,
         },
     },
     presentation::{
@@ -29,7 +30,7 @@ use crate::{
             Totals,
             WelcomeScreen,
         },
-        plan::read::Plan,
+        formatting::FormattedMoney,
     },
     runtime::App,
 };
@@ -109,9 +110,9 @@ fn render_plan_sticky_header(model: &AppModel) -> Html {
     html! {
         <>
             <Totals
-                total_income={view_model.total_income.clone()}
-                total_expenses={view_model.total_expenses.clone()}
-                balance={view_model.balance.clone()}
+                total_income={FormattedMoney::from_money(view_model.total_income)}
+                total_expenses={FormattedMoney::from_money(view_model.total_expenses)}
+                balance={FormattedMoney::from_money(view_model.balance)}
             />
             {
                 if edit_state.is_some() && !bar_class.is_empty() {

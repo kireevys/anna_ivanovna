@@ -3,10 +3,12 @@ use std::str::FromStr;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
-use crate::presentation::{
-    components::icons::XIcon,
-    income::{OTHER_LABEL, SALARY_LABEL, tax_from_gross},
-    plan::editable,
+use crate::{
+    engine::plan::editable,
+    presentation::{
+        components::icons::XIcon,
+        income::{OTHER_LABEL, SALARY_LABEL, tax_from_gross},
+    },
 };
 
 #[derive(Properties, PartialEq)]

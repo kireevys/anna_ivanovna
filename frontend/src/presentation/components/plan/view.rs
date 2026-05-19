@@ -4,10 +4,8 @@ use yew::prelude::*;
 
 use crate::{
     api::ApiClient,
-    presentation::{
-        components::plan::{ExpenseCategories, IncomeSources},
-        plan::read::Plan,
-    },
+    engine::plan::view_model::Plan,
+    presentation::components::plan::{ExpenseCategories, IncomeSources},
 };
 
 #[derive(Properties, PartialEq)]

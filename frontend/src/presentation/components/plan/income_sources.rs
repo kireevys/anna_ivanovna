@@ -4,10 +4,11 @@ use yew::prelude::*;
 
 use crate::{
     api::ApiClient,
+    engine::plan::view_model::IncomeSource,
     presentation::{
         components::IncomeModal,
+        formatting::FormattedMoney,
         income::SourceKind,
-        plan::read::IncomeSource,
     },
 };
 
@@ -65,7 +66,8 @@ impl Component for IncomeSources {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {for ctx.props().sources.iter().map(|source| {
                         let source_id = source.id.clone();
-                        let source_kind = source.source_kind.clone();
+                        let source_kind = SourceKind::from(&source.source_kind);
+                        let source_kind_for_modal = source_kind.clone();
                         html! {
                             <div class="card bg-base-200 shadow">
                                 <div class="card-body p-4">
@@ -73,9 +75,9 @@ impl Component for IncomeSources {
                                         <div>
                                             <div class="flex items-center gap-2 mb-1">
                                                 <h3 class="font-semibold text-lg">{ &source.name }</h3>
-                                                <span class="badge badge-sm badge-ghost">{ source.source_kind.kind_label() }</span>
+                                                <span class="badge badge-sm badge-ghost">{ source_kind.kind_label() }</span>
                                             </div>
-                                            {if let SourceKind::Salary { gross, tax_rate, tax_amount } = &source.source_kind {
+                                            {if let SourceKind::Salary { gross, tax_rate, tax_amount } = &source_kind {
                                                 html! {
                                                     <>
                                                         <p class="text-sm text-base-content/60">
@@ -86,14 +88,14 @@ impl Component for IncomeSources {
                                                         </p>
                                                         <div class="divider my-1"></div>
                                                         <p class="text-2xl font-bold text-primary">
-                                                            { format!("На руки: {}", source.amount) }
+                                                            { format!("На руки: {}", FormattedMoney::from_money(source.amount)) }
                                                         </p>
                                                     </>
                                                 }
                                             } else {
                                                 html! {
                                                     <p class="text-2xl font-bold text-primary">
-                                                        { source.amount.to_string() }
+                                                        { FormattedMoney::from_money(source.amount).to_string() }
                                                     </p>
                                                 }
                                             }}
@@ -102,7 +104,7 @@ impl Component for IncomeSources {
                                             class="btn btn-primary btn-sm"
                                             onclick={ctx.link().callback(move |_| IncomeSourcesMsg::OpenModal(ModalContext {
                                                 source_id: source_id.clone(),
-                                                source_kind: source_kind.clone(),
+                                                source_kind: source_kind_for_modal.clone(),
                                             }))}
                                         >
                                             { "Поступление" }

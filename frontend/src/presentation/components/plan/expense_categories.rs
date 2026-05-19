@@ -1,9 +1,11 @@
-use crate::presentation::{
-    components::plan::expense_card::ExpenseCard,
-    plan::read::{CategoryKey, Expense},
-};
 use std::collections::BTreeMap;
+
 use yew::prelude::*;
+
+use crate::{
+    engine::plan::view_model::{CategoryKey, Expense},
+    presentation::components::plan::expense_card::ExpenseCard,
+};
 
 #[derive(Properties, PartialEq)]
 pub struct ExpenseCategoriesProps {
