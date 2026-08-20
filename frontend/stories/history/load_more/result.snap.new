@@ -1,5 +1,6 @@
 ---
 source: frontend/tests/stories.rs
+assertion_line: 106
 ---
 - step: initial
   model:

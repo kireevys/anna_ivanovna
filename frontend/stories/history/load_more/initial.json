@@ -6,7 +6,10 @@
         "date": "2026-04-01",
         "source_name": "Зарплата",
         "income_amount": { "value": "100000", "currency": "RUB" },
-        "source_kind": "Other",
+        "source_kind": {
+          "type": "other",
+          "expected": { "value": "100000", "currency": "RUB" }
+        },
         "rest": { "value": "0", "currency": "RUB" },
         "categories": []
       }

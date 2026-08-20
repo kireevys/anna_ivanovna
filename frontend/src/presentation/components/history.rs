@@ -5,7 +5,7 @@ use ai_core::{finance::Money, planning::IncomeKind};
 use crate::{
     engine::history::HistoryEntry,
     presentation::{
-        formatting::FormattedMoney,
+        formatting::{FormattedMoney, FormattedPercentage},
         income::{OTHER_LABEL, SALARY_LABEL},
     },
 };
@@ -55,11 +55,7 @@ impl Component for HistoryView {
                                 <div class="collapse-content">
                                     {if let IncomeKind::Salary { gross, tax_rate } = &entry.source_kind {
                                         let tax_money = Money::new(tax_rate.apply_to(gross.value), gross.currency);
-                                        let rate_display = tax_rate
-                                            .to_string()
-                                            .trim_end_matches('%')
-                                            .trim()
-                                            .to_string();
+                                        let rate = FormattedPercentage::from_percentage(tax_rate.clone());
                                         html! {
                                             <div class="card bg-warning/10 border border-warning/30 shadow mb-4 mt-4">
                                                 <div class="card-body p-4">
@@ -70,7 +66,7 @@ impl Component for HistoryView {
                                                             <span class="font-bold">{ FormattedMoney::from_money(*gross).to_string() }</span>
                                                         </div>
                                                         <div class="flex justify-between">
-                                                            <span>{ format!("Налог ({rate_display}%)") }</span>
+                                                            <span>{ format!("Налог ({rate})") }</span>
                                                             <span class="font-bold text-warning">{ FormattedMoney::from_money(tax_money).to_string() }</span>
                                                         </div>
                                                         <div class="divider my-1"></div>
