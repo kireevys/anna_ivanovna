@@ -11,7 +11,19 @@ pub struct TaxBreakdown {
 }
 
 pub fn parse_rate(raw: &str) -> Option<Percentage> {
-    Decimal::from_str(raw).ok().map(Percentage::from)
+    Percentage::from_str(raw).ok()
+}
+
+pub fn withhold(gross: Money, rate: &Percentage) -> Option<TaxBreakdown> {
+    if !rate.is_valid_withholding_rate() {
+        return None;
+    }
+    let tax = rate.apply_to(gross.value);
+    Some(TaxBreakdown {
+        gross,
+        net: Money::new(gross.value - tax, gross.currency),
+        tax: Money::new(tax, gross.currency),
+    })
 }
 
 pub fn tax_from_gross(
@@ -19,16 +31,8 @@ pub fn tax_from_gross(
     rate: &Percentage,
     currency: Currency,
 ) -> Option<TaxBreakdown> {
-    if !rate.is_valid_withholding_rate() {
-        return None;
-    }
     let gross = Decimal::from_str(gross).ok()?;
-    let tax = rate.apply_to(gross);
-    Some(TaxBreakdown {
-        gross: Money::new(gross, currency),
-        net: Money::new(gross - tax, currency),
-        tax: Money::new(tax, currency),
-    })
+    withhold(Money::new(gross, currency), rate)
 }
 
 pub fn tax_from_net(

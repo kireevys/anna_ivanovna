@@ -185,7 +185,8 @@ impl Percentage {
     ///
     /// # Возвращаемое значение
     /// - `None`, если ставка вне диапазона удержания — см.
-    ///   [`Percentage::is_valid_withholding_rate`].
+    ///   [`Percentage::is_valid_withholding_rate`], либо если результат
+    ///   не помещается в `Decimal`.
     /// - Иначе сумма до удержания.
     ///
     /// # Пример
@@ -202,7 +203,8 @@ impl Percentage {
         if !self.is_valid_withholding_rate() {
             return None;
         }
-        Some(net * Decimal::ONE_HUNDRED / (Decimal::ONE_HUNDRED - self.0))
+        net.checked_mul(Decimal::ONE_HUNDRED)?
+            .checked_div(Decimal::ONE_HUNDRED - self.0)
     }
 
     /// Проверяет, что ставку можно удержать из суммы.

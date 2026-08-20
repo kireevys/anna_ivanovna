@@ -57,3 +57,14 @@ fn withholding_rate_range(#[case] rate: Decimal, #[case] expected: bool) {
         "ставка {rate}%"
     );
 }
+
+#[rstest]
+#[case(dec!(13), Decimal::MAX)]
+#[case(dec!(99.99999999999999999999999999), dec!(100))]
+fn gross_from_net_rejects_overflow(#[case] rate: Decimal, #[case] net: Decimal) {
+    assert_eq!(
+        Percentage::from(rate).gross_from_net(net),
+        None,
+        "результат не помещается в Decimal, паника недопустима"
+    );
+}

@@ -2,11 +2,11 @@ use std::rc::Rc;
 
 use yew::prelude::*;
 
-use ai_core::{finance::Money, planning::IncomeKind};
+use ai_core::planning::IncomeKind;
 
 use crate::{
     api::ApiClient,
-    engine::plan::view_model::IncomeSource,
+    engine::{income::withhold, plan::view_model::IncomeSource},
     presentation::{
         components::IncomeModal,
         formatting::{FormattedMoney, FormattedPercentage},
@@ -78,16 +78,17 @@ impl Component for IncomeSources {
                                                 <h3 class="font-semibold text-lg">{ &source.name }</h3>
                                                 <span class="badge badge-sm badge-ghost">{ kind_label(&source.source_kind) }</span>
                                             </div>
-                                            {if let IncomeKind::Salary { gross, tax_rate } = &source.source_kind {
-                                                let tax = Money::new(tax_rate.apply_to(gross.value), gross.currency);
+                                            {if let IncomeKind::Salary { gross, tax_rate } = &source.source_kind
+                                                && let Some(breakdown) = withhold(*gross, tax_rate)
+                                            {
                                                 let rate = FormattedPercentage::from_percentage(tax_rate.clone());
                                                 html! {
                                                     <>
                                                         <p class="text-sm text-base-content/60">
-                                                            { format!("Gross: {}", FormattedMoney::from_money(*gross)) }
+                                                            { format!("Gross: {}", FormattedMoney::from_money(breakdown.gross)) }
                                                         </p>
                                                         <p class="text-sm text-base-content/60">
-                                                            { format!("Налог: {rate} ({})", FormattedMoney::from_money(tax)) }
+                                                            { format!("Налог: {rate} ({})", FormattedMoney::from_money(breakdown.tax)) }
                                                         </p>
                                                         <div class="divider my-1"></div>
                                                         <p class="text-2xl font-bold text-primary">

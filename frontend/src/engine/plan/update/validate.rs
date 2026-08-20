@@ -143,9 +143,9 @@ fn validate_tax_rate(name: &str, raw: &str, messages: &mut Vec<String>) {
 
     match parse_rate(raw) {
         None => messages.push(format!("{label}: некорректная ставка налога")),
-        Some(rate) if !rate.is_valid_withholding_rate() => {
-            messages.push(format!("{label}: ставка налога должна быть от 0 до 100%"))
-        }
+        Some(rate) if !rate.is_valid_withholding_rate() => messages.push(format!(
+            "{label}: ставка налога должна быть неотрицательной и меньше 100%"
+        )),
         Some(_) => {}
     }
 }

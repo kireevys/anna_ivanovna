@@ -1,9 +1,9 @@
 use yew::prelude::*;
 
-use ai_core::{finance::Money, planning::IncomeKind};
+use ai_core::planning::IncomeKind;
 
 use crate::{
-    engine::history::HistoryEntry,
+    engine::{history::HistoryEntry, income::withhold},
     presentation::{
         formatting::{FormattedMoney, FormattedPercentage},
         income::kind_label,
@@ -49,8 +49,9 @@ impl Component for HistoryView {
                                     </div>
                                 </div>
                                 <div class="collapse-content">
-                                    {if let IncomeKind::Salary { gross, tax_rate } = &entry.source_kind {
-                                        let tax_money = Money::new(tax_rate.apply_to(gross.value), gross.currency);
+                                    {if let IncomeKind::Salary { gross, tax_rate } = &entry.source_kind
+                                        && let Some(breakdown) = withhold(*gross, tax_rate)
+                                    {
                                         let rate = FormattedPercentage::from_percentage(tax_rate.clone());
                                         html! {
                                             <div class="card bg-warning/10 border border-warning/30 shadow mb-4 mt-4">
@@ -59,11 +60,11 @@ impl Component for HistoryView {
                                                     <div class="space-y-1 text-sm">
                                                         <div class="flex justify-between">
                                                             <span>{ "Gross" }</span>
-                                                            <span class="font-bold">{ FormattedMoney::from_money(*gross).to_string() }</span>
+                                                            <span class="font-bold">{ FormattedMoney::from_money(breakdown.gross).to_string() }</span>
                                                         </div>
                                                         <div class="flex justify-between">
                                                             <span>{ format!("Налог ({rate})") }</span>
-                                                            <span class="font-bold text-warning">{ FormattedMoney::from_money(tax_money).to_string() }</span>
+                                                            <span class="font-bold text-warning">{ FormattedMoney::from_money(breakdown.tax).to_string() }</span>
                                                         </div>
                                                         <div class="divider my-1"></div>
                                                         <div class="flex justify-between">

@@ -1,0 +1,202 @@
+---
+source: frontend/tests/stories.rs
+---
+- step: initial
+  model:
+    state: Editing
+    payload:
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Other
+            amount: "100000"
+            tax_rate: "13"
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "30000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation: Valid
+        save_state: CanSave
+        core_plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds: []
+- step: 001_rate_out_of_range
+  model:
+    state: Editing
+    payload:
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Salary
+            amount: "150000"
+            tax_rate: "100"
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "30000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation:
+          FormatInvalid:
+            messages:
+              - "Доход \"Зарплата\": ставка налога должна быть неотрицательной и меньше 100%"
+        save_state: Disabled
+        core_plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: salary
+                gross:
+                  value: "150000"
+                  currency: RUB
+                tax_rate: "100"
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds: []
+- step: 002_rate_empty
+  model:
+    state: Editing
+    payload:
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: other
+                expected:
+                  value: "100000"
+                  currency: RUB
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Salary
+            amount: "150000"
+            tax_rate: ""
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "30000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation:
+          FormatInvalid:
+            messages:
+              - "Доход \"Зарплата\": не указана ставка налога"
+        save_state: Disabled
+        core_plan:
+          sources: []
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "30000"
+                      currency: RUB
+              category: ~
+  cmds: []
