@@ -207,6 +207,23 @@ impl Percentage {
             .checked_div(Decimal::ONE_HUNDRED - self.0)
     }
 
+    /// Числовое значение ставки без символа `%`.
+    ///
+    /// В отличие от [`Display`], не округляет: `Display` печатает
+    /// `{:.2}%`, а форме редактирования нужна ставка без потери знаков.
+    ///
+    /// # Пример
+    /// ```
+    /// use rust_decimal_macros::dec;
+    /// use ai_core::finance::Percentage;
+    ///
+    /// assert_eq!(Percentage::from(dec!(13.456)).value(), dec!(13.456));
+    /// ```
+    #[must_use]
+    pub fn value(&self) -> Decimal {
+        self.0
+    }
+
     /// Проверяет, что ставку можно удержать из суммы.
     ///
     /// Удержание определено на диапазоне `[0, 100)`: отрицательная ставка

@@ -256,9 +256,7 @@ pub fn expenses_from_core_plan(plan: &CorePlan) -> Vec<Expense> {
                         (ValueKind::Money, value.value.to_string())
                     }
                     CoreExpenseValue::RATE { value } => {
-                        let raw = value.to_string();
-                        let trimmed = raw.trim_end_matches('%').trim().to_string();
-                        (ValueKind::Rate, trimmed)
+                        (ValueKind::Rate, percentage_to_raw_string(value))
                     }
                 };
                 Expense {
@@ -350,5 +348,5 @@ fn apply_expenses_to_core_plan(plan: &CorePlan, expenses: &[Expense]) -> CorePla
 }
 
 fn percentage_to_raw_string(value: &Percentage) -> String {
-    value.to_string().trim_end_matches('%').trim().to_string()
+    value.value().to_string()
 }

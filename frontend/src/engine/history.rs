@@ -1,16 +1,21 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
-use ai_core::{finance::Money, planning::IncomeKind};
+use ai_core::{
+    distribute::BudgetEntry as CoreBudgetEntry,
+    finance::Money,
+    planning::IncomeKind,
+};
 
 use crate::{
     api::{BudgetEntry, Cursor, Page},
-    engine::core::{Model, PageStatus, PaginatedList},
+    engine::{
+        category::CategoryKey,
+        core::{Model, PageStatus, PaginatedList},
+    },
 };
-
-pub const NO_CATEGORY: &str = "Без категории";
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct HistoryEntry {
@@ -25,7 +30,7 @@ pub struct HistoryEntry {
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct Category {
-    pub name: String,
+    pub key: CategoryKey,
     pub entries: Vec<ExpenseEntry>,
 }
 
@@ -39,51 +44,29 @@ impl From<&BudgetEntry> for HistoryEntry {
     fn from(storage_budget: &BudgetEntry) -> Self {
         let budget = &storage_budget.budget;
 
-        let mut categories_map: HashMap<String, Vec<ExpenseEntry>> = HashMap::new();
+        let mut grouped: BTreeMap<CategoryKey, Vec<ExpenseEntry>> = BTreeMap::new();
 
         if !budget.no_category.is_empty() {
-            let entries: Vec<ExpenseEntry> = budget
-                .no_category
-                .iter()
-                .map(|entry| ExpenseEntry {
-                    name: entry.expense.name.clone(),
-                    amount: entry.amount,
-                })
-                .collect();
-            categories_map
-                .entry(NO_CATEGORY.to_string())
+            grouped
+                .entry(CategoryKey::NoCategory)
                 .or_default()
-                .extend(entries);
+                .extend(budget.no_category.iter().map(ExpenseEntry::from));
         }
 
         for (category_name, entries) in &budget.categories {
-            let expense_entries: Vec<ExpenseEntry> = entries
-                .iter()
-                .map(|entry| ExpenseEntry {
-                    name: entry.expense.name.clone(),
-                    amount: entry.amount,
-                })
-                .collect();
-            categories_map
-                .entry(category_name.clone())
+            grouped
+                .entry(CategoryKey::named(category_name))
                 .or_default()
-                .extend(expense_entries);
+                .extend(entries.iter().map(ExpenseEntry::from));
         }
 
-        let mut categories: Vec<Category> = categories_map
+        let categories = grouped
             .into_iter()
-            .map(|(name, mut entries)| {
+            .map(|(key, mut entries)| {
                 entries.sort_by(|a, b| a.name.cmp(&b.name));
-                Category { name, entries }
+                Category { key, entries }
             })
             .collect();
-
-        categories.sort_by(|a, b| match (a.name.as_str(), b.name.as_str()) {
-            (NO_CATEGORY, NO_CATEGORY) => std::cmp::Ordering::Equal,
-            (NO_CATEGORY, _) => std::cmp::Ordering::Less,
-            (_, NO_CATEGORY) => std::cmp::Ordering::Greater,
-            _ => a.name.cmp(&b.name),
-        });
 
         Self {
             id: storage_budget.id.clone(),
@@ -93,6 +76,15 @@ impl From<&BudgetEntry> for HistoryEntry {
             income_amount: budget.income.amount,
             rest: budget.rest,
             categories,
+        }
+    }
+}
+
+impl From<&CoreBudgetEntry> for ExpenseEntry {
+    fn from(entry: &CoreBudgetEntry) -> Self {
+        Self {
+            name: entry.expense.name.clone(),
+            amount: entry.amount,
         }
     }
 }

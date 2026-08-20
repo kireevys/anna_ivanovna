@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use yew::prelude::*;
 
 use crate::{
-    engine::plan::view_model::{CategoryKey, Expense},
+    engine::{category::CategoryKey, plan::view_model::Expense},
     presentation::components::plan::expense_card::ExpenseCard,
 };
 

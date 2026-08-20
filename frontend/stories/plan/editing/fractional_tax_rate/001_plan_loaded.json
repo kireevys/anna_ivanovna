@@ -1,0 +1,37 @@
+{
+  "type": "Loading",
+  "payload": {
+    "type": "Loaded",
+    "payload": {
+      "Ok": {
+        "id": "plan-1",
+        "version": 1,
+        "status": "active",
+        "plan": {
+          "sources": [
+            {
+              "name": "Зарплата",
+              "kind": {
+                "type": "salary",
+                "gross": { "value": "100000", "currency": "RUB" },
+                "tax_rate": "13.456"
+              }
+            }
+          ],
+          "expenses": [
+            {
+              "name": "Аренда",
+              "kind": {
+                "type": "envelope",
+                "value": {
+                  "MONEY": { "value": { "value": "50000", "currency": "RUB" } }
+                }
+              },
+              "category": null
+            }
+          ]
+        }
+      }
+    }
+  }
+}

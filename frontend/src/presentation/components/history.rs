@@ -3,7 +3,7 @@ use yew::prelude::*;
 use ai_core::planning::IncomeKind;
 
 use crate::{
-    engine::{history::HistoryEntry, income::withhold},
+    engine::{history::HistoryEntry, income::restore_gross},
     presentation::{
         formatting::{FormattedMoney, FormattedPercentage},
         income::kind_label,
@@ -49,8 +49,8 @@ impl Component for HistoryView {
                                     </div>
                                 </div>
                                 <div class="collapse-content">
-                                    {if let IncomeKind::Salary { gross, tax_rate } = &entry.source_kind
-                                        && let Some(breakdown) = withhold(*gross, tax_rate)
+                                    {if let IncomeKind::Salary { tax_rate, .. } = &entry.source_kind
+                                        && let Some(breakdown) = restore_gross(entry.income_amount, tax_rate)
                                     {
                                         let rate = FormattedPercentage::from_percentage(tax_rate.clone());
                                         html! {
@@ -69,7 +69,7 @@ impl Component for HistoryView {
                                                         <div class="divider my-1"></div>
                                                         <div class="flex justify-between">
                                                             <span>{ "На руки" }</span>
-                                                            <span class="font-bold text-success">{ FormattedMoney::from_money(entry.income_amount).to_string() }</span>
+                                                            <span class="font-bold text-success">{ FormattedMoney::from_money(breakdown.net).to_string() }</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -83,7 +83,7 @@ impl Component for HistoryView {
                                             html! {
                                                 <div class="card bg-base-200 shadow">
                                                     <div class="card-body p-4">
-                                                        <h4 class="font-semibold text-lg mb-2">{ &category.name }</h4>
+                                                        <h4 class="font-semibold text-lg mb-2">{ category.key.display_name() }</h4>
                                                         <div class="space-y-1">
                                                             {for category.entries.iter().map(|expense| {
                                                                 html! {

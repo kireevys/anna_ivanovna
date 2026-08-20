@@ -27,7 +27,7 @@ source: frontend/tests/stories.rs
             value: "70000"
             currency: RUB
           categories:
-            - name: Без категории
+            - key: NoCategory
               entries:
                 - name: Вне категорий
                   amount:

@@ -27,19 +27,21 @@ source: frontend/tests/stories.rs
             value: "5000"
             currency: RUB
           categories:
-            - name: Без категории
+            - key: NoCategory
               entries:
                 - name: Подушка безопасности
                   amount:
                     value: "20000"
                     currency: RUB
-            - name: Автомобиль
+            - key:
+                Named: Автомобиль
               entries:
                 - name: Бензин
                   amount:
                     value: "5000"
                     currency: RUB
-            - name: Обязательные
+            - key:
+                Named: Обязательные
               entries:
                 - name: Аренда
                   amount:

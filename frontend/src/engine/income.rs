@@ -35,16 +35,20 @@ pub fn tax_from_gross(
     withhold(Money::new(gross, currency), rate)
 }
 
+pub fn restore_gross(net: Money, rate: &Percentage) -> Option<TaxBreakdown> {
+    let gross = rate.gross_from_net(net.value)?;
+    Some(TaxBreakdown {
+        gross: Money::new(gross, net.currency),
+        net,
+        tax: Money::new(gross - net.value, net.currency),
+    })
+}
+
 pub fn tax_from_net(
     net: &str,
     rate: &Percentage,
     currency: Currency,
 ) -> Option<TaxBreakdown> {
     let net = Decimal::from_str(net).ok()?;
-    let gross = rate.gross_from_net(net)?;
-    Some(TaxBreakdown {
-        gross: Money::new(gross, currency),
-        net: Money::new(net, currency),
-        tax: Money::new(gross - net, currency),
-    })
+    restore_gross(Money::new(net, currency), rate)
 }

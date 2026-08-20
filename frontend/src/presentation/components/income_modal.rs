@@ -352,7 +352,7 @@ impl IncomeModal {
                         html! {
                             <div class="card bg-base-200 shadow">
                                 <div class="card-body p-4">
-                                    <h4 class="font-semibold text-lg mb-2">{ &category.name }</h4>
+                                    <h4 class="font-semibold text-lg mb-2">{ category.key.display_name() }</h4>
                                     <div class="space-y-1">
                                         {for category.entries.iter().map(|expense| {
                                             html! {

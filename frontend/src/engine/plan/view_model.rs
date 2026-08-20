@@ -4,6 +4,8 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use crate::engine::category::CategoryKey;
+
 use ai_core::{
     finance::{Money, Percentage},
     plan::Plan as CorePlan,
@@ -15,23 +17,6 @@ use ai_core::{
         IncomeSource as IncomeSourceCore,
     },
 };
-
-const NO_CATEGORY: &str = "Без категории";
-
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
-pub enum CategoryKey {
-    NoCategory,
-    Named(String),
-}
-
-impl CategoryKey {
-    pub fn display_name(&self) -> &str {
-        match self {
-            CategoryKey::NoCategory => NO_CATEGORY,
-            CategoryKey::Named(name) => name,
-        }
-    }
-}
 
 #[derive(Clone, PartialEq, Deserialize, Serialize)]
 pub struct IncomeSource {
@@ -146,19 +131,17 @@ impl From<&CorePlan> for Plan {
         let total_expenses = plan.total_expenses();
         let balance = plan.balance();
 
-        let income = plan.total_incomes();
-
         let mut categories: BTreeMap<CategoryKey, Vec<Expense>> = plan
             .expenses
             .iter()
             .fold(BTreeMap::new(), |mut acc, expense| {
                 let key = match &expense.category {
                     None => CategoryKey::NoCategory,
-                    Some(name) => CategoryKey::Named(name.clone()),
+                    Some(name) => CategoryKey::named(name),
                 };
                 acc.entry(key)
                     .or_default()
-                    .push(Expense::from_core(expense, income));
+                    .push(Expense::from_core(expense, total_income));
                 acc
             });
 

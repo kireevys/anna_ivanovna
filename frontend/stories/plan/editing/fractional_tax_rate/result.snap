@@ -1,0 +1,103 @@
+---
+source: frontend/tests/stories.rs
+---
+- step: initial
+  model:
+    state: Loading
+  cmds: []
+- step: 001_plan_loaded
+  model:
+    state: Viewing
+    payload:
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: salary
+                gross:
+                  value: "100000"
+                  currency: RUB
+                tax_rate: "13.456"
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "50000"
+                      currency: RUB
+              category: ~
+  cmds: []
+- step: 002_enter_edit
+  model:
+    state: Editing
+    payload:
+      origin:
+        id: plan-1
+        version: 1
+        status: active
+        plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: salary
+                gross:
+                  value: "100000"
+                  currency: RUB
+                tax_rate: "13.456"
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "50000"
+                      currency: RUB
+              category: ~
+      edit:
+        incomes:
+          - name: Зарплата
+            kind: Salary
+            amount: "100000"
+            tax_rate: "13.456"
+        expenses:
+          - name: Аренда
+            category: ~
+            active_type: Envelope
+            envelope:
+              value_kind: Money
+              amount: "50000"
+            credit:
+              monthly_payment: ""
+              total_amount: ""
+              interest_rate: ""
+              term_months: ""
+              start_date: ""
+        validation: Valid
+        save_state: CanSave
+        core_plan:
+          sources:
+            - name: Зарплата
+              kind:
+                type: salary
+                gross:
+                  value: "100000"
+                  currency: RUB
+                tax_rate: "13.456"
+          expenses:
+            - name: Аренда
+              kind:
+                type: envelope
+                value:
+                  MONEY:
+                    value:
+                      value: "50000"
+                      currency: RUB
+              category: ~
+  cmds: []
