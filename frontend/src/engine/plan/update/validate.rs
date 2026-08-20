@@ -38,6 +38,12 @@ pub(crate) fn recompute_validation(
         }
     }
 
+    for income in &edit.incomes {
+        if income.kind == editable::IncomeKind::Salary {
+            validate_tax_rate(&income.name, &income.tax_rate, &mut format_messages);
+        }
+    }
+
     if !format_messages.is_empty() {
         let validation = PlanValidation::FormatInvalid {
             messages: format_messages,
@@ -121,6 +127,17 @@ fn validate_named_items<'a>(
                 name.trim()
             ));
         }
+    }
+}
+
+fn validate_tax_rate(name: &str, raw: &str, messages: &mut Vec<String>) {
+    let label = item_display_name(name, "Доход");
+    match Decimal::from_str(raw) {
+        Err(_) => messages.push(format!("{label}: некорректная ставка налога")),
+        Ok(rate) if rate < Decimal::ZERO || rate >= Decimal::ONE_HUNDRED => {
+            messages.push(format!("{label}: ставка налога должна быть от 0 до 100%"))
+        }
+        Ok(_) => {}
     }
 }
 

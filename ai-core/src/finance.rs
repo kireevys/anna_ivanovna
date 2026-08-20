@@ -174,6 +174,36 @@ impl Percentage {
     pub fn apply_to(&self, d: Decimal) -> Decimal {
         self.0 / dec!(100) * d
     }
+
+    /// Восстанавливает сумму до удержания по сумме после удержания.
+    ///
+    /// Обратная операция к [`Percentage::apply_to`]: если из `gross` удержать
+    /// `self` процентов, получится `net`.
+    ///
+    /// # Параметры
+    /// - `net`: Сумма после удержания.
+    ///
+    /// # Возвращаемое значение
+    /// - `None`, если ставка не меньше 100% — при полном удержании исходная
+    ///   сумма не определена.
+    /// - Иначе сумма до удержания.
+    ///
+    /// # Пример
+    /// ```
+    /// use rust_decimal_macros::dec;
+    /// use ai_core::finance::Percentage;
+    ///
+    /// assert_eq!(Percentage::from_int(20).gross_from_net(dec!(80)), Some(dec!(100)));
+    /// assert_eq!(Percentage::from_int(100).gross_from_net(dec!(80)), None);
+    /// ```
+    #[must_use]
+    pub fn gross_from_net(&self, net: Decimal) -> Option<Decimal> {
+        let remainder = Decimal::ONE_HUNDRED - self.0;
+        if remainder <= Decimal::ZERO {
+            return None;
+        }
+        Some(net * Decimal::ONE_HUNDRED / remainder)
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Hash, Copy, Clone, Serialize, Deserialize)]
