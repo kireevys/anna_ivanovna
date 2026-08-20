@@ -17,6 +17,8 @@ use ai_core::{
     },
 };
 
+use crate::engine::income::parse_rate;
+
 #[derive(Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub enum IncomeKind {
     Salary,
@@ -70,13 +72,10 @@ fn apply_incomes_to_core_plan(plan: &CorePlan, incomes: &[IncomeSource]) -> Core
         .filter_map(|editable| {
             let amount = Decimal::from_str(&editable.amount).ok()?;
             let kind = match editable.kind {
-                IncomeKind::Salary => {
-                    let rate = Decimal::from_str(&editable.tax_rate).ok()?;
-                    CoreIncomeKind::Salary {
-                        gross: Money::new_rub(amount),
-                        tax_rate: Percentage::from(rate),
-                    }
-                }
+                IncomeKind::Salary => CoreIncomeKind::Salary {
+                    gross: Money::new_rub(amount),
+                    tax_rate: parse_rate(&editable.tax_rate)?,
+                },
                 IncomeKind::Other => CoreIncomeKind::Other {
                     expected: Money::new_rub(amount),
                 },

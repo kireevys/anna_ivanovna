@@ -2,9 +2,12 @@ use std::{collections::HashSet, str::FromStr};
 
 use rust_decimal::Decimal;
 
-use crate::engine::plan::{
-    editable,
-    model::{PlanValidation, SaveState},
+use crate::engine::{
+    income::parse_rate,
+    plan::{
+        editable,
+        model::{PlanValidation, SaveState},
+    },
 };
 
 pub(crate) fn recompute_validation(
@@ -132,12 +135,18 @@ fn validate_named_items<'a>(
 
 fn validate_tax_rate(name: &str, raw: &str, messages: &mut Vec<String>) {
     let label = item_display_name(name, "Доход");
-    match Decimal::from_str(raw) {
-        Err(_) => messages.push(format!("{label}: некорректная ставка налога")),
-        Ok(rate) if rate < Decimal::ZERO || rate >= Decimal::ONE_HUNDRED => {
+
+    if raw.is_empty() {
+        messages.push(format!("{label}: не указана ставка налога"));
+        return;
+    }
+
+    match parse_rate(raw) {
+        None => messages.push(format!("{label}: некорректная ставка налога")),
+        Some(rate) if !rate.is_valid_withholding_rate() => {
             messages.push(format!("{label}: ставка налога должна быть от 0 до 100%"))
         }
-        Ok(_) => {}
+        Some(_) => {}
     }
 }
 

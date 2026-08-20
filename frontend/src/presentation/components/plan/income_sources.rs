@@ -69,7 +69,6 @@ impl Component for IncomeSources {
                     {for ctx.props().sources.iter().map(|source| {
                         let source_id = source.id.clone();
                         let source_kind = source.source_kind.clone();
-                        let source_kind_for_modal = source_kind.clone();
                         html! {
                             <div class="card bg-base-200 shadow">
                                 <div class="card-body p-4">
@@ -77,9 +76,9 @@ impl Component for IncomeSources {
                                         <div>
                                             <div class="flex items-center gap-2 mb-1">
                                                 <h3 class="font-semibold text-lg">{ &source.name }</h3>
-                                                <span class="badge badge-sm badge-ghost">{ kind_label(&source_kind) }</span>
+                                                <span class="badge badge-sm badge-ghost">{ kind_label(&source.source_kind) }</span>
                                             </div>
-                                            {if let IncomeKind::Salary { gross, tax_rate } = &source_kind {
+                                            {if let IncomeKind::Salary { gross, tax_rate } = &source.source_kind {
                                                 let tax = Money::new(tax_rate.apply_to(gross.value), gross.currency);
                                                 let rate = FormattedPercentage::from_percentage(tax_rate.clone());
                                                 html! {
@@ -108,7 +107,7 @@ impl Component for IncomeSources {
                                             class="btn btn-primary btn-sm"
                                             onclick={ctx.link().callback(move |_| IncomeSourcesMsg::OpenModal(ModalContext {
                                                 source_id: source_id.clone(),
-                                                source_kind: source_kind_for_modal.clone(),
+                                                source_kind: source_kind.clone(),
                                             }))}
                                         >
                                             { "Поступление" }

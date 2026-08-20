@@ -50,7 +50,10 @@ impl From<&BudgetEntry> for HistoryEntry {
                     amount: entry.amount,
                 })
                 .collect();
-            categories_map.insert(NO_CATEGORY.to_string(), entries);
+            categories_map
+                .entry(NO_CATEGORY.to_string())
+                .or_default()
+                .extend(entries);
         }
 
         for (category_name, entries) in &budget.categories {
@@ -61,7 +64,10 @@ impl From<&BudgetEntry> for HistoryEntry {
                     amount: entry.amount,
                 })
                 .collect();
-            categories_map.insert(category_name.clone(), expense_entries);
+            categories_map
+                .entry(category_name.clone())
+                .or_default()
+                .extend(expense_entries);
         }
 
         let mut categories: Vec<Category> = categories_map
@@ -73,6 +79,7 @@ impl From<&BudgetEntry> for HistoryEntry {
             .collect();
 
         categories.sort_by(|a, b| match (a.name.as_str(), b.name.as_str()) {
+            (NO_CATEGORY, NO_CATEGORY) => std::cmp::Ordering::Equal,
             (NO_CATEGORY, _) => std::cmp::Ordering::Less,
             (_, NO_CATEGORY) => std::cmp::Ordering::Greater,
             _ => a.name.cmp(&b.name),

@@ -184,8 +184,8 @@ impl Percentage {
     /// - `net`: Сумма после удержания.
     ///
     /// # Возвращаемое значение
-    /// - `None`, если ставка не меньше 100% — при полном удержании исходная
-    ///   сумма не определена.
+    /// - `None`, если ставка вне диапазона удержания — см.
+    ///   [`Percentage::is_valid_withholding_rate`].
     /// - Иначе сумма до удержания.
     ///
     /// # Пример
@@ -195,14 +195,32 @@ impl Percentage {
     ///
     /// assert_eq!(Percentage::from_int(20).gross_from_net(dec!(80)), Some(dec!(100)));
     /// assert_eq!(Percentage::from_int(100).gross_from_net(dec!(80)), None);
+    /// assert_eq!(Percentage::from_int(-20).gross_from_net(dec!(80)), None);
     /// ```
     #[must_use]
     pub fn gross_from_net(&self, net: Decimal) -> Option<Decimal> {
-        let remainder = Decimal::ONE_HUNDRED - self.0;
-        if remainder <= Decimal::ZERO {
+        if !self.is_valid_withholding_rate() {
             return None;
         }
-        Some(net * Decimal::ONE_HUNDRED / remainder)
+        Some(net * Decimal::ONE_HUNDRED / (Decimal::ONE_HUNDRED - self.0))
+    }
+
+    /// Проверяет, что ставку можно удержать из суммы.
+    ///
+    /// Удержание определено на диапазоне `[0, 100)`: отрицательная ставка
+    /// увеличила бы сумму, а ставка от 100% не оставила бы ничего на руки.
+    ///
+    /// # Пример
+    /// ```
+    /// use ai_core::finance::Percentage;
+    ///
+    /// assert!(Percentage::from_int(13).is_valid_withholding_rate());
+    /// assert!(!Percentage::from_int(100).is_valid_withholding_rate());
+    /// assert!(!Percentage::from_int(-1).is_valid_withholding_rate());
+    /// ```
+    #[must_use]
+    pub fn is_valid_withholding_rate(&self) -> bool {
+        self.0 >= Decimal::ZERO && self.0 < Decimal::ONE_HUNDRED
     }
 }
 

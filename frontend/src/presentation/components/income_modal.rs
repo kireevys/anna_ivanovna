@@ -263,8 +263,8 @@ impl IncomeModal {
 
     fn render_tax_hint(source_kind: &IncomeKind, amount: &str) -> Html {
         match source_kind {
-            IncomeKind::Salary { tax_rate, .. } => {
-                match tax_from_net(amount, tax_rate) {
+            IncomeKind::Salary { gross, tax_rate } => {
+                match tax_from_net(amount, tax_rate, gross.currency) {
                     Some(result) => html! {
                         <p class="text-sm text-base-content/60 mt-1">
                             { format!(

@@ -1,0 +1,42 @@
+---
+source: frontend/tests/stories.rs
+---
+- step: initial
+  model:
+    data:
+      items: []
+      next_cursor: ~
+      status: Loading
+  cmds: []
+- step: 001_loaded
+  model:
+    data:
+      items:
+        - id: entry-1
+          date: 2026-04-01
+          source_name: Зарплата
+          source_kind:
+            type: other
+            expected:
+              value: "100000"
+              currency: RUB
+          income_amount:
+            value: "100000"
+            currency: RUB
+          rest:
+            value: "70000"
+            currency: RUB
+          categories:
+            - name: Без категории
+              entries:
+                - name: Вне категорий
+                  amount:
+                    value: "20000"
+                    currency: RUB
+                - name: Одноимённая категория
+                  amount:
+                    value: "10000"
+                    currency: RUB
+      next_cursor: ~
+      status: Idle
+  cmds: []

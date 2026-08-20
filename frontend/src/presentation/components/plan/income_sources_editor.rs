@@ -3,6 +3,8 @@ use std::str::FromStr;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
+use ai_core::finance::Currency;
+
 use crate::{
     engine::{
         income::{parse_rate, tax_from_gross},
@@ -309,7 +311,7 @@ impl IncomeSourcesEditor {
         let Some(rate) = parse_rate(tax_rate) else {
             return html! {};
         };
-        match tax_from_gross(amount, &rate) {
+        match tax_from_gross(amount, &rate, Currency::RUB) {
             Some(result) => html! {
                 <p class="text-sm text-base-content/60">
                     { format!(
