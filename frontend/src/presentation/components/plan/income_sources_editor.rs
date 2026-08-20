@@ -4,10 +4,14 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::{
-    engine::plan::editable,
+    engine::{
+        income::{parse_rate, tax_from_gross},
+        plan::editable,
+    },
     presentation::{
         components::icons::XIcon,
-        income::{OTHER_LABEL, SALARY_LABEL, tax_from_gross},
+        formatting::FormattedMoney,
+        income::{OTHER_LABEL, SALARY_LABEL},
     },
 };
 
@@ -302,10 +306,17 @@ impl IncomeSourcesEditor {
     }
 
     fn render_net_hint(amount: &str, tax_rate: &str) -> Html {
-        match tax_from_gross(amount, tax_rate) {
+        let Some(rate) = parse_rate(tax_rate) else {
+            return html! {};
+        };
+        match tax_from_gross(amount, &rate) {
             Some(result) => html! {
                 <p class="text-sm text-base-content/60">
-                    { format!("На руки: {} (налог: {})", result.net, result.tax) }
+                    { format!(
+                        "На руки: {} (налог: {})",
+                        FormattedMoney::from_money(result.net),
+                        FormattedMoney::from_money(result.tax),
+                    ) }
                 </p>
             },
             None => html! {},

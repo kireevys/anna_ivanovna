@@ -6,7 +6,7 @@ use crate::{
     engine::history::HistoryEntry,
     presentation::{
         formatting::{FormattedMoney, FormattedPercentage},
-        income::{OTHER_LABEL, SALARY_LABEL},
+        income::kind_label,
     },
 };
 
@@ -30,10 +30,6 @@ impl Component for HistoryView {
             <div class="space-y-6">
                 <div class="join join-vertical w-full">
                     {for ctx.props().entries.iter().map(|entry| {
-                        let kind_label = match &entry.source_kind {
-                            IncomeKind::Salary { .. } => SALARY_LABEL,
-                            IncomeKind::Other { .. } => OTHER_LABEL,
-                        };
                         html! {
                             <div class="collapse collapse-arrow join-item border border-base-300 bg-base-100">
                                 <input type="checkbox" />
@@ -43,7 +39,7 @@ impl Component for HistoryView {
                                             <h3 class="text-xl font-bold">{ entry.date.format("%Y-%m-%d").to_string() }</h3>
                                             <p class="text-sm text-base-content/70">
                                                 { &entry.source_name }
-                                                <span class="badge badge-sm badge-ghost ml-1">{ kind_label }</span>
+                                                <span class="badge badge-sm badge-ghost ml-1">{ kind_label(&entry.source_kind) }</span>
                                             </p>
                                         </div>
                                         <div class="text-right">

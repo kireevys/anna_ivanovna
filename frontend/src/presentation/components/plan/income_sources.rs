@@ -2,13 +2,15 @@ use std::rc::Rc;
 
 use yew::prelude::*;
 
+use ai_core::{finance::Money, planning::IncomeKind};
+
 use crate::{
     api::ApiClient,
     engine::plan::view_model::IncomeSource,
     presentation::{
         components::IncomeModal,
-        formatting::FormattedMoney,
-        income::SourceKind,
+        formatting::{FormattedMoney, FormattedPercentage},
+        income::kind_label,
     },
 };
 
@@ -27,7 +29,7 @@ pub enum IncomeSourcesMsg {
 
 pub struct ModalContext {
     source_id: String,
-    source_kind: SourceKind,
+    source_kind: IncomeKind,
 }
 
 pub struct IncomeSources {
@@ -66,7 +68,7 @@ impl Component for IncomeSources {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {for ctx.props().sources.iter().map(|source| {
                         let source_id = source.id.clone();
-                        let source_kind = SourceKind::from(&source.source_kind);
+                        let source_kind = source.source_kind.clone();
                         let source_kind_for_modal = source_kind.clone();
                         html! {
                             <div class="card bg-base-200 shadow">
@@ -75,16 +77,18 @@ impl Component for IncomeSources {
                                         <div>
                                             <div class="flex items-center gap-2 mb-1">
                                                 <h3 class="font-semibold text-lg">{ &source.name }</h3>
-                                                <span class="badge badge-sm badge-ghost">{ source_kind.kind_label() }</span>
+                                                <span class="badge badge-sm badge-ghost">{ kind_label(&source_kind) }</span>
                                             </div>
-                                            {if let SourceKind::Salary { gross, tax_rate, tax_amount } = &source_kind {
+                                            {if let IncomeKind::Salary { gross, tax_rate } = &source_kind {
+                                                let tax = Money::new(tax_rate.apply_to(gross.value), gross.currency);
+                                                let rate = FormattedPercentage::from_percentage(tax_rate.clone());
                                                 html! {
                                                     <>
                                                         <p class="text-sm text-base-content/60">
-                                                            { format!("Gross: {gross}") }
+                                                            { format!("Gross: {}", FormattedMoney::from_money(*gross)) }
                                                         </p>
                                                         <p class="text-sm text-base-content/60">
-                                                            { format!("Налог: {tax_rate}% ({tax_amount})") }
+                                                            { format!("Налог: {rate} ({})", FormattedMoney::from_money(tax)) }
                                                         </p>
                                                         <div class="divider my-1"></div>
                                                         <p class="text-2xl font-bold text-primary">

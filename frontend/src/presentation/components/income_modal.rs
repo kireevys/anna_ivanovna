@@ -5,15 +5,12 @@ use rust_decimal::Decimal;
 use wasm_bindgen::{JsCast, closure::Closure};
 use yew::prelude::*;
 
-use ai_core::distribute::Budget;
+use ai_core::{distribute::Budget, planning::IncomeKind};
 
 use crate::{
     api::{AddIncomeRequest, ApiClient, ApiError, BudgetEntry},
-    engine::history::HistoryEntry,
-    presentation::{
-        formatting::FormattedMoney,
-        income::{SourceKind, tax_from_net},
-    },
+    engine::{history::HistoryEntry, income::tax_from_net},
+    presentation::formatting::FormattedMoney,
 };
 
 #[derive(Properties, PartialEq)]
@@ -21,7 +18,7 @@ pub struct IncomeModalProps {
     pub on_close: Callback<()>,
     pub on_saved: Callback<()>,
     pub source_id: String,
-    pub source_kind: SourceKind,
+    pub source_kind: IncomeKind,
     pub api: Rc<ApiClient>,
 }
 
@@ -264,18 +261,23 @@ impl IncomeModal {
             && amount.parse::<Decimal>().is_ok_and(|a| a <= Decimal::ZERO)
     }
 
-    fn render_tax_hint(source_kind: &SourceKind, amount: &str) -> Html {
+    fn render_tax_hint(source_kind: &IncomeKind, amount: &str) -> Html {
         match source_kind {
-            SourceKind::Salary { tax_rate, .. } => match tax_from_net(amount, tax_rate)
-            {
-                Some(result) => html! {
-                    <p class="text-sm text-base-content/60 mt-1">
-                        { format!("Gross: {}, налог: {}", result.gross, result.tax) }
-                    </p>
-                },
-                None => html! {},
-            },
-            SourceKind::Other => html! {
+            IncomeKind::Salary { tax_rate, .. } => {
+                match tax_from_net(amount, tax_rate) {
+                    Some(result) => html! {
+                        <p class="text-sm text-base-content/60 mt-1">
+                            { format!(
+                                "Gross: {}, налог: {}",
+                                FormattedMoney::from_money(result.gross),
+                                FormattedMoney::from_money(result.tax),
+                            ) }
+                        </p>
+                    },
+                    None => html! {},
+                }
+            }
+            IncomeKind::Other { .. } => html! {
                 <p class="text-sm text-success/60 mt-1">
                     { "Без налогов" }
                 </p>
