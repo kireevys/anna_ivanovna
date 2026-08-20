@@ -1,0 +1,73 @@
+{
+  "Loaded": {
+    "Ok": {
+      "items": [
+        {
+          "id": "entry-1",
+          "budget": {
+            "income": {
+              "source": {
+                "name": "Зарплата",
+                "kind": {
+                  "type": "other",
+                  "expected": { "value": "100000", "currency": "RUB" }
+                }
+              },
+              "amount": { "value": "100000", "currency": "RUB" },
+              "date": "2026-04-01"
+            },
+            "rest": { "value": "5000", "currency": "RUB" },
+            "no_category": [
+              {
+                "expense": {
+                  "name": "Подушка безопасности",
+                  "value": {
+                    "MONEY": { "value": { "value": "20000", "currency": "RUB" } }
+                  }
+                },
+                "amount": { "value": "20000", "currency": "RUB" }
+              }
+            ],
+            "categories": {
+              "Обязательные": [
+                {
+                  "expense": {
+                    "name": "Продукты",
+                    "category": "Обязательные",
+                    "value": {
+                      "MONEY": { "value": { "value": "30000", "currency": "RUB" } }
+                    }
+                  },
+                  "amount": { "value": "30000", "currency": "RUB" }
+                },
+                {
+                  "expense": {
+                    "name": "Аренда",
+                    "category": "Обязательные",
+                    "value": {
+                      "MONEY": { "value": { "value": "40000", "currency": "RUB" } }
+                    }
+                  },
+                  "amount": { "value": "40000", "currency": "RUB" }
+                }
+              ],
+              "Автомобиль": [
+                {
+                  "expense": {
+                    "name": "Бензин",
+                    "category": "Автомобиль",
+                    "value": {
+                      "MONEY": { "value": { "value": "5000", "currency": "RUB" } }
+                    }
+                  },
+                  "amount": { "value": "5000", "currency": "RUB" }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  }
+}

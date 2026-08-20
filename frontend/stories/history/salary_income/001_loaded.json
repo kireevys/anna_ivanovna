@@ -1,0 +1,29 @@
+{
+  "Loaded": {
+    "Ok": {
+      "items": [
+        {
+          "id": "entry-1",
+          "budget": {
+            "income": {
+              "source": {
+                "name": "Основная работа",
+                "kind": {
+                  "type": "salary",
+                  "gross": { "value": "100000", "currency": "RUB" },
+                  "tax_rate": "13"
+                }
+              },
+              "amount": { "value": "87000", "currency": "RUB" },
+              "date": "2026-04-01"
+            },
+            "rest": { "value": "0", "currency": "RUB" },
+            "no_category": [],
+            "categories": {}
+          }
+        }
+      ],
+      "next_cursor": null
+    }
+  }
+}
